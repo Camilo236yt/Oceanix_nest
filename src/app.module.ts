@@ -7,10 +7,11 @@ import { EnterpriseModule } from './enterprise/enterprise.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { MessagesModule } from './messages/messages.module';
+import { NotificationModule } from './notification/notification.module';
 
 
 @Module({
-  imports: [IncidenciasModule, AuthModule, UsersModule, ClientsModule, EnterpriseModule, RolesModule, PermissionsModule, MessagesModule],
+  imports: [IncidenciasModule, AuthModule, UsersModule, ClientsModule, EnterpriseModule, RolesModule, PermissionsModule, MessagesModule, NotificationModule],
   controllers: [],
   providers: [],
 })
