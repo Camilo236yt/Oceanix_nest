@@ -7,10 +7,11 @@ import { jwtStrategy } from './strategy/jwt-strategy';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
+import { CryptoService } from './services/crypto.service';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, jwtStrategy],
+  providers: [AuthService, jwtStrategy, CryptoService],
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([User]),

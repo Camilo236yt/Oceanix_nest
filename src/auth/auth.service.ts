@@ -1,5 +1,3 @@
-import * as bcrypt from 'bcrypt';
-
 import { Injectable, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,6 +8,7 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login-dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginResponseDto, RegisterResponseDto } from './dto/auth-response.dto';
+import { CryptoService } from './services/crypto.service';
 
 
 @Injectable()
@@ -18,7 +17,8 @@ export class AuthService {
     constructor(
         @InjectRepository(User)
         private readonly userRepositoy:Repository<User>,
-        private readonly jwtService: JwtService
+        private readonly jwtService: JwtService,
+        private readonly cryptoService: CryptoService
     ){}
     
     async register( registerDto:RegisterDto ): Promise<RegisterResponseDto> {
@@ -30,7 +30,7 @@ export class AuthService {
 
             const newUser = this.userRepositoy.create({
                 ...registerDto,
-                password: bcrypt.hashSync(password, 10),
+                password: this.cryptoService.hashPasswordSync(password),
                 isEmailVerified: true,
                 isActive: true
             });
@@ -45,11 +45,6 @@ export class AuthService {
             };
 
         } catch (error) {
-            if (error instanceof UnauthorizedException ||
-                error instanceof InternalServerErrorException) {
-                throw error;
-            }
-
             this.handdleErrorsDb(error);
         }
     }
@@ -76,8 +71,7 @@ export class AuthService {
         if(!user)
             throw new UnauthorizedException('Invalid credentials');
 
-        if( !bcrypt.compareSync(password, user.password) )
-            throw new UnauthorizedException('Invalid credentials');
+        this.cryptoService.validatePasswordSync(password, user.password);
 
         const { password: _, ...userWithoutPassword } = user;
 
@@ -99,6 +93,12 @@ export class AuthService {
     }
 
     private handdleErrorsDb(error: any): never {
+        // Si es una excepción de NestJS, re-lanzarla
+        if (error instanceof UnauthorizedException ||
+            error instanceof InternalServerErrorException) {
+            throw error;
+        }
+
         // Verificar si es un error de PostgreSQL
         if (error.code) {
             if (error.code === '23505') {
