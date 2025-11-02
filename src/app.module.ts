@@ -9,29 +9,21 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationModule } from './notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config';
-
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { configValidationSchema } from './config/validation.config';
+import { databaseConfig } from './config/database.config';
 
 @Module({
   imports: [
-
-ConfigModule.forRoot({
+    ConfigModule.forRoot({
       isGlobal: true,
+      validationSchema: configValidationSchema
     }),
 
-
-      TypeOrmModule.forRootAsync({
-
-        useFactory: () => ({
-          type: 'postgres',
-          host: process.env.DB_host,
-          port: 5432,
-          username: process.env.DB_user,
-          password: process.env.DB_password,
-          database: process.env.DB_name,
-          autoLoadEntities: true,
-          synchronize: true,
-        }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: databaseConfig
     }),
      IncidenciasModule,
      AuthModule,
@@ -46,9 +38,4 @@ ConfigModule.forRoot({
   controllers: [],
   providers: [],
 })
-export class AppModule {
-
-
-  constructor() {    console.log('Database Host:', process.env.DB_host);
-  }
-}
+export class AppModule {}
