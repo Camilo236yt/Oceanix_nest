@@ -1,9 +1,7 @@
-import { FilterType } from '../enums';
-
 export interface ISearchable {
   getSearchableFields(): string[];
   getSortableFields?(): string[];
-  getFilterableFields?(): Record<string, FilterType>;
+  getFilterableFields?(): Record<string, string>;
   getDateField?(): string | null;
   getLocationFields?(): { latField: string | null; lngField: string | null };
 }

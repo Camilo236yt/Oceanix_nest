@@ -60,14 +60,6 @@ export class UsersService {
         })
       );
       await this.userRoleRepository.save(userRoles);
-
-      // Recargar el usuario con sus roles si se asignaron
-      const userWithRoles = await this.userRepository.findOne({
-        where: { id: savedUser.id },
-        relations: ['roles', 'roles.role']
-      });
-
-      return userWithRoles || savedUser;
     }
 
     return savedUser;
@@ -93,8 +85,7 @@ export class UsersService {
 
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['roles', 'roles.role']
+      where: { id }
     });
 
     if (!user) {
@@ -108,8 +99,7 @@ export class UsersService {
     const { password, confirmPassword, roleIds, ...restOfFields } = updateUserDto;
 
     const existingUser = await this.userRepository.findOne({
-      where: { id },
-      relations: ['roles']
+      where: { id }
     });
     if (!existingUser) {
       throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
@@ -144,20 +134,11 @@ export class UsersService {
         })
       );
       await this.userRoleRepository.save(newUserRoles);
-
-      // Recargar el usuario con sus roles si se asignaron
-      const updatedUser = await this.userRepository.findOne({
-        where: { id },
-        relations: ['roles', 'roles.role']
-      });
-
-      return updatedUser || existingUser;
     }
 
-    // Si no se actualizaron roles, simplemente devolver el usuario actualizado
+    // Retornar el usuario actualizado
     const updatedUser = await this.userRepository.findOne({
-      where: { id },
-      relations: ['roles', 'roles.role']
+      where: { id }
     });
 
     return updatedUser || existingUser;

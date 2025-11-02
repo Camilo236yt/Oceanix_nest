@@ -12,12 +12,10 @@ import { Role } from './entities/role.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Permission } from 'src/permissions/entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
-import { BaseFilterService } from 'src/common/services';
-import { FilterType } from 'src/common/enums';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
-export class RolesService extends BaseFilterService<Role> {
+export class RolesService {
   private readonly logger = new Logger(RolesService.name);
 
   constructor(
@@ -29,57 +27,7 @@ export class RolesService extends BaseFilterService<Role> {
     @InjectRepository(RolePermission)
     private readonly rolePermissionRepository: Repository<RolePermission>,
     private readonly eventEmitter: EventEmitter2,
-  ) {
-    super(rolesRepository, 'role');
-  }
-
-  // Implementar métodos requeridos por BaseFilterService
-  getSearchableFields(): string[] {
-    return ['name', 'description'];
-  }
-
-  getSortableFields(): string[] {
-    return ['id', 'name', 'createdAt'];
-  }
-
-  getFilterableFields(): Record<string, FilterType> {
-    return {
-      'isActive': FilterType.BOOLEAN,
-      'createdAfter': FilterType.GREATER_THAN_OR_EQUAL,
-      'createdBefore': FilterType.LESS_THAN_OR_EQUAL,
-    };
-  }
-
-  // Método para obtener campo de fecha
-  getDateField(): string | null {
-    return 'createdAt';
-  }
-
-  // Método para cargar relaciones
-  getRelations(): string[] {
-    return ['permissions'];
-  }
-
-  // Sobrescribir findWithFilters para cargar relaciones anidadas manualmente
-  async findWithFilters(params: any) {
-    const result = await super.findWithFilters(params);
-
-    // Cargar manualmente las relaciones de permisos para cada rol
-    if (result.data && result.data.length > 0) {
-      const roleIds = result.data.map((role: any) => role.id);
-      const rolesWithPermissions = await this.rolesRepository
-        .createQueryBuilder('role')
-        .leftJoinAndSelect('role.permissions', 'rolePermission')
-        .leftJoinAndSelect('rolePermission.permission', 'permission')
-        .whereInIds(roleIds)
-        .getMany();
-
-      // Reemplazar los datos con las relaciones cargadas
-      result.data = rolesWithPermissions;
-    }
-
-    return result;
-  }
+  ) {}
 
   async create(createRoleDto: CreateRoleDto) {
     const queryRunner = this.dataSource.createQueryRunner();
