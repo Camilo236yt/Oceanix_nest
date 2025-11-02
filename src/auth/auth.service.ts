@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
@@ -9,6 +9,11 @@ import { LoginDto } from './dto/login-dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginResponseDto, RegisterResponseDto } from './dto/auth-response.dto';
 import { CryptoService } from './services/crypto.service';
+import {
+  InvalidCredentialsException,
+  EmailAlreadyExistsException,
+  AuthDatabaseException
+} from './exceptions/index';
 
 
 @Injectable()
@@ -26,7 +31,7 @@ export class AuthService {
 
         try {
             const existingUser = await this.userRepositoy.findOne({ where: { email } });
-            if (existingUser) throw new UnauthorizedException('El email ya existe');
+            if (existingUser) throw new EmailAlreadyExistsException(email);
 
             const newUser = this.userRepositoy.create({
                 ...registerDto,
@@ -69,7 +74,7 @@ export class AuthService {
         });
 
         if(!user)
-            throw new UnauthorizedException('Invalid credentials');
+            throw new InvalidCredentialsException();
 
         this.cryptoService.validatePasswordSync(password, user.password);
 
@@ -94,7 +99,8 @@ export class AuthService {
 
     private handdleErrorsDb(error: any): never {
         // Si es una excepción de NestJS, re-lanzarla
-        if (error instanceof UnauthorizedException ||
+        if (error instanceof EmailAlreadyExistsException ||
+            error instanceof InvalidCredentialsException ||
             error instanceof InternalServerErrorException) {
             throw error;
         }
@@ -102,15 +108,15 @@ export class AuthService {
         // Verificar si es un error de PostgreSQL
         if (error.code) {
             if (error.code === '23505') {
-                throw new UnauthorizedException('El email ya está registrado');
+                throw new EmailAlreadyExistsException(error.detail || 'unknown email');
             }
 
             if (error.code === '23503') {
-                throw new UnauthorizedException('Referencia inválida en la base de datos');
+                throw new AuthDatabaseException('crear usuario', 'Referencia inválida en la base de datos');
             }
         }
 
-        throw new InternalServerErrorException('Error interno del servidor');
+        throw new AuthDatabaseException('operación de autenticación', error.message);
     }
 
 
