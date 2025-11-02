@@ -1,31 +1,13 @@
-export interface AuthResponseDto {
+export interface BaseAuthResponseDto {
   id: string;
+  email: string;
   name: string;
   lastName: string;
-  email: string;
-  phoneNumber: string;
-  isActive: boolean;
   token: string;
-  redirectTo: 'app' | 'crm';
 }
 
-export interface LoginResponseDto {
-  id: string;
-  email: string;
-  name: string;
-  lastName: string;
-  token: string;
-  redirectTo: 'app' | 'crm';
-}
+export interface LoginResponseDto extends BaseAuthResponseDto {}
 
-export interface RegisterResponseDto {
-  id: string;
-  name: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  isActive: boolean;
-  token: string;
+export interface RegisterResponseDto extends BaseAuthResponseDto {
   message: string;
-  redirectTo: 'app' | 'crm';
 }

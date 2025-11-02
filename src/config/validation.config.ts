@@ -13,9 +13,10 @@ export const configValidationSchema = Joi.object({
     NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
     PORT: Joi.number().default(3000),
 
-    // JWT
+    // JWT & Cookies
     JWT_SECRET: Joi.string().required(),
     JWT_EXPIRES_IN: Joi.string().default('24h'),
+    COOKIE_DOMAIN: Joi.string().optional(),
 
     // Redis
     REDIS_HOST: Joi.string().default('localhost'),

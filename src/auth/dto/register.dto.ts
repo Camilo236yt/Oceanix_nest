@@ -17,8 +17,5 @@ export class RegisterDto {
 
     @IsString()
     lastName: string;
-
-    @IsString()
-    @Matches(/^\d+$/, { message: 'this field must be a number' })
-    phoneNumber: string;
+  
 }
