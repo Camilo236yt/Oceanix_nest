@@ -7,6 +7,7 @@ import { ValidPermission } from 'src/auth/interfaces/valid-permission';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { sanitizeUserForCache, sanitizeUsersArrayForCache } from './dto/safe-user-response.dto';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
@@ -24,9 +25,6 @@ export class UsersController {
 
     return sanitizeUserForCache(user);
   }
-
-
-
 
   @Get()
   @Auth(ValidPermission.manageUsers)
@@ -64,5 +62,12 @@ export class UsersController {
     const result = await this.usersService.remove(id);
 
     return result;
+  }
+
+  @Patch('me/password')
+  @Auth()
+  async changePassword(@GetUser() user: User, @Body() changePasswordDto: ChangePasswordDto) {
+    await this.usersService.changePassword(user.id, changePasswordDto);
+    return { message: 'Contraseña actualizada correctamente' };
   }
 }
