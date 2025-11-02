@@ -6,8 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import { UserRole } from './entities/user-role.entity';
-import { Role } from '../roles/entities/role.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -20,8 +18,6 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(UserRole)
-    private readonly userRoleRepository: Repository<UserRole>,
     private readonly cryptoService: CryptoService,
   ) {}
 
@@ -49,20 +45,7 @@ export class UsersService {
       isEmailVerified: true,
     });
 
-    const savedUser = await this.userRepository.save(user);
-
-    // Asignar roles si se proporcionan
-    if (createUserDto.roleIds && createUserDto.roleIds.length > 0) {
-      const userRoles = createUserDto.roleIds.map(roleId =>
-        this.userRoleRepository.create({
-          user: savedUser,
-          role: { id: roleId } as Role
-        })
-      );
-      await this.userRoleRepository.save(userRoles);
-    }
-
-    return savedUser;
+    return await this.userRepository.save(user);
   }
 
   async findAll(paginationDto: PaginationDto) {
@@ -96,7 +79,7 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const { password, confirmPassword, roleIds, ...restOfFields } = updateUserDto;
+    const { password, confirmPassword, ...restOfFields } = updateUserDto;
 
     const existingUser = await this.userRepository.findOne({
       where: { id }
@@ -123,20 +106,6 @@ export class UsersService {
 
     await this.userRepository.update(id, updateData);
 
-    // Actualizar roles si se proporcionan
-    if (roleIds !== undefined && roleIds.length > 0) {
-      await this.userRoleRepository.delete({ user: { id } });
-
-      const newUserRoles = roleIds.map(roleId =>
-        this.userRoleRepository.create({
-          user: { id } as User,
-          role: { id: roleId } as Role
-        })
-      );
-      await this.userRoleRepository.save(newUserRoles);
-    }
-
-    // Retornar el usuario actualizado
     const updatedUser = await this.userRepository.findOne({
       where: { id }
     });

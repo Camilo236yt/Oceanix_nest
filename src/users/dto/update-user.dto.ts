@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateUserDto } from './create-user.dto';
-import { IsOptional, IsString, MinLength, IsArray, IsUUID } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
@@ -12,9 +12,4 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsString()
   @MinLength(6)
   confirmPassword?: string;
-
-  @IsOptional()
-  @IsArray({ message: 'roleIds debe ser un array' })
-  @IsUUID(4, { each: true, message: 'Cada roleId debe ser un UUID válido' })
-  roleIds?: string[];
 }
