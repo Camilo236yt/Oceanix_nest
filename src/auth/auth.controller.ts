@@ -1,5 +1,6 @@
 import { Controller, Post, Body, UseFilters, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login-dto';
 import { RegisterDto } from './dto/register.dto';
@@ -9,10 +10,12 @@ import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
 
+@Throttle({ default: { limit: 5, ttl: 60000 } })
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('register')
   async register(
     @Body() registerDto: RegisterDto,
@@ -56,16 +59,19 @@ export class AuthController {
     return responseWithoutToken;
   }
 
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post('verify-email')
   verifyEmail(@Body() verifyEmailCodeDto: VerifyEmailCodeDto) {
     return this.authService.verifyEmail(verifyEmailCodeDto.email, verifyEmailCodeDto.code);
   }
 
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
   @Post('resend-verification')
   resendVerification(@Body() body: { email: string }) {
     return this.authService.resendVerificationEmail(body.email);
   }
 
+  @SkipThrottle()
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response): { message: string } {
     CookieHelper.clearAuthCookie(res);
