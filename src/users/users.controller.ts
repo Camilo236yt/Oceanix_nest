@@ -22,7 +22,6 @@ export class UsersController {
   async create(@Body() createUserDto: CreateUserDto) {
     const user = await this.usersService.create(createUserDto);
 
-    // La invalidación de caché es automática vía eventos
     return sanitizeUserForCache(user);
   }
 
@@ -35,7 +34,6 @@ export class UsersController {
   async findAll() {
     const result = await this.usersService.findAll({ page: 1, limit: 100 });
 
-    // Sanitizar datos antes de devolver
     return {
       ...result,
       data: sanitizeUsersArrayForCache(result.data)
@@ -48,7 +46,6 @@ export class UsersController {
   async findOne(@Param('id') id: string) {
     const user = await this.usersService.findOne(id);
 
-    // Sanitizar datos antes de devolver
     return sanitizeUserForCache(user);
   }
 
@@ -58,7 +55,6 @@ export class UsersController {
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     const user = await this.usersService.update(id, updateUserDto);
 
-    // La invalidación de caché es automática vía eventos
     return sanitizeUserForCache(user);
   }
 
@@ -67,7 +63,6 @@ export class UsersController {
   async remove(@Param('id') id: string) {
     const result = await this.usersService.remove(id);
 
-    // La invalidación de caché es automática vía eventos
     return result;
   }
 }
