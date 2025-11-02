@@ -14,6 +14,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { configValidationSchema } from './config/validation.config';
 import { databaseConfig } from './config/database.config';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { databaseConfig } from './config/database.config';
      RolesModule,
      PermissionsModule,
      MessagesModule,
-     NotificationModule
+     NotificationModule,
+     RedisModule
   ],
   controllers: [],
   providers: [
