@@ -11,8 +11,9 @@ import { Role } from '../roles/entities/role.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import * as bcrypt from 'bcrypt';
+import { CryptoService } from '../auth/services/crypto.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { USER_MESSAGES } from './constants';
 
 @Injectable()
 export class UsersService {
@@ -21,37 +22,22 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
-    @InjectRepository(Role)
-    private readonly roleRepository: Repository<Role>,
+    private readonly cryptoService: CryptoService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     if (createUserDto.password !== createUserDto.confirmPassword) {
-      throw new BadRequestException('Las contraseñas no coinciden');
+      throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
     const existingUser = await this.userRepository.findOne({
       where: { email: createUserDto.email }
     });
     if (existingUser) {
-      throw new BadRequestException('El email ya está registrado');
+      throw new BadRequestException(USER_MESSAGES.EMAIL_ALREADY_REGISTERED);
     }
 
-    if (!createUserDto.roleIds || createUserDto.roleIds.length === 0) {
-      throw new BadRequestException('Los usuarios del sistema deben tener al menos un rol asignado');
-    }
-
-    const roles = await this.roleRepository.find({
-      where: createUserDto.roleIds.map(id => ({ id, isActive: true }))
-    });
-
-    if (roles.length !== createUserDto.roleIds.length) {
-      const foundRoleIds = roles.map(r => r.id);
-      const missingRoles = createUserDto.roleIds.filter(id => !foundRoleIds.includes(id));
-      throw new BadRequestException(`Los siguientes roles no existen o están inactivos: ${missingRoles.join(', ')}`);
-    }
-
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await this.cryptoService.hashPassword(createUserDto.password);
 
     const user = this.userRepository.create({
       name: createUserDto.name,
@@ -65,24 +51,26 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    const userRoles = createUserDto.roleIds.map(roleId =>
-      this.userRoleRepository.create({
-        user: savedUser,
-        role: { id: roleId } as Role
-      })
-    );
-    await this.userRoleRepository.save(userRoles);
+    // Asignar roles si se proporcionan
+    if (createUserDto.roleIds && createUserDto.roleIds.length > 0) {
+      const userRoles = createUserDto.roleIds.map(roleId =>
+        this.userRoleRepository.create({
+          user: savedUser,
+          role: { id: roleId } as Role
+        })
+      );
+      await this.userRoleRepository.save(userRoles);
 
-    const userWithRoles = await this.userRepository.findOne({
-      where: { id: savedUser.id },
-      relations: ['roles', 'roles.role']
-    });
+      // Recargar el usuario con sus roles si se asignaron
+      const userWithRoles = await this.userRepository.findOne({
+        where: { id: savedUser.id },
+        relations: ['roles', 'roles.role']
+      });
 
-    if (!userWithRoles) {
-      throw new NotFoundException('Usuario creado pero no encontrado');
+      return userWithRoles || savedUser;
     }
 
-    return userWithRoles;
+    return savedUser;
   }
 
   async findAll(paginationDto: PaginationDto) {
@@ -110,7 +98,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
     }
 
     return user;
@@ -124,7 +112,7 @@ export class UsersService {
       relations: ['roles']
     });
     if (!existingUser) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
     }
 
     if ((password && !confirmPassword) || (!password && confirmPassword)) {
@@ -134,34 +122,19 @@ export class UsersService {
     }
 
     if (password && confirmPassword && password !== confirmPassword) {
-      throw new BadRequestException('Las contraseñas no coinciden');
-    }
-
-    if (roleIds !== undefined) {
-      if (roleIds.length === 0) {
-        throw new BadRequestException('Los usuarios del sistema deben tener al menos un rol asignado');
-      }
-
-      const roles = await this.roleRepository.find({
-        where: roleIds.map(roleId => ({ id: roleId, isActive: true }))
-      });
-
-      if (roles.length !== roleIds.length) {
-        const foundRoleIds = roles.map(r => r.id);
-        const missingRoles = roleIds.filter(id => !foundRoleIds.includes(id));
-        throw new BadRequestException(`Los siguientes roles no existen o están inactivos: ${missingRoles.join(', ')}`);
-      }
+      throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
     const updateData: Partial<User> = { ...restOfFields };
 
     if (password && confirmPassword) {
-      updateData.password = await bcrypt.hash(password, 10);
+      updateData.password = await this.cryptoService.hashPassword(password);
     }
 
     await this.userRepository.update(id, updateData);
 
-    if (roleIds !== undefined) {
+    // Actualizar roles si se proporcionan
+    if (roleIds !== undefined && roleIds.length > 0) {
       await this.userRoleRepository.delete({ user: { id } });
 
       const newUserRoles = roleIds.map(roleId =>
@@ -171,18 +144,23 @@ export class UsersService {
         })
       );
       await this.userRoleRepository.save(newUserRoles);
+
+      // Recargar el usuario con sus roles si se asignaron
+      const updatedUser = await this.userRepository.findOne({
+        where: { id },
+        relations: ['roles', 'roles.role']
+      });
+
+      return updatedUser || existingUser;
     }
 
+    // Si no se actualizaron roles, simplemente devolver el usuario actualizado
     const updatedUser = await this.userRepository.findOne({
       where: { id },
       relations: ['roles', 'roles.role']
     });
 
-    if (!updatedUser) {
-      throw new NotFoundException('Usuario actualizado pero no encontrado');
-    }
-
-    return updatedUser;
+    return updatedUser || existingUser;
   }
 
   async remove(id: string) {
@@ -191,24 +169,24 @@ export class UsersService {
     user.isActive = false;
     await this.userRepository.save(user);
 
-    return { message: 'Usuario desactivado correctamente' };
+    return { message: USER_MESSAGES.USER_DEACTIVATED };
   }
 
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<void> {
     const { currentPassword, newPassword, confirmNewPassword } = changePasswordDto;
 
     if (newPassword !== confirmNewPassword) {
-      throw new BadRequestException('Las nuevas contraseñas no coinciden');
+      throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
     const user = await this.findOne(userId);
 
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await this.cryptoService.comparePasswords(currentPassword, user.password);
     if (!isCurrentPasswordValid) {
-      throw new BadRequestException('La contraseña actual es incorrecta');
+      throw new BadRequestException(USER_MESSAGES.INVALID_CURRENT_PASSWORD);
     }
 
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const hashedNewPassword = await this.cryptoService.hashPassword(newPassword);
     await this.userRepository.update(userId, { password: hashedNewPassword });
   }
 }

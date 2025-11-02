@@ -11,6 +11,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { sanitizeUserForCache, sanitizeUsersArrayForCache } from './dto/safe-user-response.dto';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
+import { USER_MESSAGES, USER_CACHE } from './constants';
 
 @Controller('users')
 export class UsersController {
@@ -28,7 +29,7 @@ export class UsersController {
 
   @Get()
   @Auth(ValidPermission.manageUsers)
-  @Cached({ keyPrefix: 'users', ttl: 600 })
+  @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USERS_LIST_TTL })
   async findAll() {
     const result = await this.usersService.findAll({ page: 1, limit: 100 });
 
@@ -40,7 +41,7 @@ export class UsersController {
 
   @Get(':id')
   @Auth(ValidPermission.manageUsers)
-  @Cached({ keyPrefix: 'users', ttl: 600 })
+  @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USER_DETAIL_TTL })
   async findOne(@Param('id') id: string) {
     const user = await this.usersService.findOne(id);
 
@@ -68,6 +69,6 @@ export class UsersController {
   @Auth()
   async changePassword(@GetUser() user: User, @Body() changePasswordDto: ChangePasswordDto) {
     await this.usersService.changePassword(user.id, changePasswordDto);
-    return { message: 'Contraseña actualizada correctamente' };
+    return { message: USER_MESSAGES.PASSWORD_CHANGED };
   }
 }

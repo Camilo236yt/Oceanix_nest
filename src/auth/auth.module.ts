@@ -31,7 +31,8 @@ import { CryptoService } from './services/crypto.service';
     TypeOrmModule,
     JwtModule,
     PassportModule,
-    jwtStrategy
+    jwtStrategy,
+    CryptoService
   ]
 })
 export class AuthModule {}
