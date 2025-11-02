@@ -1,34 +1,40 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { RedisService } from './redis.service';
-import { CreateRediDto } from './dto/create-redi.dto';
-import { UpdateRediDto } from './dto/update-redi.dto';
 
 @Controller('redis')
 export class RedisController {
   constructor(private readonly redisService: RedisService) {}
 
-  @Post()
-  create(@Body() createRediDto: CreateRediDto) {
-    return this.redisService.create(createRediDto);
+  /**
+   * Health check para Redis
+   * Verifica si la conexión a Redis está activa
+   */
+  @Get('health')
+  async health() {
+    try {
+      const exists = await this.redisService.exists('health-check');
+      return {
+        status: 'ok',
+        message: 'Redis connection is active',
+        exists
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Redis connection failed',
+        error: error.message
+      };
+    }
   }
 
-  @Get()
-  findAll() {
-    return this.redisService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.redisService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateRediDto: UpdateRediDto) {
-    return this.redisService.update(+id, updateRediDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.redisService.remove(+id);
+  /**
+   * Obtiene estadísticas del cache
+   */
+  @Get('stats')
+  async stats() {
+    return {
+      message: 'Redis cache system is running',
+      description: 'Use @Cached decorator in controllers to cache endpoints'
+    };
   }
 }

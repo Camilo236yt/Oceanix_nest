@@ -3,14 +3,11 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 
 import { Auth } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces/valid-permission';
-import { Filterable, FilterParams, Cached } from 'src/common/decorators';
-import { FilterParamsDto } from 'src/common/dto/filters';
+import { Cached } from 'src/common/decorators';
 
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RolesService } from './roles.service';
-import { SwaggerGetRolesWithFilters } from './docs/roles-swagger.decorator';
-import { RoleTransformer } from './transformers/role.transformer';
 
 @ApiTags('Roles')
 @ApiBearerAuth()
@@ -32,20 +29,13 @@ export class RolesController {
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
   @Get()
-  @SwaggerGetRolesWithFilters()
-  @Filterable({
-    sort: true,
-    customFilters: ['search', 'isActive']
-  })
+  @ApiOperation({ summary: 'Obtener todos los roles' })
+  @ApiResponse({ status: 200, description: 'Roles obtenidos exitosamente' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   @Cached({ keyPrefix: 'roles', ttl: 600 })
-  async findAll(
-    @FilterParams({
-      sort: true,
-      customFilters: ['search', 'isActive']
-    }) params: FilterParamsDto
-  ) {
-    const roles = await this.rolesService.findWithFilters(params);
-    return RoleTransformer.toPaginatedResponse(roles);
+  async findAll() {
+    const roles = await this.rolesService.findAll();
+    return roles;
   }
 
   @ApiOperation({ summary: 'Obtener un rol por ID' })

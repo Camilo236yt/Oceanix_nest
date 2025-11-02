@@ -2,8 +2,9 @@ import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nes
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { RedisService } from '../../redis/redis.service';
-import { CacheOptions } from '../interfaces';
+import type { CacheOptions } from '../interfaces';
 import { Reflector } from '@nestjs/core';
+import * as crypto from 'crypto';
 
 /**
  * Interceptor base para cachear respuestas
@@ -23,7 +24,7 @@ export class CacheInterceptor implements NestInterceptor {
     }
 
     const request = context.switchToHttp().getRequest();
-    const cacheKey = this.redisService.generateKey(cacheOptions.keyPrefix, request.url);
+    const cacheKey = this.generateCacheKey(request, cacheOptions);
 
     // Intentar obtener del cache
     const cached = await this.redisService.get(cacheKey);
@@ -37,10 +38,41 @@ export class CacheInterceptor implements NestInterceptor {
     // Si no está en cache, continuar con el handler y guardar resultado
     return next.handle().pipe(
       map(async (data) => {
-        await this.redisService.set(cacheKey, data, cacheOptions.ttl);
+        await this.redisService.set(cacheKey, data, cacheOptions.ttl || 600);
         return data;
       }),
     );
+  }
+
+  /**
+   * Genera una clave de cache basada en las opciones y la request
+   */
+  private generateCacheKey(request: any, options: CacheOptions): string {
+    const { keyPrefix, includeParams = true, includeBody = false, customKeyGenerator } = options;
+
+    // Si hay un generador custom, usarlo
+    if (customKeyGenerator) {
+      return this.redisService.generateKey(keyPrefix, customKeyGenerator(request));
+    }
+
+    let key = request.path;
+
+    // Incluir query params si está habilitado
+    if (includeParams && request.query && Object.keys(request.query).length > 0) {
+      const params = Object.keys(request.query)
+        .sort()
+        .map(k => `${k}=${request.query[k]}`)
+        .join('&');
+      key = `${key}?${params}`;
+    }
+
+    // Incluir body en hash si está habilitado
+    if (includeBody && request.body) {
+      const bodyHash = crypto.createHash('md5').update(JSON.stringify(request.body)).digest('hex');
+      key = `${key}#${bodyHash}`;
+    }
+
+    return this.redisService.generateKey(keyPrefix, key);
   }
 }
 
@@ -49,7 +81,7 @@ export class CacheInterceptor implements NestInterceptor {
  */
 @Injectable()
 export class CacheKeyBuilderInterceptor implements NestInterceptor {
-  constructor(private options: CacheOptions, private redisService: RedisService) {}
+  constructor(private options: CacheOptions & {}, private redisService: RedisService) {}
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest();

@@ -1,8 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { Filterable, FilterParams, Cached } from 'src/common/decorators';
-import { FilterParamsDto } from 'src/common/dto/filters';
+import { Cached } from 'src/common/decorators';
 
 import { Auth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces/valid-permission';
@@ -33,25 +31,14 @@ export class UsersController {
 
   @Get()
   @Auth(ValidPermission.manageUsers)
-  @Filterable({
-    date: true,
-    sort: true,
-    customFilters: ['isActive', 'isEmailVerified', 'role.id', 'role.name', 'roles.id', 'roles.name', 'createdAfter', 'createdBefore']
-  })
   @Cached({ keyPrefix: 'users', ttl: 600 })
-  async findAll(
-    @FilterParams({
-      date: true,
-      sort: true,
-      customFilters: ['isActive', 'isEmailVerified', 'role.id', 'role.name', 'roles.id', 'roles.name', 'createdAfter', 'createdBefore']
-    }) params: FilterParamsDto
-  ) {
-    const users = await this.usersService.findWithFilters(params);
+  async findAll() {
+    const result = await this.usersService.findAll({ page: 1, limit: 100 });
 
     // Sanitizar datos antes de devolver
     return {
-      ...users,
-      data: sanitizeUsersArrayForCache(users.data)
+      ...result,
+      data: sanitizeUsersArrayForCache(result.data)
     };
   }
 
