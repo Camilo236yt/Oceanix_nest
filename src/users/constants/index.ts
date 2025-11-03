@@ -1,3 +1,5 @@
+export * from './identification-types';
+
 export const USER_MESSAGES = {
   PASSWORD_MISMATCH: 'Las contraseñas no coinciden',
   EMAIL_ALREADY_REGISTERED: 'El email ya está registrado',

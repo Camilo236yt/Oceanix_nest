@@ -1,8 +1,10 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterEnterpriseDto } from './dto/register-enterprise.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { User, UserType } from 'src/users/entities/user.entity';
+import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
+import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { LoginDto } from './dto/login-dto';
@@ -14,6 +16,8 @@ import {
   EmailAlreadyExistsException,
   AuthDatabaseException
 } from './exceptions/index';
+import { USER_MESSAGES } from '../users/constants';
+import { ENTERPRISE_MESSAGES } from '../enterprise/constants';
 
 
 @Injectable()
@@ -22,6 +26,9 @@ export class AuthService {
     constructor(
         @InjectRepository(User)
         private readonly userRepositoy:Repository<User>,
+        @InjectRepository(Enterprise)
+        private readonly enterpriseRepository: Repository<Enterprise>,
+        private readonly dataSource: DataSource,
         private readonly jwtService: JwtService,
         private readonly cryptoService: CryptoService
     ){}
@@ -89,6 +96,92 @@ export class AuthService {
     async googleLogin(googleLoginDto: GoogleLoginDto): Promise<LoginResponseDto> {
         // TODO: Implementar login con Google
         throw new InternalServerErrorException('Google login not implemented yet');
+    }
+
+    async registerEnterprise(registerDto: RegisterEnterpriseDto) {
+        // Validate passwords match
+        if (registerDto.adminPassword !== registerDto.adminConfirmPassword) {
+            throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
+        }
+
+        // Check if subdomain already exists
+        const existingBySubdomain = await this.enterpriseRepository.findOne({
+            where: { subdomain: registerDto.subdomain },
+        });
+        if (existingBySubdomain) {
+            throw new BadRequestException(ENTERPRISE_MESSAGES.SUBDOMAIN_ALREADY_EXISTS);
+        }
+
+        // Check if enterprise name already exists
+        const existingByName = await this.enterpriseRepository.findOne({
+            where: { name: registerDto.enterpriseName },
+        });
+        if (existingByName) {
+            throw new BadRequestException(ENTERPRISE_MESSAGES.NAME_ALREADY_EXISTS);
+        }
+
+        // Check if admin email already exists
+        const existingUser = await this.userRepositoy.findOne({
+            where: { email: registerDto.adminEmail },
+        });
+        if (existingUser) {
+            throw new EmailAlreadyExistsException(registerDto.adminEmail);
+        }
+
+        // Use transaction to ensure atomicity
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            // 1. Create enterprise
+            const enterprise = this.enterpriseRepository.create({
+                name: registerDto.enterpriseName,
+                subdomain: registerDto.subdomain,
+                email: registerDto.enterpriseEmail,
+                phone: registerDto.enterprisePhone,
+                address: registerDto.enterpriseAddress,
+                taxIdType: registerDto.enterpriseTaxIdType,
+                taxIdNumber: registerDto.enterpriseTaxIdNumber,
+                isActive: true,
+            });
+            const savedEnterprise = await queryRunner.manager.save(enterprise);
+
+            // 2. Create admin user
+            const hashedPassword = this.cryptoService.hashPasswordSync(registerDto.adminPassword);
+            const adminUser = this.userRepositoy.create({
+                name: registerDto.adminName,
+                lastName: registerDto.adminLastName,
+                email: registerDto.adminEmail,
+                phoneNumber: registerDto.adminPhoneNumber,
+                password: hashedPassword,
+                address: registerDto.adminAddress,
+                identificationType: registerDto.adminIdentificationType,
+                identificationNumber: registerDto.adminIdentificationNumber,
+                enterpriseId: savedEnterprise.id,
+                userType: UserType.ENTERPRISE_ADMIN,
+                isActive: true,
+                isEmailVerified: false,
+                isLegalRepresentative: true, // El que registra la empresa es el representante legal
+            });
+            const savedUser = await queryRunner.manager.save(adminUser);
+
+            await queryRunner.commitTransaction();
+
+            // Return sanitized response
+            const { password, ...userWithoutPassword } = savedUser;
+            return {
+                enterprise: savedEnterprise,
+                admin: userWithoutPassword,
+                token: this.generateTokenJwt({ id: savedUser.id }),
+                message: 'Empresa registrada exitosamente. Por favor verifica tu email.',
+            };
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            this.handdleErrorsDb(error);
+        } finally {
+            await queryRunner.release();
+        }
     }
 
 

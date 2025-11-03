@@ -64,8 +64,8 @@ export class jwtStrategy extends PassportStrategy(Strategy) {
                 name: ur.role.name,
                 permissions: ur.role.permissions?.map(rp => rp.permission.name) || []
             })) || [],
-            isActive: user.isActive,
-            isEmailVerified: user.isEmailVerified,
+            isActive: user.isActive ?? false,
+            isEmailVerified: user.isEmailVerified ?? false,
         };
     }
 

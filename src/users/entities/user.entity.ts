@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, Index, ManyToOne, OneToMany } from "typeorm";
 import { Enterprise } from "../../enterprise/entities/enterprise.entity";
 import { UserRole } from "./user-role.entity";
+import { PersonalIdentificationType } from "../constants";
 
 export enum UserType {
   SUPER_ADMIN = 'SUPER_ADMIN',
@@ -42,8 +43,8 @@ export class User {
     @Column({type: 'varchar', nullable: true})
     address: string;
 
-    @Column({type: 'varchar', nullable: true})
-    identificationType: string;
+    @Column({type: 'enum', enum: PersonalIdentificationType, nullable: true})
+    identificationType: PersonalIdentificationType;
 
     @Column({type: 'varchar', nullable: true})
     identificationNumber: string;
@@ -53,6 +54,9 @@ export class User {
 
     @Column({type:'bool', default: false})
     isEmailVerified?: boolean;
+
+    @Column({type: 'bool', default: false})
+    isLegalRepresentative: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

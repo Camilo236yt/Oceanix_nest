@@ -91,4 +91,5 @@ export class EnterpriseService {
     await this.enterpriseRepository.save(enterprise);
     return { message: ENTERPRISE_MESSAGES.DEACTIVATED_SUCCESSFULLY };
   }
+
 }

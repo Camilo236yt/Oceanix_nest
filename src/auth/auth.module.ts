@@ -7,6 +7,7 @@ import { jwtStrategy } from './strategy/jwt-strategy';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
+import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { CryptoService } from './services/crypto.service';
 
 @Module({
@@ -14,7 +15,7 @@ import { CryptoService } from './services/crypto.service';
   providers: [AuthService, jwtStrategy, CryptoService],
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Enterprise]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

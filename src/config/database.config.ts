@@ -10,7 +10,7 @@ export const databaseConfig = (configService: ConfigService): TypeOrmModuleOptio
   database: configService.get<string>('DATABASE_NAME', 'oceanix_db'),
   autoLoadEntities: true,
   synchronize: true,
-  logging: configService.get<string>('NODE_ENV') === 'development',
+  logging: false,
   retryAttempts: 3,
   retryDelay: 3000,
   connectTimeoutMS: 10000,

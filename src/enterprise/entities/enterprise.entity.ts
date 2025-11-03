@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Role } from '../../roles/entities/role.entity';
+import { BusinessIdentificationType } from '../../users/constants';
 
 @Entity('enterprises')
 @Index('idx_enterprises_name', { synchronize: false })
@@ -23,6 +24,12 @@ export class Enterprise {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   address: string;
+
+  @Column({ type: 'enum', enum: BusinessIdentificationType, nullable: true })
+  taxIdType: BusinessIdentificationType;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  taxIdNumber: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   logo: string;
