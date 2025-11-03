@@ -39,9 +39,9 @@ export class Enterprise {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => User, (user) => user.enterprise, { cascade: true })
+  @OneToMany(() => User, (user) => user.enterprise)
   users: User[];
 
-  @OneToMany(() => Role, (role) => role.enterprise, { cascade: true })
+  @OneToMany(() => Role, (role) => role.enterprise)
   roles: Role[];
 }

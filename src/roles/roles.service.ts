@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { In, Repository } from 'typeorm';
+import { In, Repository, IsNull } from 'typeorm';
 import { Role } from './entities/role.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Permission } from 'src/permissions/entities/permission.entity';
@@ -26,6 +26,18 @@ export class RolesService {
   async create(createRoleDto: CreateRoleDto, enterpriseId?: string) {
     try {
       const { permissionIds, ...roleData } = createRoleDto;
+
+      // Validate uniqueness by enterprise
+      const existing = await this.rolesRepository.findOne({
+        where: {
+          name: roleData.name,
+          enterpriseId: enterpriseId ? enterpriseId : IsNull(),
+        },
+      });
+
+      if (existing) {
+        throw new BadRequestException('Role name already exists in this enterprise');
+      }
 
       // Create the role
       const role = this.rolesRepository.create({

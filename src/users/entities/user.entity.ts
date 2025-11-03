@@ -10,8 +10,8 @@ export enum UserType {
 }
 
 @Entity('users')
-@Index('idx_users_enterprise_email', { synchronize: false })
-@Index('idx_users_enterprise_active', { synchronize: false })
+@Index('idx_users_enterprise_email_unique', ['enterpriseId', 'email'], { unique: true })
+@Index('idx_users_enterprise_active', ['enterpriseId', 'isActive'])
 export class User {
 
     @PrimaryGeneratedColumn('uuid')
@@ -47,8 +47,6 @@ export class User {
 
     @Column({type: 'varchar', nullable: true})
     identificationNumber: string;
-
-    token?: string;
 
     @Column({type:'bool', default: false})
     isActive?: boolean;

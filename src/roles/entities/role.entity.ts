@@ -4,7 +4,7 @@ import { UserRole } from "../../users/entities/user-role.entity";
 import { Enterprise } from "../../enterprise/entities/enterprise.entity";
 
 @Entity('roles')
-@Index('idx_roles_enterprise_name', { synchronize: false })
+@Index('idx_roles_enterprise_name_unique', ['enterpriseId', 'name'], { unique: true })
 export class Role {
 
     @PrimaryGeneratedColumn('uuid')
@@ -41,7 +41,7 @@ export class Role {
     @OneToMany(
         () => RolePermission,
         (rolePermission) => rolePermission.role,
-        { eager: true, cascade: true }
+        { cascade: true }
         )
         permissions: RolePermission[];
 

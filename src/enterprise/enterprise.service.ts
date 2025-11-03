@@ -37,11 +37,16 @@ export class EnterpriseService {
     return this.enterpriseRepository.save(enterprise);
   }
 
-  async findAll() {
-    return this.enterpriseRepository.find({
-      relations: ['users', 'roles'],
+  async findAll(includeRelations = false) {
+    const options: any = {
       order: { createdAt: 'DESC' },
-    });
+    };
+
+    if (includeRelations) {
+      options.relations = ['users', 'roles'];
+    }
+
+    return this.enterpriseRepository.find(options);
   }
 
   async findOne(id: string) {
@@ -84,6 +89,8 @@ export class EnterpriseService {
 
   async remove(id: string) {
     const enterprise = await this.findOne(id);
-    return this.enterpriseRepository.remove(enterprise);
+    enterprise.isActive = false;
+    await this.enterpriseRepository.save(enterprise);
+    return { message: 'Enterprise deactivated successfully' };
   }
 }

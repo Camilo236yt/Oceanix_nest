@@ -26,6 +26,15 @@ export class UsersService {
       throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
+    // Validate userType consistency
+    if (createUserDto.userType === 'SUPER_ADMIN' && enterpriseId) {
+      throw new BadRequestException('SUPER_ADMIN cannot belong to an enterprise');
+    }
+
+    if (createUserDto.userType && createUserDto.userType !== 'SUPER_ADMIN' && !enterpriseId) {
+      throw new BadRequestException('Non SUPER_ADMIN users must belong to an enterprise');
+    }
+
     const existingUser = await this.userRepository.findOne({
       where: {
         email: createUserDto.email,
