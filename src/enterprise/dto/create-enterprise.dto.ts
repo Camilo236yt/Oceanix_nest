@@ -1,4 +1,5 @@
-import { IsString, IsEmail, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsEmail, IsOptional, MinLength, MaxLength, IsUUID, IsEnum } from 'class-validator';
+import { BusinessIdentificationType } from '../../users/constants';
 
 export class CreateEnterpriseDto {
   @IsString()
@@ -19,9 +20,17 @@ export class CreateEnterpriseDto {
   @IsOptional()
   phone?: string;
 
+  @IsUUID()
+  @IsOptional()
+  addressId?: string;
+
+  @IsEnum(BusinessIdentificationType)
+  @IsOptional()
+  taxIdType?: BusinessIdentificationType;
+
   @IsString()
   @IsOptional()
-  address?: string;
+  taxIdNumber?: string;
 
   @IsString()
   @IsOptional()

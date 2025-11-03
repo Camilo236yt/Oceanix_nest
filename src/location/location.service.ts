@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Country, State, City, Address } from './entities';
@@ -19,28 +19,39 @@ export class LocationService {
 
   // Country methods
   async findAllCountries() {
-    return await this.countryRepository.find({
+    return this.countryRepository.find({
       where: { isActive: true },
-      order: { name: 'ASC' }
+      order: { name: 'ASC' },
+      select: ['id', 'name', 'code', 'iso2', 'phoneCode', 'currency', 'region']
     });
   }
 
-  async findCountryById(id: string) {
-    const country = await this.countryRepository.findOne({
-      where: { id, isActive: true },
-      relations: ['states', 'states.cities']
-    });
+  async findCountryById(id: string, includeRelations = false) {
+    const options: any = {
+      where: { id, isActive: true }
+    };
+
+    if (includeRelations) {
+      options.relations = ['states'];
+    }
+
+    const country = await this.countryRepository.findOne(options);
     if (!country) {
       throw new NotFoundException(`Country with id ${id} not found`);
     }
     return country;
   }
 
-  async findCountryByCode(code: string) {
-    const country = await this.countryRepository.findOne({
-      where: { code, isActive: true },
-      relations: ['states', 'states.cities']
-    });
+  async findCountryByCode(code: string, includeRelations = false) {
+    const options: any = {
+      where: { code, isActive: true }
+    };
+
+    if (includeRelations) {
+      options.relations = ['states'];
+    }
+
+    const country = await this.countryRepository.findOne(options);
     if (!country) {
       throw new NotFoundException(`Country with code ${code} not found`);
     }
@@ -49,17 +60,23 @@ export class LocationService {
 
   // State methods
   async findStatesByCountry(countryId: string) {
-    return await this.stateRepository.find({
+    return this.stateRepository.find({
       where: { countryId, isActive: true },
-      order: { name: 'ASC' }
+      order: { name: 'ASC' },
+      select: ['id', 'name', 'code', 'type', 'countryId']
     });
   }
 
-  async findStateById(id: string) {
-    const state = await this.stateRepository.findOne({
-      where: { id, isActive: true },
-      relations: ['country']
-    });
+  async findStateById(id: string, includeRelations = false) {
+    const options: any = {
+      where: { id, isActive: true }
+    };
+
+    if (includeRelations) {
+      options.relations = ['country'];
+    }
+
+    const state = await this.stateRepository.findOne(options);
     if (!state) {
       throw new NotFoundException(`State with id ${id} not found`);
     }
@@ -67,18 +84,30 @@ export class LocationService {
   }
 
   // City methods
-  async findCitiesByState(stateId: string) {
-    return await this.cityRepository.find({
+  async findCitiesByState(stateId: string, limit?: number) {
+    const query: any = {
       where: { stateId, isActive: true },
-      order: { name: 'ASC' }
-    });
+      order: { name: 'ASC' },
+      select: ['id', 'name', 'postalCode', 'stateId']
+    };
+
+    if (limit) {
+      query.take = limit;
+    }
+
+    return this.cityRepository.find(query);
   }
 
-  async findCityById(id: string) {
-    const city = await this.cityRepository.findOne({
-      where: { id, isActive: true },
-      relations: ['state', 'state.country']
-    });
+  async findCityById(id: string, includeRelations = false) {
+    const options: any = {
+      where: { id, isActive: true }
+    };
+
+    if (includeRelations) {
+      options.relations = ['state', 'state.country'];
+    }
+
+    const city = await this.cityRepository.findOne(options);
     if (!city) {
       throw new NotFoundException(`City with id ${id} not found`);
     }
@@ -87,13 +116,15 @@ export class LocationService {
 
   // Address methods
   async createAddress(createAddressDto: CreateAddressDto): Promise<Address> {
-    // Validate that city, state and country exist
-    await this.findCityById(createAddressDto.cityId);
-    await this.findStateById(createAddressDto.stateId);
-    await this.findCountryById(createAddressDto.countryId);
+    // Validate location hierarchy in a single query
+    await this.validateLocationHierarchy(
+      createAddressDto.cityId,
+      createAddressDto.stateId,
+      createAddressDto.countryId
+    );
 
     const address = this.addressRepository.create(createAddressDto);
-    return await this.addressRepository.save(address);
+    return this.addressRepository.save(address);
   }
 
   async findAddressById(id: string): Promise<Address> {
@@ -111,23 +142,53 @@ export class LocationService {
     const address = await this.findAddressById(id);
 
     // If location IDs are being updated, validate them
-    if (updateAddressDto.cityId && updateAddressDto.cityId !== address.cityId) {
-      await this.findCityById(updateAddressDto.cityId);
-    }
-    if (updateAddressDto.stateId && updateAddressDto.stateId !== address.stateId) {
-      await this.findStateById(updateAddressDto.stateId);
-    }
-    if (updateAddressDto.countryId && updateAddressDto.countryId !== address.countryId) {
-      await this.findCountryById(updateAddressDto.countryId);
+    const cityId = updateAddressDto.cityId || address.cityId;
+    const stateId = updateAddressDto.stateId || address.stateId;
+    const countryId = updateAddressDto.countryId || address.countryId;
+
+    if (
+      updateAddressDto.cityId ||
+      updateAddressDto.stateId ||
+      updateAddressDto.countryId
+    ) {
+      await this.validateLocationHierarchy(cityId, stateId, countryId);
     }
 
     Object.assign(address, updateAddressDto);
-    return await this.addressRepository.save(address);
+    return this.addressRepository.save(address);
   }
 
   async deleteAddress(id: string): Promise<void> {
     const address = await this.findAddressById(id);
     address.isActive = false;
     await this.addressRepository.save(address);
+  }
+
+  // Helper method to validate location hierarchy
+  private async validateLocationHierarchy(
+    cityId: string,
+    stateId: string,
+    countryId: string
+  ): Promise<void> {
+    const city = await this.cityRepository.findOne({
+      where: { id: cityId, isActive: true },
+      relations: ['state', 'state.country']
+    });
+
+    if (!city) {
+      throw new BadRequestException(`City with id ${cityId} not found`);
+    }
+
+    if (city.stateId !== stateId) {
+      throw new BadRequestException(
+        `City ${cityId} does not belong to state ${stateId}`
+      );
+    }
+
+    if (city.state.countryId !== countryId) {
+      throw new BadRequestException(
+        `State ${stateId} does not belong to country ${countryId}`
+      );
+    }
   }
 }

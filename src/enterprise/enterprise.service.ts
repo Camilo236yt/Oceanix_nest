@@ -30,13 +30,7 @@ export class EnterpriseService {
       throw new BadRequestException(ENTERPRISE_MESSAGES.SUBDOMAIN_ALREADY_EXISTS);
     }
 
-    // Remove address from DTO since it's now a relationship
-    const { address, ...enterpriseDataWithoutAddress } = createEnterpriseDto;
-
-    const enterprise = this.enterpriseRepository.create({
-      ...enterpriseDataWithoutAddress
-      // addressId is optional, will be handled separately
-    });
+    const enterprise = this.enterpriseRepository.create(createEnterpriseDto);
 
     return this.enterpriseRepository.save(enterprise);
   }
