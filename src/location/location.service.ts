@@ -27,7 +27,8 @@ export class LocationService {
 
   async findCountryById(id: string) {
     const country = await this.countryRepository.findOne({
-      where: { id, isActive: true }
+      where: { id, isActive: true },
+      relations: ['states', 'states.cities']
     });
     if (!country) {
       throw new NotFoundException(`Country with id ${id} not found`);
@@ -37,7 +38,8 @@ export class LocationService {
 
   async findCountryByCode(code: string) {
     const country = await this.countryRepository.findOne({
-      where: { code, isActive: true }
+      where: { code, isActive: true },
+      relations: ['states', 'states.cities']
     });
     if (!country) {
       throw new NotFoundException(`Country with code ${code} not found`);
@@ -81,24 +83,6 @@ export class LocationService {
       throw new NotFoundException(`City with id ${id} not found`);
     }
     return city;
-  }
-
-  async searchCities(query: string, stateId?: string) {
-    const queryBuilder = this.cityRepository
-      .createQueryBuilder('city')
-      .leftJoinAndSelect('city.state', 'state')
-      .leftJoinAndSelect('state.country', 'country')
-      .where('city.isActive = :isActive', { isActive: true })
-      .andWhere('city.name ILIKE :query', { query: `%${query}%` });
-
-    if (stateId) {
-      queryBuilder.andWhere('city.stateId = :stateId', { stateId });
-    }
-
-    return await queryBuilder
-      .orderBy('city.name', 'ASC')
-      .limit(10)
-      .getMany();
   }
 
   // Address methods
@@ -145,21 +129,5 @@ export class LocationService {
     const address = await this.findAddressById(id);
     address.isActive = false;
     await this.addressRepository.save(address);
-  }
-
-  // Helper method to create address with validation
-  async createAddressWithValidation(addressData: {
-    streetAddress: string;
-    neighborhood?: string;
-    apartment?: string;
-    postalCode?: string;
-    cityId: string;
-    stateId: string;
-    countryId: string;
-    type?: string;
-  }): Promise<Address> {
-    const createAddressDto = new CreateAddressDto();
-    Object.assign(createAddressDto, addressData);
-    return await this.createAddress(createAddressDto);
   }
 }

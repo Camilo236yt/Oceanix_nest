@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "cli": "ts-node -r tsconfig-paths/register src/cli.ts",
+    "seed:locations": "npm run cli seed:locations"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
@@ -37,6 +39,7 @@
     "@nestjs/websockets": "^11.1.8",
     "@types/cookie-parser": "^1.4.10",
     "@types/multer": "^2.0.0",
+    "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -46,6 +49,7 @@
     "google-auth-library": "^10.5.0",
     "joi": "^18.0.1",
     "multer": "^2.0.2",
+    "nest-commander": "^3.20.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.16.3",
