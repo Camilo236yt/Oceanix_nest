@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -21,13 +21,16 @@ export class UsersService {
     private readonly cryptoService: CryptoService,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto, enterpriseId?: string): Promise<User> {
     if (createUserDto.password !== createUserDto.confirmPassword) {
       throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
     const existingUser = await this.userRepository.findOne({
-      where: { email: createUserDto.email }
+      where: {
+        email: createUserDto.email,
+        enterpriseId: enterpriseId ? enterpriseId : IsNull(),
+      }
     });
     if (existingUser) {
       throw new BadRequestException(USER_MESSAGES.EMAIL_ALREADY_REGISTERED);
@@ -43,18 +46,26 @@ export class UsersService {
       password: hashedPassword,
       isActive: createUserDto.isActive ?? true,
       isEmailVerified: true,
+      enterpriseId,
+      userType: createUserDto.userType,
+      address: createUserDto.address,
+      identificationType: createUserDto.identificationType,
+      identificationNumber: createUserDto.identificationNumber,
     });
 
     return await this.userRepository.save(user);
   }
 
-  async findAll(paginationDto: PaginationDto) {
+  async findAll(paginationDto: PaginationDto, enterpriseId?: string) {
     const { page = 1, limit = 10 } = paginationDto;
 
     const [data, total] = await this.userRepository.findAndCount({
       skip: (page - 1) * limit,
       take: limit,
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(enterpriseId && { enterpriseId }),
+      },
       order: { name: 'ASC' },
     });
 

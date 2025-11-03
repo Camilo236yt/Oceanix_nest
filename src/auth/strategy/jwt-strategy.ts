@@ -30,23 +30,43 @@ export class jwtStrategy extends PassportStrategy(Strategy) {
     }
     
 
-    async validate(payload:JwtPayload): Promise<User> {
-
+    async validate(payload: JwtPayload): Promise<any> {
         const { id } = payload;
 
         const user = await this.userRepositoy.findOne({
-            where: { id }
+            where: { id },
+            relations: ['roles', 'roles.role', 'roles.role.permissions', 'roles.role.permissions.permission', 'enterprise']
         });
 
-        if(!user){
-            throw new NotFoundException('Usuario no encontrado')
+        if (!user) {
+            throw new NotFoundException('Usuario no encontrado');
         }
 
-        if(!user.isActive)
-            throw new UnauthorizedException('user not active, verify your email or contact with the admin')
+        if (!user.isActive) {
+            throw new UnauthorizedException('user not active, verify your email or contact with the admin');
+        }
 
+        // If user is not SUPER_ADMIN, check enterprise is active
+        if (user.enterpriseId && !user.enterprise?.isActive) {
+            throw new UnauthorizedException('Enterprise is inactive');
+        }
 
-        return user;
+        // Return enriched user object with multi-tenant context
+        return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            lastName: user.lastName,
+            enterpriseId: user.enterpriseId,
+            userType: user.userType,
+            roles: user.roles?.map(ur => ({
+                id: ur.role.id,
+                name: ur.role.name,
+                permissions: ur.role.permissions?.map(rp => rp.permission.name) || []
+            })) || [],
+            isActive: user.isActive,
+            isEmailVerified: user.isEmailVerified,
+        };
     }
 
 }

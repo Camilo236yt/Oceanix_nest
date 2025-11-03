@@ -4,7 +4,6 @@ import { UserRole } from "../../users/entities/user-role.entity";
 import { Enterprise } from "../../enterprise/entities/enterprise.entity";
 
 @Entity('roles')
-@Index('idx_roles_enterprise_id')
 @Index('idx_roles_enterprise_name', { synchronize: false })
 export class Role {
 

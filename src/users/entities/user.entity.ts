@@ -10,7 +10,6 @@ export enum UserType {
 }
 
 @Entity('users')
-@Index('idx_users_enterprise_id')
 @Index('idx_users_enterprise_email', { synchronize: false })
 @Index('idx_users_enterprise_active', { synchronize: false })
 export class User {

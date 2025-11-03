@@ -23,12 +23,15 @@ export class RolesService {
     private readonly rolePermissionRepository: Repository<RolePermission>,
   ) {}
 
-  async create(createRoleDto: CreateRoleDto) {
+  async create(createRoleDto: CreateRoleDto, enterpriseId?: string) {
     try {
       const { permissionIds, ...roleData } = createRoleDto;
 
       // Create the role
-      const role = this.rolesRepository.create(roleData);
+      const role = this.rolesRepository.create({
+        ...roleData,
+        enterpriseId,
+      });
       await this.rolesRepository.save(role);
 
       // Assign permissions if provided
@@ -57,8 +60,12 @@ export class RolesService {
     }
   }
 
-  async findAll() {
-    return await this.rolesRepository.find();
+  async findAll(enterpriseId?: string) {
+    const where = enterpriseId ? { enterpriseId } : {};
+    return await this.rolesRepository.find({
+      where,
+      relations: ['permissions', 'permissions.permission'],
+    });
   }
 
   async findOne(id: string) {

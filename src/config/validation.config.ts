@@ -1,21 +1,20 @@
 import * as Joi from "joi";
 
 export const configValidationSchema = Joi.object({
-    // Database
-    TYPE_DB: Joi.string().required(),
-    DB_HOST: Joi.string().required(),
-    DB_PORT: Joi.number().default(5432),
-    DB_USERNAME: Joi.string().required(),
-    DB_PASSWORD: Joi.string().required(),
-    DB_DATABASE: Joi.string().required(),
+    // Database (updated for multi-tenant)
+    DATABASE_HOST: Joi.string().default('localhost'),
+    DATABASE_PORT: Joi.number().default(5432),
+    DATABASE_USER: Joi.string().default('oceanix_user'),
+    DATABASE_PASSWORD: Joi.string().default('oceanix_password_dev'),
+    DATABASE_NAME: Joi.string().default('oceanix_db'),
 
     // Environment
     NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
-    PORT: Joi.number().default(3000),
+    APP_PORT: Joi.number().default(3000),
 
     // JWT & Cookies
-    JWT_SECRET: Joi.string().required(),
-    JWT_EXPIRES_IN: Joi.string().default('24h'),
+    JWT_SECRET: Joi.string().default('your-super-secret-jwt-key-change-in-production'),
+    JWT_EXPIRATION: Joi.string().default('24h'),
     COOKIE_DOMAIN: Joi.string().optional(),
 
     // Redis

@@ -1,26 +1,89 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Enterprise } from './entities/enterprise.entity';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
 
 @Injectable()
 export class EnterpriseService {
-  create(createEnterpriseDto: CreateEnterpriseDto) {
-    return 'This action adds a new enterprise';
+  constructor(
+    @InjectRepository(Enterprise)
+    private readonly enterpriseRepository: Repository<Enterprise>,
+  ) {}
+
+  async create(createEnterpriseDto: CreateEnterpriseDto) {
+    const { name, subdomain } = createEnterpriseDto;
+
+    const existingByName = await this.enterpriseRepository.findOne({
+      where: { name },
+    });
+    if (existingByName) {
+      throw new BadRequestException('Enterprise name already exists');
+    }
+
+    const existingBySubdomain = await this.enterpriseRepository.findOne({
+      where: { subdomain },
+    });
+    if (existingBySubdomain) {
+      throw new BadRequestException('Enterprise subdomain already exists');
+    }
+
+    const enterprise = this.enterpriseRepository.create({
+      ...createEnterpriseDto,
+      plan: createEnterpriseDto.plan || 'free',
+    });
+
+    return this.enterpriseRepository.save(enterprise);
   }
 
-  findAll() {
-    return `This action returns all enterprise`;
+  async findAll() {
+    return this.enterpriseRepository.find({
+      relations: ['users', 'roles'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} enterprise`;
+  async findOne(id: string) {
+    const enterprise = await this.enterpriseRepository.findOne({
+      where: { id },
+      relations: ['users', 'roles'],
+    });
+
+    if (!enterprise) {
+      throw new NotFoundException(`Enterprise with ID ${id} not found`);
+    }
+
+    return enterprise;
   }
 
-  update(id: number, updateEnterpriseDto: UpdateEnterpriseDto) {
-    return `This action updates a #${id} enterprise`;
+  async update(id: string, updateEnterpriseDto: UpdateEnterpriseDto) {
+    const enterprise = await this.findOne(id);
+
+    if (updateEnterpriseDto.name && updateEnterpriseDto.name !== enterprise.name) {
+      const existing = await this.enterpriseRepository.findOne({
+        where: { name: updateEnterpriseDto.name },
+      });
+      if (existing) {
+        throw new BadRequestException('Enterprise name already exists');
+      }
+    }
+
+    if (updateEnterpriseDto.subdomain && updateEnterpriseDto.subdomain !== enterprise.subdomain) {
+      const existing = await this.enterpriseRepository.findOne({
+        where: { subdomain: updateEnterpriseDto.subdomain },
+      });
+      if (existing) {
+        throw new BadRequestException('Enterprise subdomain already exists');
+      }
+    }
+
+    Object.assign(enterprise, updateEnterpriseDto);
+    return this.enterpriseRepository.save(enterprise);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} enterprise`;
+  async remove(id: string) {
+    const enterprise = await this.findOne(id);
+    return this.enterpriseRepository.remove(enterprise);
   }
 }

@@ -9,7 +9,7 @@ export const databaseConfig = (configService: ConfigService): TypeOrmModuleOptio
   password: configService.get<string>('DATABASE_PASSWORD', 'oceanix_password_dev'),
   database: configService.get<string>('DATABASE_NAME', 'oceanix_db'),
   autoLoadEntities: true,
-  synchronize: configService.get<string>('NODE_ENV') !== 'production',
+  synchronize: true,
   logging: configService.get<string>('NODE_ENV') === 'development',
   retryAttempts: 3,
   retryDelay: 3000,
