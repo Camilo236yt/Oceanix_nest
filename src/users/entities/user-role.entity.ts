@@ -1,18 +1,31 @@
-import { Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Entity, ManyToOne, PrimaryGeneratedColumn, Column, Index } from "typeorm";
 import { User } from "./user.entity";
 import { Role } from "../../roles/entities/role.entity";
 
-
-@Entity()
+@Entity('user_roles')
+@Index('idx_user_roles_enterprise_id')
+@Index('idx_user_roles_unique', { synchronize: false })
 export class UserRole {
 
     @PrimaryGeneratedColumn('uuid')
-    id:string;
+    id: string;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
+    @Column({ type: 'uuid' })
+    @Index()
+    userId: string;
+
+    @Column({ type: 'uuid' })
+    @Index()
+    roleId: string;
+
+    @Column({ type: 'uuid' })
+    @Index()
+    enterpriseId: string;
+
+    @ManyToOne(() => User, (user) => user.roles, { onDelete: 'CASCADE' })
     user: User;
 
-    @ManyToOne(() => Role, role => role.users, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Role, (role) => role.users, { onDelete: 'CASCADE' })
     role: Role;
 
 }
