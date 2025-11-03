@@ -16,6 +16,7 @@ import { configValidationSchema } from './config/validation.config';
 import { databaseConfig } from './config/database.config';
 import { RedisModule } from './redis/redis.module';
 import { StorageModule } from './storage/storage.module';
+import { LocationModule } from './location/location.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { StorageModule } from './storage/storage.module';
      MessagesModule,
      NotificationModule,
      RedisModule,
-     StorageModule
+     StorageModule,
+     LocationModule
   ],
   controllers: [],
   providers: [

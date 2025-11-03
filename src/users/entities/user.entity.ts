@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, Index, ManyToOne, OneToMany } from "typeorm";
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, Index, ManyToOne, OneToMany, JoinColumn } from "typeorm";
 import { Enterprise } from "../../enterprise/entities/enterprise.entity";
 import { UserRole } from "./user-role.entity";
+import { Address } from "../../location/entities/address.entity";
 import { PersonalIdentificationType } from "../constants";
 
 export enum UserType {
@@ -40,8 +41,16 @@ export class User {
     @Column({type: 'varchar'})
     password: string;
 
-    @Column({type: 'varchar', nullable: true})
-    address: string;
+    // Relación con Address
+    @Column({ type: 'uuid', nullable: true })
+    addressId: string;
+
+    @ManyToOne(() => Address, (address) => address.users, {
+      nullable: true,
+      eager: true
+    })
+    @JoinColumn({ name: 'addressId' })
+    address: Address;
 
     @Column({type: 'enum', enum: PersonalIdentificationType, nullable: true})
     identificationType: PersonalIdentificationType;

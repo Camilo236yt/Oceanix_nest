@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Role } from '../../roles/entities/role.entity';
+import { Address } from '../../location/entities/address.entity';
 import { BusinessIdentificationType } from '../../users/constants';
 
 @Entity('enterprises')
@@ -22,8 +23,16 @@ export class Enterprise {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  address: string;
+  // Relación con Address
+  @Column({ type: 'uuid', nullable: true })
+  addressId: string;
+
+  @ManyToOne(() => Address, (address) => address.enterprises, {
+    nullable: true,
+    eager: true
+  })
+  @JoinColumn({ name: 'addressId' })
+  address: Address;
 
   @Column({ type: 'enum', enum: BusinessIdentificationType, nullable: true })
   taxIdType: BusinessIdentificationType;

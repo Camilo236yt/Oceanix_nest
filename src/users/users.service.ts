@@ -47,19 +47,16 @@ export class UsersService {
 
     const hashedPassword = await this.cryptoService.hashPassword(createUserDto.password);
 
+    // Remove address from DTO since it's now a relationship
+    const { address, ...userDataWithoutAddress } = createUserDto;
+
     const user = this.userRepository.create({
-      name: createUserDto.name,
-      lastName: createUserDto.lastName,
-      email: createUserDto.email,
-      phoneNumber: createUserDto.phoneNumber,
+      ...userDataWithoutAddress,
       password: hashedPassword,
       isActive: createUserDto.isActive ?? true,
       isEmailVerified: true,
-      enterpriseId,
-      userType: createUserDto.userType,
-      address: createUserDto.address,
-      identificationType: createUserDto.identificationType,
-      identificationNumber: createUserDto.identificationNumber,
+      enterpriseId
+      // addressId is optional, will be handled separately
     });
 
     return await this.userRepository.save(user);
@@ -118,7 +115,9 @@ export class UsersService {
       throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
-    const updateData: Partial<User> = { ...restOfFields };
+    // Remove address from restOfFields since it's now a relationship
+    const { address: _, ...fieldsWithoutAddress } = restOfFields;
+    const updateData: Partial<User> = { ...fieldsWithoutAddress };
 
     if (password && confirmPassword) {
       updateData.password = await this.cryptoService.hashPassword(password);

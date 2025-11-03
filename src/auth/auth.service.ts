@@ -1,15 +1,18 @@
 import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
-import { RegisterDto } from './dto/register.dto';
-import { RegisterEnterpriseDto } from './dto/register-enterprise.dto';
+import {
+  RegisterDto,
+  RegisterEnterpriseDto,
+  LoginDto,
+  GoogleLoginDto,
+  LoginResponseDto,
+  RegisterResponseDto
+} from './dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User, UserType } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { LoginDto } from './dto/login-dto';
-import { GoogleLoginDto } from './dto/google-login.dto';
-import { LoginResponseDto, RegisterResponseDto } from './dto/auth-response.dto';
 import { CryptoService } from './services/crypto.service';
 import {
   InvalidCredentialsException,
@@ -18,6 +21,7 @@ import {
 } from './exceptions/index';
 import { USER_MESSAGES } from '../users/constants';
 import { ENTERPRISE_MESSAGES } from '../enterprise/constants';
+import { LocationService } from 'src/location/location.service';
 
 
 @Injectable()
@@ -30,25 +34,30 @@ export class AuthService {
         private readonly enterpriseRepository: Repository<Enterprise>,
         private readonly dataSource: DataSource,
         private readonly jwtService: JwtService,
-        private readonly cryptoService: CryptoService
+        private readonly cryptoService: CryptoService,
+        private readonly locationService: LocationService
     ){}
     
     async register( registerDto:RegisterDto ): Promise<RegisterResponseDto> {
-        const {email, password, ...registerDetail} = registerDto;
+        const {email, password, address, ...registerDetail} = registerDto;
 
         try {
             const existingUser = await this.userRepositoy.findOne({ where: { email } });
             if (existingUser) throw new EmailAlreadyExistsException(email);
 
+            // Remove address from the DTO since it's now a relationship
+            const { address: _, ...userDataWithoutAddress } = registerDto;
+
             const newUser = this.userRepositoy.create({
-                ...registerDto,
+                ...userDataWithoutAddress,
                 password: this.cryptoService.hashPasswordSync(password),
                 isEmailVerified: true,
                 isActive: true
+                // addressId is optional, so we don't need to set it
             });
             const savedUser = await this.userRepositoy.save(newUser);
 
-            const { password: _, ...userWithoutPassword } = savedUser;
+            const { password: _pass, ...userWithoutPassword } = savedUser;
 
             return {
                 ...userWithoutPassword,
@@ -134,20 +143,20 @@ export class AuthService {
         await queryRunner.startTransaction();
 
         try {
-            // 1. Create enterprise
+            // 1. Create enterprise (without address for now)
             const enterprise = this.enterpriseRepository.create({
                 name: registerDto.enterpriseName,
                 subdomain: registerDto.subdomain,
                 email: registerDto.enterpriseEmail,
                 phone: registerDto.enterprisePhone,
-                address: registerDto.enterpriseAddress,
+                // addressId is optional, will be handled separately
                 taxIdType: registerDto.enterpriseTaxIdType,
                 taxIdNumber: registerDto.enterpriseTaxIdNumber,
                 isActive: true,
             });
             const savedEnterprise = await queryRunner.manager.save(enterprise);
 
-            // 2. Create admin user
+            // 2. Create admin user (without address for now)
             const hashedPassword = this.cryptoService.hashPasswordSync(registerDto.adminPassword);
             const adminUser = this.userRepositoy.create({
                 name: registerDto.adminName,
@@ -155,7 +164,7 @@ export class AuthService {
                 email: registerDto.adminEmail,
                 phoneNumber: registerDto.adminPhoneNumber,
                 password: hashedPassword,
-                address: registerDto.adminAddress,
+                // addressId is optional, will be handled separately
                 identificationType: registerDto.adminIdentificationType,
                 identificationNumber: registerDto.adminIdentificationNumber,
                 enterpriseId: savedEnterprise.id,

@@ -9,12 +9,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { CryptoService } from './services/crypto.service';
+import { LocationModule } from 'src/location/location.module';
 
 @Module({
   controllers: [AuthController],
   providers: [AuthService, jwtStrategy, CryptoService],
   imports: [
     ConfigModule,
+    LocationModule,
     TypeOrmModule.forFeature([User, Enterprise]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
