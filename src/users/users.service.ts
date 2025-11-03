@@ -28,11 +28,11 @@ export class UsersService {
 
     // Validate userType consistency
     if (createUserDto.userType === 'SUPER_ADMIN' && enterpriseId) {
-      throw new BadRequestException('SUPER_ADMIN cannot belong to an enterprise');
+      throw new BadRequestException(USER_MESSAGES.SUPER_ADMIN_CANNOT_HAVE_ENTERPRISE);
     }
 
     if (createUserDto.userType && createUserDto.userType !== 'SUPER_ADMIN' && !enterpriseId) {
-      throw new BadRequestException('Non SUPER_ADMIN users must belong to an enterprise');
+      throw new BadRequestException(USER_MESSAGES.NON_SUPER_ADMIN_MUST_HAVE_ENTERPRISE);
     }
 
     const existingUser = await this.userRepository.findOne({

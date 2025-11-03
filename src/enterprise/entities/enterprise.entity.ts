@@ -15,9 +15,6 @@ export class Enterprise {
   @Column({ type: 'varchar', length: 100, unique: true })
   subdomain: string;
 
-  @Column({ type: 'varchar', length: 100, default: 'free' })
-  plan: 'free' | 'pro' | 'enterprise';
-
   @Column({ type: 'varchar', length: 255, nullable: true })
   email: string;
 

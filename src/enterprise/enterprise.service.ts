@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Enterprise } from './entities/enterprise.entity';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
+import { ENTERPRISE_MESSAGES } from './constants';
 
 @Injectable()
 export class EnterpriseService {
@@ -19,20 +20,17 @@ export class EnterpriseService {
       where: { name },
     });
     if (existingByName) {
-      throw new BadRequestException('Enterprise name already exists');
+      throw new BadRequestException(ENTERPRISE_MESSAGES.NAME_ALREADY_EXISTS);
     }
 
     const existingBySubdomain = await this.enterpriseRepository.findOne({
       where: { subdomain },
     });
     if (existingBySubdomain) {
-      throw new BadRequestException('Enterprise subdomain already exists');
+      throw new BadRequestException(ENTERPRISE_MESSAGES.SUBDOMAIN_ALREADY_EXISTS);
     }
 
-    const enterprise = this.enterpriseRepository.create({
-      ...createEnterpriseDto,
-      plan: createEnterpriseDto.plan || 'free',
-    });
+    const enterprise = this.enterpriseRepository.create(createEnterpriseDto);
 
     return this.enterpriseRepository.save(enterprise);
   }
@@ -56,7 +54,7 @@ export class EnterpriseService {
     });
 
     if (!enterprise) {
-      throw new NotFoundException(`Enterprise with ID ${id} not found`);
+      throw new NotFoundException(ENTERPRISE_MESSAGES.NOT_FOUND);
     }
 
     return enterprise;
@@ -70,7 +68,7 @@ export class EnterpriseService {
         where: { name: updateEnterpriseDto.name },
       });
       if (existing) {
-        throw new BadRequestException('Enterprise name already exists');
+        throw new BadRequestException(ENTERPRISE_MESSAGES.NAME_ALREADY_EXISTS);
       }
     }
 
@@ -79,7 +77,7 @@ export class EnterpriseService {
         where: { subdomain: updateEnterpriseDto.subdomain },
       });
       if (existing) {
-        throw new BadRequestException('Enterprise subdomain already exists');
+        throw new BadRequestException(ENTERPRISE_MESSAGES.SUBDOMAIN_ALREADY_EXISTS);
       }
     }
 
@@ -91,6 +89,6 @@ export class EnterpriseService {
     const enterprise = await this.findOne(id);
     enterprise.isActive = false;
     await this.enterpriseRepository.save(enterprise);
-    return { message: 'Enterprise deactivated successfully' };
+    return { message: ENTERPRISE_MESSAGES.DEACTIVATED_SUCCESSFULLY };
   }
 }

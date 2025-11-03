@@ -11,6 +11,7 @@ import { Role } from './entities/role.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Permission } from 'src/permissions/entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
+import { ROLE_MESSAGES } from './constants';
 
 @Injectable()
 export class RolesService {
@@ -36,7 +37,7 @@ export class RolesService {
       });
 
       if (existing) {
-        throw new BadRequestException('Role name already exists in this enterprise');
+        throw new BadRequestException(ROLE_MESSAGES.NAME_ALREADY_EXISTS);
       }
 
       // Create the role
@@ -53,7 +54,7 @@ export class RolesService {
         });
 
         if (permissions.length !== permissionIds.length) {
-          throw new BadRequestException('Algunos permisos no existen');
+          throw new BadRequestException(ROLE_MESSAGES.PERMISSIONS_NOT_FOUND);
         }
 
         const rolePermissions = permissions.map((permission) =>
@@ -83,7 +84,7 @@ export class RolesService {
   async findOne(id: string) {
     const role = await this.rolesRepository.findOneBy({ id });
     if (!role) {
-      throw new BadRequestException(`Role with id ${id} not found`);
+      throw new NotFoundException(ROLE_MESSAGES.NOT_FOUND);
     }
     return role;
   }
@@ -93,7 +94,7 @@ export class RolesService {
       const role = await this.rolesRepository.findOneBy({ id });
 
       if (!role) {
-        throw new NotFoundException(`Rol con ID ${id} no encontrado`);
+        throw new NotFoundException(ROLE_MESSAGES.NOT_FOUND);
       }
 
       // Update basic fields if provided
@@ -112,7 +113,7 @@ export class RolesService {
           });
 
           if (permissions.length !== updateRoleDto.permissionIds.length) {
-            throw new BadRequestException('Algunos permisos no existen');
+            throw new BadRequestException(ROLE_MESSAGES.PERMISSIONS_NOT_FOUND);
           }
 
           const rolePermissions = permissions.map(permission =>
@@ -137,7 +138,7 @@ export class RolesService {
     role.isActive = false;
     await this.rolesRepository.save(role);
 
-    return { message: `Rol con ID ${id} eliminado exitosamente` };
+    return { message: ROLE_MESSAGES.DELETED_SUCCESSFULLY };
   }
 
 
@@ -155,11 +156,9 @@ export class RolesService {
     }
     if (error.code === '23503') {
       // foreign key violation
-      throw new BadRequestException('Foreign key constraint failed');
+      throw new BadRequestException(ROLE_MESSAGES.FOREIGN_KEY_CONSTRAINT);
     }
 
-    throw new InternalServerErrorException(
-      'Unexpected error, check server logs',
-    );
+    throw new InternalServerErrorException(ROLE_MESSAGES.UNEXPECTED_ERROR);
   }
 }

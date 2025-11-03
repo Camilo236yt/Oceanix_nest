@@ -26,8 +26,4 @@ export class CreateEnterpriseDto {
   @IsString()
   @IsOptional()
   logo?: string;
-
-  @IsString()
-  @IsOptional()
-  plan?: 'free' | 'pro' | 'enterprise';
 }
