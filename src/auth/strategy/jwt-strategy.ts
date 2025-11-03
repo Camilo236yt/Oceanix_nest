@@ -17,7 +17,7 @@ export class jwtStrategy extends PassportStrategy(Strategy) {
         configService:ConfigService
     ){
         super({
-            secretOrKey: configService.get('JWT_SECRET'),
+            secretOrKey: configService.get('JWT_SECRET')!,
             jwtFromRequest: ExtractJwt.fromExtractors([
                 // Primero intenta extraer desde cookies
                 (request: Request) => {
@@ -35,21 +35,9 @@ export class jwtStrategy extends PassportStrategy(Strategy) {
         const { id } = payload;
 
         const user = await this.userRepositoy.findOne({
-            where: { id },
-            relations: {
-                roles: {
-                    role: {
-                        permissions: {
-                            permission: {
-                                parent: true,
-                                children: true
-                            }
-                        }
-                    }
-                }
-            }
+            where: { id }
         });
-        
+
         if(!user){
             throw new NotFoundException('Usuario no encontrado')
         }

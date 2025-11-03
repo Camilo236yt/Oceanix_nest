@@ -1,4 +1,4 @@
-import { Module, Global, Logger } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { createClient } from 'redis';
 import { RedisService } from './redis.service';
@@ -10,17 +10,12 @@ import { RedisController } from './redis.controller';
     {
       provide: 'CACHE_CLIENT',
       useFactory: async (configService: ConfigService) => {
-        const logger = new Logger('RedisModule');
-        
         const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
         const redisPort = configService.get<number>('REDIS_PORT', 6379);
         const redisUsername = configService.get<string>('REDIS_USERNAME');
         const redisPassword = configService.get<string>('REDIS_PASSWORD');
         const redisDb = configService.get<number>('REDIS_DB', 0);
 
-        logger.log(`🎯 ATTEMPTING REDIS CONNECTION FIRST 🎯`);
-        logger.log(`Target: ${redisHost}:${redisPort} (DB: ${redisDb})`);
-        
         try {
           const client = createClient({
             socket: {
@@ -33,32 +28,20 @@ import { RedisController } from './redis.controller';
             database: redisDb,
           });
 
-          client.on('error', (err) => {
-            logger.warn('Redis client error detected:', err.message);
-          });
-
-          client.on('connect', () => {
-            logger.log('✅ Redis client connected successfully');
-          });
-
           await client.connect();
-          
+
           // Test connection
           await client.set('__connection_test__', 'redis_working');
           const testResult = await client.get('__connection_test__');
           await client.del('__connection_test__');
-          
+
           if (testResult !== 'redis_working') {
             throw new Error('Redis test failed - could not retrieve test value');
           }
-          
-          logger.log('🚀 REDIS IS ACTIVE - Using Redis for caching');
+
           return { client, type: 'redis' };
-          
+
         } catch (error) {
-          logger.warn('❌ Redis connection failed, falling back to memory cache');
-          logger.warn(`Redis error: ${error.message}`);
-          logger.log('💾 MEMORY CACHE ACTIVATED - Using in-memory fallback');
           
           // Crear cliente de memoria simple
           const memoryStore = new Map<string, { value: any; expires?: number }>();

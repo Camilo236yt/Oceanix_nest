@@ -9,7 +9,7 @@ export class UserRole {
     @PrimaryGeneratedColumn('uuid')
     id:string;
 
-    @ManyToOne(() => User, user => user.roles, { onDelete: 'CASCADE' })  
+    @ManyToOne(() => User, { onDelete: 'CASCADE' })
     user: User;
 
     @ManyToOne(() => Role, role => role.users, { onDelete: 'CASCADE' })

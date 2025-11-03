@@ -1,9 +1,4 @@
-import { Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { UserRole } from "./user-role.entity";
-import { UserProfile } from "./user-profile.entity";
-import { Like } from '../../likes/entities/like.entity';
-import { Booking } from '../../bookings/entities/booking.entity';
-import { Review } from '../../reviews/entities/review.entity';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity()
 export class User {
@@ -33,22 +28,6 @@ export class User {
 
     @Column({type:'bool', default: false})
     isEmailVerified?: boolean;
-
-    // Relación 1:1 con UserProfile
-    @OneToOne(() => UserProfile, profile => profile.user, { cascade: true })
-    profile?: UserProfile;
-
-    @OneToMany(() => Like, (like) => like.user)
-    likes: Like[];
-
-    @OneToMany(() => UserRole, userRole => userRole.user, { cascade: true })
-    roles: UserRole[];
-
-    @OneToMany(() => Booking, booking => booking.user)
-    bookings: Booking[];
-
-    @OneToMany(() => Review, review => review.user)
-    reviews: Review[];
 
     @CreateDateColumn()
     createdAt: Date;

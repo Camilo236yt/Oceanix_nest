@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { RedisClientType } from 'redis';
 
 interface CacheClient {
@@ -8,7 +8,6 @@ interface CacheClient {
 
 @Injectable()
 export class RedisService implements OnModuleInit {
-  private readonly logger = new Logger(RedisService.name);
   private isRedisConnected = false;
   private cacheType: 'redis' | 'memory' = 'memory';
 
@@ -29,20 +28,10 @@ export class RedisService implements OnModuleInit {
       
       if (result === 'ok') {
         this.isRedisConnected = this.cacheType === 'redis';
-        
-        if (this.cacheType === 'redis') {
-          this.logger.log('🚀 REDIS IS ACTIVE - Persistent cache enabled');
-          this.logger.log(`Redis client: ${this.cacheClient.client.constructor.name}`);
-        } else {
-          this.logger.warn('💾 MEMORY CACHE ACTIVE - Fallback mode (data will be lost on restart)');
-          this.logger.warn('💡 Start Redis for persistent caching: docker-compose up redis -d');
-        }
       } else {
         throw new Error('Cache test failed - could not retrieve test value');
       }
     } catch (error) {
-      this.logger.error('❌ CACHE CONNECTION FAILED');
-      this.logger.error(`Error: ${error.message}`);
       throw error;
     }
   }
@@ -60,14 +49,11 @@ export class RedisService implements OnModuleInit {
     try {
       const result = await this.cacheClient.client.get(key);
       if (result) {
-        this.logger.debug(`${this.cacheType.toUpperCase()} HIT for key: ${key}`);
         return JSON.parse(result) as T;
       } else {
-        this.logger.debug(`${this.cacheType.toUpperCase()} MISS for key: ${key}`);
         return undefined;
       }
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} GET error for key ${key}:`, error);
       return undefined;
     }
   }
@@ -80,9 +66,7 @@ export class RedisService implements OnModuleInit {
       } else {
         await this.cacheClient.client.set(key, serializedValue);
       }
-      this.logger.debug(`${this.cacheType.toUpperCase()} SET for key: ${key} (TTL: ${ttl || 'none'})`);
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} SET error for key ${key}:`, error);
       throw error;
     }
   }
@@ -90,9 +74,7 @@ export class RedisService implements OnModuleInit {
   async del(key: string): Promise<void> {
     try {
       await this.cacheClient.client.del(key);
-      this.logger.debug(`${this.cacheType.toUpperCase()} DEL for key: ${key}`);
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} DEL error for key ${key}:`, error);
       throw error;
     }
   }
@@ -100,9 +82,7 @@ export class RedisService implements OnModuleInit {
   async reset(): Promise<void> {
     try {
       await this.cacheClient.client.flushDb();
-      this.logger.debug(`${this.cacheType.toUpperCase()} database flushed`);
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} FLUSH error:`, error);
       throw error;
     }
   }
@@ -124,7 +104,6 @@ export class RedisService implements OnModuleInit {
       const result = await this.cacheClient.client.exists(key);
       return result === 1;
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} EXISTS error for key ${key}:`, error);
       return false;
     }
   }
@@ -133,7 +112,6 @@ export class RedisService implements OnModuleInit {
     try {
       return await this.cacheClient.client.incrBy(key, amount);
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} INCREMENT error for key ${key}:`, error);
       throw error;
     }
   }
@@ -142,7 +120,6 @@ export class RedisService implements OnModuleInit {
     try {
       return await this.cacheClient.client.decrBy(key, amount);
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} DECREMENT error for key ${key}:`, error);
       throw error;
     }
   }
@@ -164,7 +141,6 @@ export class RedisService implements OnModuleInit {
   // Método SCAN para buscar claves por patrón
   async scan(pattern: string): Promise<string[]> {
     if (!this.isRedisAvailable()) {
-      this.logger.warn('SCAN operation not available - Redis not connected or using memory cache');
       return [];
     }
 
@@ -177,17 +153,15 @@ export class RedisService implements OnModuleInit {
           MATCH: pattern,
           COUNT: 100
         });
-        
+
         cursor = result.cursor;
         keys.push(...result.keys);
-        
+
       } while (cursor !== 0);
 
-      this.logger.debug(`REDIS SCAN found ${keys.length} keys for pattern: ${pattern}`);
       return keys;
-      
+
     } catch (error) {
-      this.logger.error(`REDIS SCAN error for pattern ${pattern}:`, error);
       return [];
     }
   }
@@ -198,10 +172,8 @@ export class RedisService implements OnModuleInit {
 
     try {
       const result = await this.cacheClient.client.del(keys);
-      this.logger.debug(`${this.cacheType.toUpperCase()} DEL ${result} keys`);
       return result;
     } catch (error) {
-      this.logger.error(`${this.cacheType.toUpperCase()} DEL MANY error:`, error);
       throw error;
     }
   }
