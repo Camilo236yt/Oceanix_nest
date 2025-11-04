@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, IsEnum, IsUUID } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, IsEnum, IsUUID, IsArray } from 'class-validator';
 import { UserType } from '../entities/user.entity';
 import { PersonalIdentificationType } from '../constants';
 
@@ -50,4 +50,9 @@ export class CreateUserDto {
 
   @IsOptional()
   isLegalRepresentative?: boolean;
+
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  roleIds?: string[];
 }

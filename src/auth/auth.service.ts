@@ -48,9 +48,11 @@ export class AuthService {
             // Remove address from the DTO since it's now a relationship
             const { address: _, ...userDataWithoutAddress } = registerDto;
 
+            const hashedPassword = await this.cryptoService.hashPassword(password);
+
             const newUser = this.userRepositoy.create({
                 ...userDataWithoutAddress,
-                password: this.cryptoService.hashPasswordSync(password),
+                password: hashedPassword,
                 isEmailVerified: true,
                 isActive: true
                 // addressId is optional, so we don't need to set it
@@ -157,7 +159,7 @@ export class AuthService {
             const savedEnterprise = await queryRunner.manager.save(Enterprise, enterprise);
 
             // 2. Create admin user
-            const hashedPassword = this.cryptoService.hashPasswordSync(registerDto.adminPassword);
+            const hashedPassword = await this.cryptoService.hashPassword(registerDto.adminPassword);
             const adminUser = queryRunner.manager.create(User, {
                 name: registerDto.adminName,
                 lastName: registerDto.adminLastName,

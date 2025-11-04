@@ -81,21 +81,28 @@ export class RolesService {
     });
   }
 
-  async findOne(id: string) {
-    const role = await this.rolesRepository.findOneBy({ id });
+  async findOne(id: string, validateActive = true) {
+    const where: any = { id };
+
+    if (validateActive) {
+      where.isActive = true;
+    }
+
+    const role = await this.rolesRepository.findOne({
+      where,
+      relations: ['permissions', 'permissions.permission'],
+    });
+
     if (!role) {
       throw new NotFoundException(ROLE_MESSAGES.NOT_FOUND);
     }
+
     return role;
   }
 
   async update(id: string, updateRoleDto: UpdateRoleDto) {
     try {
-      const role = await this.rolesRepository.findOneBy({ id });
-
-      if (!role) {
-        throw new NotFoundException(ROLE_MESSAGES.NOT_FOUND);
-      }
+      const role = await this.findOne(id);
 
       // Update basic fields if provided
       this.rolesRepository.merge(role, updateRoleDto);

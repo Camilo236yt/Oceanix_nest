@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException } from '@nestjs/common';
 
 import { Cached } from 'src/common/decorators';
 
@@ -8,8 +8,9 @@ import { ValidPermission } from 'src/auth/interfaces/valid-permission';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { AssignRolesDto } from './dto/assign-roles.dto';
 import { sanitizeUserForCache, sanitizeUsersArrayForCache } from './dto/safe-user-response.dto';
-import { User } from './entities/user.entity';
+import { User, UserType } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { USER_MESSAGES, USER_CACHE } from './constants';
 
@@ -21,8 +22,30 @@ export class UsersController {
 
   @Post()
   @Auth(ValidPermission.createUsers)
-  async create(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.create(createUserDto);
+  async create(
+    @Body() createUserDto: CreateUserDto,
+    @GetUser() currentUser: User,
+  ) {
+    // Extract enterpriseId from authenticated user
+    const enterpriseId = currentUser.enterpriseId;
+
+    // Validate that ENTERPRISE_ADMIN can only create EMPLOYEE or CLIENT
+    if (currentUser.userType === UserType.ENTERPRISE_ADMIN) {
+      if (createUserDto.userType &&
+          createUserDto.userType !== UserType.EMPLOYEE &&
+          createUserDto.userType !== UserType.CLIENT) {
+        throw new BadRequestException(
+          'Enterprise admins can only create EMPLOYEE or CLIENT users'
+        );
+      }
+
+      // Default to EMPLOYEE if not specified
+      if (!createUserDto.userType) {
+        createUserDto.userType = UserType.EMPLOYEE;
+      }
+    }
+
+    const user = await this.usersService.create(createUserDto, enterpriseId);
 
     return sanitizeUserForCache(user);
   }
@@ -70,5 +93,73 @@ export class UsersController {
   async changePassword(@GetUser() user: User, @Body() changePasswordDto: ChangePasswordDto) {
     await this.usersService.changePassword(user.id, changePasswordDto);
     return { message: USER_MESSAGES.PASSWORD_CHANGED };
+  }
+
+  // Role management endpoints
+  @Post(':userId/roles')
+  @Auth(ValidPermission.manageUsers)
+  async assignRoles(
+    @Param('userId') userId: string,
+    @Body() assignRolesDto: AssignRolesDto,
+    @GetUser() currentUser: User,
+  ) {
+    if (!currentUser.enterpriseId) {
+      throw new BadRequestException('Only enterprise users can assign roles');
+    }
+
+    await this.usersService.assignRolesToUser(
+      userId,
+      assignRolesDto.roleIds,
+      currentUser.enterpriseId,
+    );
+
+    return {
+      message: 'Roles assigned successfully',
+    };
+  }
+
+  @Delete(':userId/roles/:roleId')
+  @Auth(ValidPermission.manageUsers)
+  async removeRole(
+    @Param('userId') userId: string,
+    @Param('roleId') roleId: string,
+    @GetUser() currentUser: User,
+  ) {
+    if (!currentUser.enterpriseId) {
+      throw new BadRequestException('Only enterprise users can remove roles');
+    }
+
+    await this.usersService.removeRoleFromUser(
+      userId,
+      roleId,
+      currentUser.enterpriseId,
+    );
+
+    return {
+      message: 'Role removed successfully',
+    };
+  }
+
+  @Get(':userId/roles')
+  @Auth(ValidPermission.manageUsers)
+  async getUserRoles(
+    @Param('userId') userId: string,
+    @GetUser() currentUser: User,
+  ) {
+    const roles = await this.usersService.getUserRoles(
+      userId,
+      currentUser.enterpriseId,
+    );
+
+    return {
+      userId,
+      roles: roles.map(ur => ({
+        id: ur.id,
+        roleId: ur.roleId,
+        roleName: ur.role?.name,
+        roleDescription: ur.role?.description,
+        enterpriseId: ur.enterpriseId,
+      })),
+    };
   }
 }

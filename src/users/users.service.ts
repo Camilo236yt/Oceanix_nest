@@ -2,10 +2,13 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
+import { UserRole } from './entities/user-role.entity';
+import { Role } from '../roles/entities/role.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -18,26 +21,33 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(UserRole)
+    private readonly userRoleRepository: Repository<UserRole>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
+    private readonly dataSource: DataSource,
     private readonly cryptoService: CryptoService,
   ) {}
 
   async create(createUserDto: CreateUserDto, enterpriseId?: string): Promise<User> {
-    if (createUserDto.password !== createUserDto.confirmPassword) {
+    const { roleIds, ...userDto } = createUserDto;
+
+    if (userDto.password !== userDto.confirmPassword) {
       throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
     // Validate userType consistency
-    if (createUserDto.userType === 'SUPER_ADMIN' && enterpriseId) {
+    if (userDto.userType === 'SUPER_ADMIN' && enterpriseId) {
       throw new BadRequestException(USER_MESSAGES.SUPER_ADMIN_CANNOT_HAVE_ENTERPRISE);
     }
 
-    if (createUserDto.userType && createUserDto.userType !== 'SUPER_ADMIN' && !enterpriseId) {
+    if (userDto.userType && userDto.userType !== 'SUPER_ADMIN' && !enterpriseId) {
       throw new BadRequestException(USER_MESSAGES.NON_SUPER_ADMIN_MUST_HAVE_ENTERPRISE);
     }
 
     const existingUser = await this.userRepository.findOne({
       where: {
-        email: createUserDto.email,
+        email: userDto.email,
         enterpriseId: enterpriseId ? enterpriseId : IsNull(),
       }
     });
@@ -45,25 +55,71 @@ export class UsersService {
       throw new BadRequestException(USER_MESSAGES.EMAIL_ALREADY_REGISTERED);
     }
 
-    const hashedPassword = await this.cryptoService.hashPassword(createUserDto.password);
+    // If roleIds provided, validate they exist and belong to the enterprise
+    if (roleIds && roleIds.length > 0) {
+      await this.validateRolesBelongToEnterprise(roleIds, enterpriseId);
+    }
 
-    const user = this.userRepository.create({
-      name: createUserDto.name,
-      lastName: createUserDto.lastName,
-      phoneNumber: createUserDto.phoneNumber,
-      email: createUserDto.email,
-      password: hashedPassword,
-      userType: createUserDto.userType,
-      addressId: createUserDto.addressId,
-      identificationType: createUserDto.identificationType,
-      identificationNumber: createUserDto.identificationNumber,
-      isActive: createUserDto.isActive ?? true,
-      isEmailVerified: true,
-      isLegalRepresentative: createUserDto.isLegalRepresentative ?? false,
-      enterpriseId
-    });
+    // Use transaction to ensure atomicity
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    return await this.userRepository.save(user);
+    try {
+      const hashedPassword = await this.cryptoService.hashPassword(userDto.password);
+
+      const user = queryRunner.manager.create(User, {
+        name: userDto.name,
+        lastName: userDto.lastName,
+        phoneNumber: userDto.phoneNumber,
+        email: userDto.email,
+        password: hashedPassword,
+        userType: userDto.userType,
+        addressId: userDto.addressId,
+        identificationType: userDto.identificationType,
+        identificationNumber: userDto.identificationNumber,
+        isActive: userDto.isActive ?? true,
+        isEmailVerified: true,
+        isLegalRepresentative: userDto.isLegalRepresentative ?? false,
+        enterpriseId
+      });
+
+      const savedUser = await queryRunner.manager.save(User, user);
+
+      // Assign roles if provided (bulk insert)
+      if (roleIds && roleIds.length > 0 && enterpriseId) {
+        const userRoles = roleIds.map(roleId =>
+          queryRunner.manager.create(UserRole, {
+            userId: savedUser.id,
+            roleId: roleId,
+            enterpriseId: enterpriseId,
+          })
+        );
+        await queryRunner.manager.save(UserRole, userRoles);
+      }
+
+      await queryRunner.commitTransaction();
+
+      // Load user with roles
+      const userWithRoles = await this.userRepository.findOne({
+        where: { id: savedUser.id },
+        relations: ['roles', 'roles.role'],
+      });
+
+      if (!userWithRoles) {
+        throw new NotFoundException('User was created but could not be retrieved');
+      }
+
+      return userWithRoles;
+
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findAll(paginationDto: PaginationDto, enterpriseId?: string) {
@@ -87,9 +143,15 @@ export class UsersService {
     };
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(id: string, validateActive = true): Promise<User> {
+    const where: any = { id };
+
+    if (validateActive) {
+      where.isActive = true;
+    }
+
     const user = await this.userRepository.findOne({
-      where: { id }
+      where
     });
 
     if (!user) {
@@ -159,5 +221,105 @@ export class UsersService {
 
     const hashedNewPassword = await this.cryptoService.hashPassword(newPassword);
     await this.userRepository.update(userId, { password: hashedNewPassword });
+  }
+
+  // Role management methods
+  private async validateRolesBelongToEnterprise(roleIds: string[], enterpriseId?: string): Promise<void> {
+    if (!enterpriseId) {
+      throw new BadRequestException('Cannot assign roles without an enterprise context');
+    }
+
+    const roles = await this.roleRepository.find({
+      where: roleIds.map(roleId => ({ id: roleId })),
+    });
+
+    if (roles.length !== roleIds.length) {
+      throw new NotFoundException('One or more roles not found');
+    }
+
+    // Validate all roles belong to the same enterprise
+    const invalidRoles = roles.filter(role => role.enterpriseId !== enterpriseId);
+    if (invalidRoles.length > 0) {
+      throw new ForbiddenException('Cannot assign roles from other enterprises');
+    }
+  }
+
+  async assignRolesToUser(userId: string, roleIds: string[], enterpriseId: string): Promise<void> {
+    const user = await this.findOne(userId);
+
+    if (user.enterpriseId !== enterpriseId) {
+      throw new ForbiddenException('Cannot assign roles to users from other enterprises');
+    }
+
+    // Validate roles belong to the enterprise
+    await this.validateRolesBelongToEnterprise(roleIds, enterpriseId);
+
+    // Use transaction to ensure atomicity
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Check which roles are already assigned
+      const existingUserRoles = await queryRunner.manager.find(UserRole, {
+        where: { userId, enterpriseId },
+      });
+      const existingRoleIds = existingUserRoles.map(ur => ur.roleId);
+
+      // Filter out roles that are already assigned
+      const newRoleIds = roleIds.filter(roleId => !existingRoleIds.includes(roleId));
+
+      // Bulk insert new roles
+      if (newRoleIds.length > 0) {
+        const userRoles = newRoleIds.map(roleId =>
+          queryRunner.manager.create(UserRole, {
+            userId,
+            roleId,
+            enterpriseId,
+          })
+        );
+        await queryRunner.manager.save(UserRole, userRoles);
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async removeRoleFromUser(userId: string, roleId: string, enterpriseId: string): Promise<void> {
+    const user = await this.findOne(userId);
+
+    if (user.enterpriseId !== enterpriseId) {
+      throw new ForbiddenException('Cannot remove roles from users of other enterprises');
+    }
+
+    const userRole = await this.userRoleRepository.findOne({
+      where: { userId, roleId, enterpriseId },
+    });
+
+    if (!userRole) {
+      throw new NotFoundException('User does not have this role assigned');
+    }
+
+    await this.userRoleRepository.remove(userRole);
+  }
+
+  async getUserRoles(userId: string, enterpriseId?: string): Promise<UserRole[]> {
+    const user = await this.findOne(userId);
+
+    if (enterpriseId && user.enterpriseId !== enterpriseId) {
+      throw new ForbiddenException('Cannot access roles of users from other enterprises');
+    }
+
+    return await this.userRoleRepository.find({
+      where: { userId },
+      relations: ['role'],
+    });
   }
 }
