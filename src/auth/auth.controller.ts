@@ -19,13 +19,13 @@ import {
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
 
 @AuthApiTags()
-@Throttle({ default: { limit: 5, ttl: 60000 } })
+@Throttle({ default: { limit: 200, ttl: 60000 } })
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @RegisterEnterpriseDoc()
-  @Throttle({ default: { limit: 2, ttl: 60000 } })
+  @Throttle({ default: { limit: 200, ttl: 60000 } })
   @Post('register-enterprise')
   async registerEnterprise(
     @Body() registerDto: RegisterEnterpriseDto,

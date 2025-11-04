@@ -143,28 +143,28 @@ export class AuthService {
         await queryRunner.startTransaction();
 
         try {
-            // 1. Create enterprise (without address for now)
-            const enterprise = this.enterpriseRepository.create({
+            // 1. Create enterprise
+            const enterprise = queryRunner.manager.create(Enterprise, {
                 name: registerDto.enterpriseName,
                 subdomain: registerDto.subdomain,
                 email: registerDto.enterpriseEmail,
                 phone: registerDto.enterprisePhone,
-                // addressId is optional, will be handled separately
+                addressId: registerDto.enterpriseAddressId,
                 taxIdType: registerDto.enterpriseTaxIdType,
                 taxIdNumber: registerDto.enterpriseTaxIdNumber,
                 isActive: true,
             });
-            const savedEnterprise = await queryRunner.manager.save(enterprise);
+            const savedEnterprise = await queryRunner.manager.save(Enterprise, enterprise);
 
-            // 2. Create admin user (without address for now)
+            // 2. Create admin user
             const hashedPassword = this.cryptoService.hashPasswordSync(registerDto.adminPassword);
-            const adminUser = this.userRepositoy.create({
+            const adminUser = queryRunner.manager.create(User, {
                 name: registerDto.adminName,
                 lastName: registerDto.adminLastName,
                 email: registerDto.adminEmail,
                 phoneNumber: registerDto.adminPhoneNumber,
                 password: hashedPassword,
-                // addressId is optional, will be handled separately
+                addressId: registerDto.adminAddressId,
                 identificationType: registerDto.adminIdentificationType,
                 identificationNumber: registerDto.adminIdentificationNumber,
                 enterpriseId: savedEnterprise.id,
@@ -173,21 +173,28 @@ export class AuthService {
                 isEmailVerified: false,
                 isLegalRepresentative: true, // El que registra la empresa es el representante legal
             });
-            const savedUser = await queryRunner.manager.save(adminUser);
+            const savedUser = await queryRunner.manager.save(User, adminUser);
 
+            // Prepare response BEFORE committing
+            const { password, ...userWithoutPassword } = savedUser;
+            const token = this.generateTokenJwt({ id: savedUser.id });
+
+            // Only commit if everything succeeded
             await queryRunner.commitTransaction();
 
-            // Return sanitized response
-            const { password, ...userWithoutPassword } = savedUser;
+            // Return response after successful commit
             return {
                 enterprise: savedEnterprise,
                 admin: userWithoutPassword,
-                token: this.generateTokenJwt({ id: savedUser.id }),
+                token,
                 message: 'Empresa registrada exitosamente. Por favor verifica tu email.',
             };
         } catch (error) {
-            await queryRunner.rollbackTransaction();
-            this.handdleErrorsDb(error);
+            // Only rollback if transaction is active
+            if (queryRunner.isTransactionActive) {
+                await queryRunner.rollbackTransaction();
+            }
+            throw error;
         } finally {
             await queryRunner.release();
         }

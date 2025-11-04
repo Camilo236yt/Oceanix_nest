@@ -8,21 +8,23 @@ export const EnterpriseApiTags = () => ApiTags('Enterprise');
 export const RegisterEnterpriseDoc = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Register new enterprise with admin',
-      description: 'Creates a new enterprise (company) and its administrator user in a single transaction. This is the entry point for new companies to join the platform.',
+      summary: 'Registrar nueva empresa con administrador',
+      description: 'Crea una nueva empresa y su usuario administrador en una sola transacción. Este es el punto de entrada para que nuevas empresas se unan a la plataforma. Opcionalmente puede asociar direcciones existentes del módulo de Location.',
     }),
     ApiBody({
       type: RegisterEnterpriseDto,
       examples: {
-        example1: {
-          summary: 'Complete enterprise registration',
+        registroBasico: {
+          summary: 'Registro básico (sin dirección)',
+          description: 'Registro inicial sin dirección. La dirección se puede agregar después mediante PATCH /enterprise/:id',
           value: {
             // Enterprise data
             enterpriseName: 'Acme Corporation',
             subdomain: 'acme-corp',
             enterpriseEmail: 'contact@acme.com',
             enterprisePhone: '+573001234567',
-            enterpriseAddress: 'Calle 100 #15-20, Bogotá',
+            enterpriseTaxIdType: 'NIT',
+            enterpriseTaxIdNumber: '900123456-7',
             // Admin user data
             adminName: 'John',
             adminLastName: 'Doe',
@@ -30,9 +32,34 @@ export const RegisterEnterpriseDoc = () =>
             adminPhoneNumber: '+573009876543',
             adminPassword: 'SecurePass123!',
             adminConfirmPassword: 'SecurePass123!',
-            adminAddress: 'Carrera 7 #80-45',
             adminIdentificationType: 'CC',
             adminIdentificationNumber: '1234567890',
+            acceptTerms: true,
+          },
+        },
+        registroConDireccion: {
+          summary: 'Registro completo (con dirección)',
+          description: 'Si ya tienes direcciones creadas, puedes asociarlas al momento del registro',
+          value: {
+            // Enterprise data
+            enterpriseName: 'Acme Corporation',
+            subdomain: 'acme-corp',
+            enterpriseEmail: 'contact@acme.com',
+            enterprisePhone: '+573001234567',
+            enterpriseAddressId: '550e8400-e29b-41d4-a716-446655440003',
+            enterpriseTaxIdType: 'NIT',
+            enterpriseTaxIdNumber: '900123456-7',
+            // Admin user data
+            adminName: 'John',
+            adminLastName: 'Doe',
+            adminEmail: 'john.doe@acme.com',
+            adminPhoneNumber: '+573009876543',
+            adminPassword: 'SecurePass123!',
+            adminConfirmPassword: 'SecurePass123!',
+            adminAddressId: '550e8400-e29b-41d4-a716-446655440004',
+            adminIdentificationType: 'CC',
+            adminIdentificationNumber: '1234567890',
+            acceptTerms: true,
           },
         },
       },
@@ -51,7 +78,9 @@ export const RegisterEnterpriseDoc = () =>
               subdomain: { type: 'string', example: 'acme-corp' },
               email: { type: 'string', example: 'contact@acme.com' },
               phone: { type: 'string', example: '+573001234567' },
-              address: { type: 'string', example: 'Calle 100 #15-20, Bogotá' },
+              addressId: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440003' },
+              taxIdType: { type: 'string', example: 'NIT' },
+              taxIdNumber: { type: 'string', example: '900123456-7' },
               isActive: { type: 'boolean', example: true },
               createdAt: { type: 'string', format: 'date-time' },
               updatedAt: { type: 'string', format: 'date-time' },

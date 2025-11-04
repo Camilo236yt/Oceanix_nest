@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional, IsEnum, IsBoolean } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional, IsEnum, IsBoolean, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PersonalIdentificationType, BusinessIdentificationType } from '../../users/constants';
 
@@ -46,13 +46,13 @@ export class RegisterEnterpriseDto {
   enterprisePhone?: string;
 
   @ApiProperty({
-    example: 'Calle 100 #15-20, Bogotá',
-    description: 'Enterprise address',
+    example: '550e8400-e29b-41d4-a716-446655440003',
+    description: 'Enterprise address ID (UUID from location/addresses)',
     required: false
   })
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  enterpriseAddress?: string;
+  enterpriseAddressId?: string;
 
   @ApiProperty({
     example: BusinessIdentificationType.NIT,
@@ -127,13 +127,13 @@ export class RegisterEnterpriseDto {
   adminConfirmPassword: string;
 
   @ApiProperty({
-    example: 'Carrera 7 #80-45',
-    description: 'Admin user address',
+    example: '550e8400-e29b-41d4-a716-446655440004',
+    description: 'Admin user address ID (UUID from location/addresses)',
     required: false
   })
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  adminAddress?: string;
+  adminAddressId?: string;
 
   @ApiProperty({
     example: PersonalIdentificationType.CC,
