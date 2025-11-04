@@ -1,11 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { EnterpriseService } from './enterprise.service';
 import { CreateEnterpriseDto } from './dto/create-enterprise.dto';
 import { UpdateEnterpriseDto } from './dto/update-enterprise.dto';
+import { JwtAuthGuard, TenantGuard, UserTypeGuard, AllowedUserTypes } from '../auth/guards';
+import { UserType } from '../users/entities/user.entity';
 
 @ApiTags('Enterprise')
 @Controller('enterprise')
+@UseGuards(JwtAuthGuard, TenantGuard, UserTypeGuard)
+@AllowedUserTypes(UserType.SUPER_ADMIN)
+@ApiBearerAuth()
 export class EnterpriseController {
   constructor(private readonly enterpriseService: EnterpriseService) {}
 

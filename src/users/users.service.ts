@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, DataSource } from 'typeorm';
+import { Repository, IsNull, DataSource, FindOptionsWhere } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.entity';
 import { Role } from '../roles/entities/role.entity';
@@ -107,7 +107,7 @@ export class UsersService {
       });
 
       if (!userWithRoles) {
-        throw new NotFoundException('User was created but could not be retrieved');
+        throw new NotFoundException(USER_MESSAGES.USER_CREATED_BUT_NOT_RETRIEVED);
       }
 
       return userWithRoles;
@@ -143,11 +143,16 @@ export class UsersService {
     };
   }
 
-  async findOne(id: string, validateActive = true): Promise<User> {
-    const where: any = { id };
+  async findOne(id: string, validateActive = true, enterpriseId?: string): Promise<User> {
+    const where: FindOptionsWhere<User> = { id };
 
     if (validateActive) {
       where.isActive = true;
+    }
+
+    // Add enterprise isolation (SUPER_ADMIN bypass by not passing enterpriseId)
+    if (enterpriseId) {
+      where.enterpriseId = enterpriseId;
     }
 
     const user = await this.userRepository.findOne({
@@ -161,20 +166,14 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(id: string, updateUserDto: UpdateUserDto, enterpriseId?: string): Promise<User> {
     const { password, confirmPassword, ...restOfFields } = updateUserDto;
 
-    const existingUser = await this.userRepository.findOne({
-      where: { id }
-    });
-    if (!existingUser) {
-      throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
-    }
+    // Use findOne with enterprise isolation
+    const existingUser = await this.findOne(id, true, enterpriseId);
 
     if ((password && !confirmPassword) || (!password && confirmPassword)) {
-      throw new BadRequestException(
-        'Debe enviar ambas contraseñas para actualizar la contraseña',
-      );
+      throw new BadRequestException(USER_MESSAGES.PASSWORD_BOTH_REQUIRED);
     }
 
     if (password && confirmPassword && password !== confirmPassword) {
@@ -189,15 +188,14 @@ export class UsersService {
 
     await this.userRepository.update(id, updateData);
 
-    const updatedUser = await this.userRepository.findOne({
-      where: { id }
-    });
+    const updatedUser = await this.findOne(id, true, enterpriseId);
 
-    return updatedUser || existingUser;
+    return updatedUser;
   }
 
-  async remove(id: string) {
-    const user = await this.findOne(id);
+  async remove(id: string, enterpriseId?: string): Promise<{ message: string }> {
+    // Use findOne with enterprise isolation
+    const user = await this.findOne(id, true, enterpriseId);
 
     user.isActive = false;
     await this.userRepository.save(user);
@@ -224,31 +222,53 @@ export class UsersService {
   }
 
   // Role management methods
+  /**
+   * Validates that all provided roles belong to the specified enterprise and are active.
+   * @param roleIds - Array of role UUIDs to validate
+   * @param enterpriseId - The enterprise ID to check ownership against
+   * @throws {BadRequestException} If no enterpriseId is provided
+   * @throws {NotFoundException} If any role is not found or inactive
+   * @throws {ForbiddenException} If any role doesn't belong to the enterprise
+   */
   private async validateRolesBelongToEnterprise(roleIds: string[], enterpriseId?: string): Promise<void> {
     if (!enterpriseId) {
-      throw new BadRequestException('Cannot assign roles without an enterprise context');
+      throw new BadRequestException(USER_MESSAGES.CANNOT_ASSIGN_ROLES_WITHOUT_ENTERPRISE);
     }
 
     const roles = await this.roleRepository.find({
-      where: roleIds.map(roleId => ({ id: roleId })),
+      where: roleIds.map(roleId => ({ id: roleId, isActive: true })),
     });
 
     if (roles.length !== roleIds.length) {
-      throw new NotFoundException('One or more roles not found');
+      throw new NotFoundException(USER_MESSAGES.ROLES_NOT_FOUND_OR_INACTIVE);
     }
 
-    // Validate all roles belong to the same enterprise
-    const invalidRoles = roles.filter(role => role.enterpriseId !== enterpriseId);
+    // Validate all roles belong to the same enterprise and are active
+    const invalidRoles = roles.filter(role =>
+      role.enterpriseId !== enterpriseId || !role.isActive
+    );
+
     if (invalidRoles.length > 0) {
-      throw new ForbiddenException('Cannot assign roles from other enterprises');
+      throw new ForbiddenException(USER_MESSAGES.CANNOT_ASSIGN_ROLES_FROM_OTHER_ENTERPRISES);
     }
   }
 
+  /**
+   * Assigns multiple roles to a user within the same enterprise context.
+   * Only assigns roles that aren't already assigned to avoid duplicates.
+   * Uses a transaction to ensure atomicity.
+   * @param userId - UUID of the user to assign roles to
+   * @param roleIds - Array of role UUIDs to assign
+   * @param enterpriseId - The enterprise ID for tenant isolation
+   * @throws {NotFoundException} If user is not found
+   * @throws {ForbiddenException} If user doesn't belong to the enterprise
+   * @throws {BadRequestException} If roles don't belong to the enterprise
+   */
   async assignRolesToUser(userId: string, roleIds: string[], enterpriseId: string): Promise<void> {
     const user = await this.findOne(userId);
 
     if (user.enterpriseId !== enterpriseId) {
-      throw new ForbiddenException('Cannot assign roles to users from other enterprises');
+      throw new ForbiddenException(USER_MESSAGES.CANNOT_ASSIGN_ROLES_TO_OTHER_ENTERPRISE_USERS);
     }
 
     // Validate roles belong to the enterprise
@@ -292,11 +312,19 @@ export class UsersService {
     }
   }
 
+  /**
+   * Removes a specific role from a user within the same enterprise context.
+   * @param userId - UUID of the user to remove the role from
+   * @param roleId - UUID of the role to remove
+   * @param enterpriseId - The enterprise ID for tenant isolation
+   * @throws {NotFoundException} If user or user-role assignment is not found
+   * @throws {ForbiddenException} If user doesn't belong to the enterprise
+   */
   async removeRoleFromUser(userId: string, roleId: string, enterpriseId: string): Promise<void> {
     const user = await this.findOne(userId);
 
     if (user.enterpriseId !== enterpriseId) {
-      throw new ForbiddenException('Cannot remove roles from users of other enterprises');
+      throw new ForbiddenException(USER_MESSAGES.CANNOT_REMOVE_ROLES_FROM_OTHER_ENTERPRISE_USERS);
     }
 
     const userRole = await this.userRoleRepository.findOne({
@@ -304,17 +332,25 @@ export class UsersService {
     });
 
     if (!userRole) {
-      throw new NotFoundException('User does not have this role assigned');
+      throw new NotFoundException(USER_MESSAGES.USER_DOES_NOT_HAVE_ROLE);
     }
 
     await this.userRoleRepository.remove(userRole);
   }
 
+  /**
+   * Retrieves all roles assigned to a user with enterprise isolation.
+   * @param userId - UUID of the user to get roles for
+   * @param enterpriseId - Optional enterprise ID for tenant isolation
+   * @returns Array of UserRole entities with role relations loaded
+   * @throws {NotFoundException} If user is not found
+   * @throws {ForbiddenException} If trying to access roles from a different enterprise
+   */
   async getUserRoles(userId: string, enterpriseId?: string): Promise<UserRole[]> {
     const user = await this.findOne(userId);
 
     if (enterpriseId && user.enterpriseId !== enterpriseId) {
-      throw new ForbiddenException('Cannot access roles of users from other enterprises');
+      throw new ForbiddenException(USER_MESSAGES.CANNOT_ACCESS_ROLES_FROM_OTHER_ENTERPRISES);
     }
 
     return await this.userRoleRepository.find({

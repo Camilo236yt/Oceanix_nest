@@ -17,11 +17,11 @@ import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth } from '@nes
 import type { Response } from 'express';
 import { StorageService } from './storage.service';
 import { STORAGE_BUCKETS, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from './config/storage.config';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, TenantGuard } from '../auth/guards';
 
 @ApiTags('Storage')
 @Controller('storage')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}

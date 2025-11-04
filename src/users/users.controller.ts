@@ -35,7 +35,7 @@ export class UsersController {
           createUserDto.userType !== UserType.EMPLOYEE &&
           createUserDto.userType !== UserType.CLIENT) {
         throw new BadRequestException(
-          'Enterprise admins can only create EMPLOYEE or CLIENT users'
+          USER_MESSAGES.ENTERPRISE_ADMIN_USER_TYPE_RESTRICTION
         );
       }
 
@@ -53,8 +53,12 @@ export class UsersController {
   @Get()
   @Auth(ValidPermission.manageUsers)
   @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USERS_LIST_TTL })
-  async findAll() {
-    const result = await this.usersService.findAll({ page: 1, limit: 100 });
+  async findAll(@GetUser() currentUser: User) {
+    // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
+    const result = await this.usersService.findAll(
+      { page: 1, limit: 100 },
+      currentUser.enterpriseId
+    );
 
     return {
       ...result,
@@ -65,8 +69,9 @@ export class UsersController {
   @Get(':id')
   @Auth(ValidPermission.manageUsers)
   @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USER_DETAIL_TTL })
-  async findOne(@Param('id') id: string) {
-    const user = await this.usersService.findOne(id);
+  async findOne(@Param('id') id: string, @GetUser() currentUser: User) {
+    // Pass enterpriseId for tenant isolation
+    const user = await this.usersService.findOne(id, true, currentUser.enterpriseId);
 
     return sanitizeUserForCache(user);
   }
@@ -74,16 +79,22 @@ export class UsersController {
 
   @Patch(':id')
   @Auth(ValidPermission.editUsers)
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    const user = await this.usersService.update(id, updateUserDto);
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @GetUser() currentUser: User
+  ) {
+    // Pass enterpriseId for tenant isolation
+    const user = await this.usersService.update(id, updateUserDto, currentUser.enterpriseId);
 
     return sanitizeUserForCache(user);
   }
 
   @Delete(':id')
   @Auth(ValidPermission.deleteUsers)
-  async remove(@Param('id') id: string) {
-    const result = await this.usersService.remove(id);
+  async remove(@Param('id') id: string, @GetUser() currentUser: User) {
+    // Pass enterpriseId for tenant isolation
+    const result = await this.usersService.remove(id, currentUser.enterpriseId);
 
     return result;
   }
@@ -104,7 +115,7 @@ export class UsersController {
     @GetUser() currentUser: User,
   ) {
     if (!currentUser.enterpriseId) {
-      throw new BadRequestException('Only enterprise users can assign roles');
+      throw new BadRequestException(USER_MESSAGES.ONLY_ENTERPRISE_USERS_CAN_ASSIGN_ROLES);
     }
 
     await this.usersService.assignRolesToUser(
@@ -114,7 +125,7 @@ export class UsersController {
     );
 
     return {
-      message: 'Roles assigned successfully',
+      message: USER_MESSAGES.ROLES_ASSIGNED_SUCCESSFULLY,
     };
   }
 
@@ -126,7 +137,7 @@ export class UsersController {
     @GetUser() currentUser: User,
   ) {
     if (!currentUser.enterpriseId) {
-      throw new BadRequestException('Only enterprise users can remove roles');
+      throw new BadRequestException(USER_MESSAGES.ONLY_ENTERPRISE_USERS_CAN_REMOVE_ROLES);
     }
 
     await this.usersService.removeRoleFromUser(
@@ -136,7 +147,7 @@ export class UsersController {
     );
 
     return {
-      message: 'Role removed successfully',
+      message: USER_MESSAGES.ROLE_REMOVED_SUCCESSFULLY,
     };
   }
 

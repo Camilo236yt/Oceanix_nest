@@ -19,7 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { LocationService } from './location.service';
 import { CreateAddressDto } from './dto/create-address.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, TenantGuard } from '../auth/guards';
 
 @ApiTags('Location')
 @Controller('location')
@@ -203,7 +203,7 @@ export class LocationController {
   // ========== ADDRESSES (Protected endpoints) ==========
 
   @Post('addresses')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create a new address',
@@ -236,7 +236,7 @@ export class LocationController {
   }
 
   @Get('addresses/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get address by ID',
@@ -267,7 +267,7 @@ export class LocationController {
   }
 
   @Put('addresses/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update an address',
@@ -290,7 +290,7 @@ export class LocationController {
   }
 
   @Delete('addresses/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Delete an address (soft delete)',
