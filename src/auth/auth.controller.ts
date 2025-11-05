@@ -1,6 +1,8 @@
-import { Controller, Post, Body, UseFilters, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Post, Body, UseFilters, Res, UseGuards, Req } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {  LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto, LoginResponseDto, RegisterResponseDto } from './dto';
 import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code.dto';
@@ -17,6 +19,8 @@ import {
   LogoutDoc,
 } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
+import { TenantGuard, UserTypeGuard, AllowedUserTypes } from './guards';
+import { UserType } from '../users/entities/user.entity';
 
 @AuthApiTags()
 @Throttle({ default: { limit: 200, ttl: 60000 } })
@@ -39,13 +43,16 @@ export class AuthController {
   }
 
   @RegisterDoc()
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('register')
   async register(
     @Body() registerDto: RegisterDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<RegisterResponseDto, 'token'>> {
-    const result = await this.authService.register(registerDto);
+    // Extraer subdomain del request (agregado por SubdomainMiddleware)
+    const subdomain = req['subdomain'];
+    const result = await this.authService.register(registerDto, subdomain);
     CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;

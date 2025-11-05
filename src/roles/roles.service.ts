@@ -81,11 +81,16 @@ export class RolesService {
     });
   }
 
-  async findOne(id: string, validateActive = true) {
+  async findOne(id: string, enterpriseId?: string, validateActive = true) {
     const where: any = { id };
 
     if (validateActive) {
       where.isActive = true;
+    }
+
+    // Add enterprise isolation (SUPER_ADMIN bypass by not passing enterpriseId)
+    if (enterpriseId !== undefined) {
+      where.enterpriseId = enterpriseId;
     }
 
     const role = await this.rolesRepository.findOne({
@@ -100,9 +105,10 @@ export class RolesService {
     return role;
   }
 
-  async update(id: string, updateRoleDto: UpdateRoleDto) {
+  async update(id: string, updateRoleDto: UpdateRoleDto, enterpriseId?: string) {
     try {
-      const role = await this.findOne(id);
+      // Use findOne with enterprise isolation
+      const role = await this.findOne(id, enterpriseId);
 
       // Update basic fields if provided
       this.rolesRepository.merge(role, updateRoleDto);
@@ -140,8 +146,9 @@ export class RolesService {
     }
   }
 
-  async remove(id: string) {
-    const role = await this.findOne(id);
+  async remove(id: string, enterpriseId?: string) {
+    // Use findOne with enterprise isolation
+    const role = await this.findOne(id, enterpriseId);
     role.isActive = false;
     await this.rolesRepository.save(role);
 

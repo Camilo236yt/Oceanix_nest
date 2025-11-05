@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { IncidenciasModule } from './incidencias/incidencias.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -17,6 +17,8 @@ import { databaseConfig } from './config/database.config';
 import { RedisModule } from './redis/redis.module';
 import { StorageModule } from './storage/storage.module';
 import { LocationModule } from './location/location.module';
+import { HttpExceptionFilter } from './common/filters';
+import { ResponseInterceptor, CacheInterceptor } from './common/interceptors';
 
 @Module({
   imports: [
@@ -50,9 +52,24 @@ import { LocationModule } from './location/location.module';
   ],
   controllers: [],
   providers: [
+    // Guards globales
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Filtros globales
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    // Interceptores globales (orden importante: ResponseInterceptor debe ir primero)
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CacheInterceptor,
     },
   ],
 })

@@ -11,26 +11,34 @@ export const AuthApiTags = () => ApiTags('Authentication');
 export const RegisterDoc = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Register a new user',
-      description: 'Creates a new user account and returns user data with authentication cookie. The token is set as an httpOnly cookie named "authToken".'
+      summary: 'Register a new CLIENT user',
+      description: `Creates a new CLIENT user account for an existing enterprise and returns user data with authentication cookie.
+
+      **IMPORTANT - Multi-tenant subdomain:**
+      - The subdomain is automatically extracted from the Host header (e.g., acme.forif.co → "acme")
+      - The user will be associated with the enterprise that has this subdomain
+      - Example: If you access from acme.forif.co, the user will be registered under the "acme" enterprise
+      - For local development, use acme.localhost:3000 or configure /etc/hosts
+
+      The token is set as an httpOnly cookie named "authToken".`
     }),
     ApiBody({
       type: RegisterDto,
       examples: {
         example1: {
           summary: 'Complete registration',
-          description: 'All fields filled',
+          description: 'All fields filled. The subdomain is extracted from the URL (e.g., acme.forif.co)',
           value: AuthExamples.Register,
         },
       },
     }),
     ApiResponse({
       status: 201,
-      description: 'User successfully registered',
+      description: 'CLIENT user successfully registered and associated with enterprise',
       ...SuccessUserResponse,
     }),
-    ApiResponse(ErrorResponses.BadRequest('Validation error or email already exists')),
-    ApiResponse(ErrorResponses.TooManyRequests('Maximum 3 registration attempts per minute')),
+    ApiResponse(ErrorResponses.BadRequest('Validation error, email already exists, subdomain not found, or enterprise inactive')),
+    ApiResponse(ErrorResponses.TooManyRequests('Maximum 10 registration attempts per minute')),
   );
 
 export const LoginDoc = () =>

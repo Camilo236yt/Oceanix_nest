@@ -38,22 +38,50 @@ export class AuthService {
         private readonly locationService: LocationService
     ){}
     
-    async register( registerDto:RegisterDto ): Promise<RegisterResponseDto> {
-        const {email, password, address, ...registerDetail} = registerDto;
+    async register( registerDto:RegisterDto, subdomain: string ): Promise<RegisterResponseDto> {
+        const {email, password, confirmPassword, address, ...registerDetail} = registerDto;
 
         try {
-            const existingUser = await this.userRepositoy.findOne({ where: { email } });
-            if (existingUser) throw new EmailAlreadyExistsException(email);
+            // Validate password confirmation
+            if (password !== confirmPassword) {
+                throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
+            }
 
-            // Remove address from the DTO since it's now a relationship
-            const { address: _, ...userDataWithoutAddress } = registerDto;
+            // Validate subdomain is provided
+            if (!subdomain) {
+                throw new BadRequestException('Subdomain is required');
+            }
+
+            // Find the enterprise by subdomain
+            const enterprise = await this.enterpriseRepository.findOne({
+                where: { subdomain, isActive: true },
+            });
+
+            if (!enterprise) {
+                throw new BadRequestException('Enterprise not found or inactive');
+            }
+
+            // Check if user email already exists in this enterprise
+            const existingUser = await this.userRepositoy.findOne({
+                where: { email, enterpriseId: enterprise.id }
+            });
+
+            if (existingUser) {
+                throw new EmailAlreadyExistsException(email);
+            }
+
+            // Remove address and confirmPassword from the DTO
+            const { address: _, confirmPassword: __, ...userDataWithoutAddress } = registerDto;
 
             const hashedPassword = await this.cryptoService.hashPassword(password);
 
+            // This endpoint creates CLIENT users for enterprises
             const newUser = this.userRepositoy.create({
                 ...userDataWithoutAddress,
                 password: hashedPassword,
-                isEmailVerified: true,
+                userType: UserType.CLIENT,
+                enterpriseId: enterprise.id,
+                isEmailVerified: false, // Clients need to verify email
                 isActive: true
                 // addressId is optional, so we don't need to set it
             });
@@ -64,7 +92,7 @@ export class AuthService {
             return {
                 ...userWithoutPassword,
                 token: this.generateTokenJwt({id: savedUser.id}),
-                message: 'User registered successfully'
+                message: 'Client registered successfully. Please verify your email.'
             };
 
         } catch (error) {

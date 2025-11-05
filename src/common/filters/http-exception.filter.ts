@@ -6,131 +6,127 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ErrorResponse } from '../interfaces';
+import { ERROR_CODES, ERROR_MESSAGES } from '../constants';
 
-interface ErrorResponse {
-  success: false;
-  error: {
-    code: string;
-    message: string;
-    details?: string[];
-    timestamp: string;
-    path: string;
-  };
-  statusCode: number;
-}
-
+/**
+ * Filtro global que captura todas las excepciones HTTP y las formatea
+ * en una estructura de respuesta consistente
+ */
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
     const status = exception.getStatus();
-    const timestamp = new Date().toISOString();
-    const path = request.url;
-
     const exceptionResponse = exception.getResponse();
-    let errorResponse: ErrorResponse;
 
-    // Handle validation errors (class-validator)
-    if (status === HttpStatus.BAD_REQUEST && typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse) {
-      const validationErrors = Array.isArray((exceptionResponse as any).message)
-        ? (exceptionResponse as any).message
-        : [(exceptionResponse as any).message];
+    // Construir respuesta de error
+    const errorResponse = this.isValidationError(status, exceptionResponse)
+      ? this.buildValidationErrorResponse(exceptionResponse, status, request)
+      : this.buildStandardErrorResponse(exception, status, request);
 
-      errorResponse = {
-        success: false,
-        error: {
-          code: this.getErrorCode(exception, 'BAD_REQUEST'),
-          message: 'Los datos proporcionados no cumplen con los requisitos esperados',
-          details: validationErrors,
-          timestamp,
-          path,
-        },
-        statusCode: status,
-      };
-    } else {
-      errorResponse = {
-        success: false,
-        error: {
-          code: this.getErrorCode(exception, this.getDefaultErrorCode(status)),
-          message: this.getErrorMessage(exception, status),
-          timestamp,
-          path,
-        },
-        statusCode: status,
-      };
-    }
-
+    // Enviar respuesta
     response.status(status).json(errorResponse);
   }
 
-  private getErrorCode(exception: HttpException, defaultCode: string): string {
-    const response = exception.getResponse();
-    if (typeof response === 'object' && response !== null && 'error' in response && typeof response.error === 'string') {
-      return response.error;
-    }
-    return defaultCode;
+  /**
+   * Verifica si es un error de validación (class-validator)
+   */
+  private isValidationError(status: number, exceptionResponse: any): boolean {
+    return (
+      status === HttpStatus.BAD_REQUEST &&
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'message' in exceptionResponse
+    );
   }
 
-  private getErrorMessage(exception: HttpException, status: number): string {
-    const response = exception.getResponse();
+  /**
+   * Construye respuesta para errores de validación
+   */
+  private buildValidationErrorResponse(
+    exceptionResponse: any,
+    status: number,
+    request: Request,
+  ): ErrorResponse {
+    const validationErrors = Array.isArray(exceptionResponse.message)
+      ? exceptionResponse.message
+      : [exceptionResponse.message];
 
-    if (typeof response === 'string') {
-      return response;
+    return {
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Los datos proporcionados no cumplen con los requisitos esperados',
+        details: validationErrors,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+      },
+      statusCode: status,
+    };
+  }
+
+  /**
+   * Construye respuesta para errores estándar
+   */
+  private buildStandardErrorResponse(
+    exception: HttpException,
+    status: number,
+    request: Request,
+  ): ErrorResponse {
+    const exceptionResponse = exception.getResponse();
+
+    return {
+      success: false,
+      error: {
+        code: this.extractErrorCode(exceptionResponse, status),
+        message: this.extractErrorMessage(exceptionResponse, status),
+        timestamp: new Date().toISOString(),
+        path: request.url,
+      },
+      statusCode: status,
+    };
+  }
+
+  /**
+   * Extrae el código de error personalizado o usa el predeterminado
+   */
+  private extractErrorCode(exceptionResponse: any, status: number): string {
+    if (
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'error' in exceptionResponse &&
+      typeof exceptionResponse.error === 'string'
+    ) {
+      return exceptionResponse.error;
     }
 
-    if (typeof response === 'object' && response !== null && 'message' in response) {
-      const message = (response as any).message;
+    return ERROR_CODES[status] || 'UNKNOWN_ERROR';
+  }
+
+  /**
+   * Extrae el mensaje de error personalizado o usa el predeterminado
+   */
+  private extractErrorMessage(exceptionResponse: any, status: number): string {
+    // Si es un string simple
+    if (typeof exceptionResponse === 'string') {
+      return exceptionResponse;
+    }
+
+    // Si tiene un campo message
+    if (
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'message' in exceptionResponse
+    ) {
+      const message = exceptionResponse.message;
       return Array.isArray(message) ? message[0] : message;
     }
 
-    return this.getDefaultErrorMessage(status);
-  }
-
-  private getDefaultErrorCode(status: number): string {
-    switch (status) {
-      case HttpStatus.BAD_REQUEST:
-        return 'BAD_REQUEST';
-      case HttpStatus.UNAUTHORIZED:
-        return 'UNAUTHORIZED';
-      case HttpStatus.FORBIDDEN:
-        return 'FORBIDDEN';
-      case HttpStatus.NOT_FOUND:
-        return 'RESOURCE_NOT_FOUND';
-      case HttpStatus.CONFLICT:
-        return 'CONFLICT';
-      case HttpStatus.UNPROCESSABLE_ENTITY:
-        return 'UNPROCESSABLE_ENTITY';
-      case HttpStatus.TOO_MANY_REQUESTS:
-        return 'TOO_MANY_REQUESTS';
-      case HttpStatus.INTERNAL_SERVER_ERROR:
-        return 'INTERNAL_SERVER_ERROR';
-      default:
-        return 'UNKNOWN_ERROR';
-    }
-  }
-
-  private getDefaultErrorMessage(status: number): string {
-    switch (status) {
-      case HttpStatus.BAD_REQUEST:
-        return 'La solicitud no es válida o contiene parámetros incorrectos';
-      case HttpStatus.UNAUTHORIZED:
-        return 'Acceso no autorizado. Se requiere autenticación';
-      case HttpStatus.FORBIDDEN:
-        return 'Acceso prohibido. No tienes permisos suficientes';
-      case HttpStatus.NOT_FOUND:
-        return 'El recurso solicitado no fue encontrado';
-      case HttpStatus.CONFLICT:
-        return 'Conflicto con el estado actual del recurso';
-      case HttpStatus.UNPROCESSABLE_ENTITY:
-        return 'Los datos proporcionados no pueden ser procesados';
-      case HttpStatus.TOO_MANY_REQUESTS:
-        return 'Demasiadas solicitudes. Intenta de nuevo más tarde';
-      case HttpStatus.INTERNAL_SERVER_ERROR:
-        return 'Ha ocurrido un error interno. Nuestro equipo ha sido notificado';
-      default:
-        return 'Ha ocurrido un error inesperado';
-    }
+    // Mensaje por defecto
+    return ERROR_MESSAGES[status] || 'Ha ocurrido un error inesperado';
   }
 }

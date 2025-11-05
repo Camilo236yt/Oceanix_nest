@@ -1,11 +1,8 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters';
-import { CacheInterceptor, ResponseInterceptor } from './common/interceptors';
-import { RedisService } from './redis/redis.service';
+import { SubdomainMiddleware } from './common/middleware';
+import { setupSwagger, swaggerBasicAuth } from './config';
 import cookieParser from 'cookie-parser';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-const expressBasicAuth = require('express-basic-auth');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,43 +10,17 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // Swagger configuration
-  const config = new DocumentBuilder()
-    .setTitle('Oceanix API')
-    .setDescription('Multi-tenant SaaS helpdesk system API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addCookieAuth('authToken')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-
   // Proteger Swagger con autenticación básica
-  app.use(
-    '/api/v1/docs',
-    expressBasicAuth({
-      challenge: true,
-      users: {
-        [process.env.SWAGGER_USER || 'admin']: process.env.SWAGGER_PASSWORD || 'admin123',
-      },
-    }),
-  );
+  app.use('/api/v1/docs', swaggerBasicAuth());
 
-  SwaggerModule.setup('api/v1/docs', app, document);
+  // Configurar Swagger
+  setupSwagger(app);
 
-  // Registrar filtro global de excepciones
-  app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Registrar interceptores globales (orden importante)
-  const reflector = app.get(Reflector);
-  const redisService = app.get(RedisService);
-
-  // ResponseInterceptor primero (envuelve respuestas exitosas)
-  app.useGlobalInterceptors(new ResponseInterceptor());
-
-  // CacheInterceptor después (cachea respuestas envueltas)
-  app.useGlobalInterceptors(new CacheInterceptor(redisService, reflector));
-
+  // Middleware global
   app.use(cookieParser());
+
+  // Registrar middleware de subdomain para multi-tenancy
+  app.use(new SubdomainMiddleware().use);
 
   await app.listen(process.env.PORT ?? 3000);
 }
