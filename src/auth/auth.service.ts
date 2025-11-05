@@ -1,27 +1,14 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
-import {
-  RegisterDto,
-  RegisterEnterpriseDto,
-  LoginDto,
-  GoogleLoginDto,
-  LoginResponseDto,
-  RegisterResponseDto
-} from './dto';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User, UserType } from 'src/users/entities/user.entity';
-import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { CryptoService } from './services/crypto.service';
-import {
-  InvalidCredentialsException,
-  EmailAlreadyExistsException,
-  AuthDatabaseException
-} from './exceptions/index';
-import { USER_MESSAGES } from '../users/constants';
-import { ENTERPRISE_MESSAGES } from '../enterprise/constants';
-import { LocationService } from 'src/location/location.service';
+
+import { User, UserType } from 'src/users/entities/user.entity';
+import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
+import { RegisterDto, RegisterEnterpriseDto, LoginDto, GoogleLoginDto } from './dto';
+import { JwtPayload, AuthResponseDto } from './interfaces';
+import { CryptoService, AuthValidationService } from './services';
+import { InvalidCredentialsException, EmailAlreadyExistsException, AuthDatabaseException } from './exceptions';
 
 
 @Injectable()
@@ -29,69 +16,43 @@ export class AuthService {
 
     constructor(
         @InjectRepository(User)
-        private readonly userRepositoy:Repository<User>,
-        @InjectRepository(Enterprise)
-        private readonly enterpriseRepository: Repository<Enterprise>,
+        private readonly userRepositoy: Repository<User>,
         private readonly dataSource: DataSource,
         private readonly jwtService: JwtService,
         private readonly cryptoService: CryptoService,
-        private readonly locationService: LocationService
-    ){}
-    
-    async register( registerDto:RegisterDto, subdomain: string ): Promise<RegisterResponseDto> {
-        const {email, password, confirmPassword, address, ...registerDetail} = registerDto;
+        private readonly authValidationService: AuthValidationService,
+    ) { }
+
+    async register(registerDto: RegisterDto, subdomain: string): Promise<AuthResponseDto> {
+        const { email, password, confirmPassword } = registerDto;
 
         try {
-            // Validate password confirmation
-            if (password !== confirmPassword) {
-                throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
-            }
+            // Validaciones
+            this.authValidationService.validatePasswordConfirmation(password, confirmPassword);
+            this.authValidationService.validateSubdomain(subdomain);
+            const enterprise = await this.authValidationService.validateAndGetEnterprise(subdomain);
+            await this.authValidationService.validateUserDoesNotExist(email, enterprise.id);
 
-            // Validate subdomain is provided
-            if (!subdomain) {
-                throw new BadRequestException('Subdomain is required');
-            }
-
-            // Find the enterprise by subdomain
-            const enterprise = await this.enterpriseRepository.findOne({
-                where: { subdomain, isActive: true },
-            });
-
-            if (!enterprise) {
-                throw new BadRequestException('Enterprise not found or inactive');
-            }
-
-            // Check if user email already exists in this enterprise
-            const existingUser = await this.userRepositoy.findOne({
-                where: { email, enterpriseId: enterprise.id }
-            });
-
-            if (existingUser) {
-                throw new EmailAlreadyExistsException(email);
-            }
-
-            // Remove address and confirmPassword from the DTO
+            // Remover campos no necesarios del DTO
             const { address: _, confirmPassword: __, ...userDataWithoutAddress } = registerDto;
 
+            // Crear usuario CLIENT
             const hashedPassword = await this.cryptoService.hashPassword(password);
-
-            // This endpoint creates CLIENT users for enterprises
             const newUser = this.userRepositoy.create({
                 ...userDataWithoutAddress,
                 password: hashedPassword,
                 userType: UserType.CLIENT,
                 enterpriseId: enterprise.id,
-                isEmailVerified: false, // Clients need to verify email
+                isEmailVerified: false,
                 isActive: true
-                // addressId is optional, so we don't need to set it
             });
             const savedUser = await this.userRepositoy.save(newUser);
 
+            // Preparar respuesta
             const { password: _pass, ...userWithoutPassword } = savedUser;
-
             return {
                 ...userWithoutPassword,
-                token: this.generateTokenJwt({id: savedUser.id}),
+                token: this.generateTokenJwt({ id: savedUser.id }),
                 message: 'Client registered successfully. Please verify your email.'
             };
 
@@ -110,16 +71,16 @@ export class AuthService {
         throw new InternalServerErrorException('Resend verification email not implemented yet');
     }
 
-    
-    async login( loginDto: LoginDto ): Promise<LoginResponseDto> {
-        const {email, password} = loginDto;
+
+    async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+        const { email, password } = loginDto;
 
         const user = await this.userRepositoy.findOne({
-            where: {email},
-            select: {id: true, password: true, email: true, name: true, lastName: true}
+            where: { email },
+            select: { id: true, password: true, email: true, name: true, lastName: true }
         });
 
-        if(!user)
+        if (!user)
             throw new InvalidCredentialsException();
 
         this.cryptoService.validatePasswordSync(password, user.password);
@@ -128,91 +89,56 @@ export class AuthService {
 
         return {
             ...userWithoutPassword,
-            token: this.generateTokenJwt({id: user.id})
+            token: this.generateTokenJwt({ id: user.id })
         };
     }
 
-    async googleLogin(googleLoginDto: GoogleLoginDto): Promise<LoginResponseDto> {
+    async googleLogin(googleLoginDto: GoogleLoginDto): Promise<AuthResponseDto> {
         // TODO: Implementar login con Google
         throw new InternalServerErrorException('Google login not implemented yet');
     }
 
     async registerEnterprise(registerDto: RegisterEnterpriseDto) {
-        // Validate passwords match
-        if (registerDto.adminPassword !== registerDto.adminConfirmPassword) {
-            throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
-        }
+        // Validaciones antes de iniciar transacción
+        this.authValidationService.validatePasswordConfirmation(registerDto.adminPassword, registerDto.adminConfirmPassword);
+        await this.authValidationService.validateEnterpriseUniqueness(registerDto.subdomain, registerDto.enterpriseName);
+        await this.authValidationService.validateEmailDoesNotExist(registerDto.adminEmail);
 
-        // Check if subdomain already exists
-        const existingBySubdomain = await this.enterpriseRepository.findOne({
-            where: { subdomain: registerDto.subdomain },
-        });
-        if (existingBySubdomain) {
-            throw new BadRequestException(ENTERPRISE_MESSAGES.SUBDOMAIN_ALREADY_EXISTS);
-        }
-
-        // Check if enterprise name already exists
-        const existingByName = await this.enterpriseRepository.findOne({
-            where: { name: registerDto.enterpriseName },
-        });
-        if (existingByName) {
-            throw new BadRequestException(ENTERPRISE_MESSAGES.NAME_ALREADY_EXISTS);
-        }
-
-        // Check if admin email already exists
-        const existingUser = await this.userRepositoy.findOne({
-            where: { email: registerDto.adminEmail },
-        });
-        if (existingUser) {
-            throw new EmailAlreadyExistsException(registerDto.adminEmail);
-        }
-
-        // Use transaction to ensure atomicity
+        // Transacción para crear empresa y admin
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         try {
-            // 1. Create enterprise
+            // 1. Crear empresa
+            const enterpriseData = this.mapEnterpriseData(registerDto);
             const enterprise = queryRunner.manager.create(Enterprise, {
-                name: registerDto.enterpriseName,
-                subdomain: registerDto.subdomain,
-                email: registerDto.enterpriseEmail,
-                phone: registerDto.enterprisePhone,
-                addressId: registerDto.enterpriseAddressId,
-                taxIdType: registerDto.enterpriseTaxIdType,
-                taxIdNumber: registerDto.enterpriseTaxIdNumber,
+                ...enterpriseData,
                 isActive: true,
             });
             const savedEnterprise = await queryRunner.manager.save(Enterprise, enterprise);
 
-            // 2. Create admin user
+            // 2. Crear usuario admin
             const hashedPassword = await this.cryptoService.hashPassword(registerDto.adminPassword);
+            const adminData = this.mapAdminData(registerDto);
             const adminUser = queryRunner.manager.create(User, {
-                name: registerDto.adminName,
-                lastName: registerDto.adminLastName,
-                email: registerDto.adminEmail,
-                phoneNumber: registerDto.adminPhoneNumber,
+                ...adminData,
                 password: hashedPassword,
-                addressId: registerDto.adminAddressId,
-                identificationType: registerDto.adminIdentificationType,
-                identificationNumber: registerDto.adminIdentificationNumber,
                 enterpriseId: savedEnterprise.id,
                 userType: UserType.ENTERPRISE_ADMIN,
                 isActive: true,
                 isEmailVerified: false,
-                isLegalRepresentative: true, // El que registra la empresa es el representante legal
+                isLegalRepresentative: true,
             });
             const savedUser = await queryRunner.manager.save(User, adminUser);
 
-            // Prepare response BEFORE committing
+            // Commit solo si todo fue exitoso
+            await queryRunner.commitTransaction();
+
+            // Preparar respuesta DESPUÉS del commit exitoso
             const { password, ...userWithoutPassword } = savedUser;
             const token = this.generateTokenJwt({ id: savedUser.id });
 
-            // Only commit if everything succeeded
-            await queryRunner.commitTransaction();
-
-            // Return response after successful commit
             return {
                 enterprise: savedEnterprise,
                 admin: userWithoutPassword,
@@ -220,7 +146,6 @@ export class AuthService {
                 message: 'Empresa registrada exitosamente. Por favor verifica tu email.',
             };
         } catch (error) {
-            // Only rollback if transaction is active
             if (queryRunner.isTransactionActive) {
                 await queryRunner.rollbackTransaction();
             }
@@ -232,8 +157,38 @@ export class AuthService {
 
 
 
-    private generateTokenJwt(payload:JwtPayload){
+    private generateTokenJwt(payload: JwtPayload) {
         return this.jwtService.sign(payload);
+    }
+
+    /**
+     * Mapea los datos de empresa del DTO eliminando el prefijo "enterprise"
+     */
+    private mapEnterpriseData(registerDto: RegisterEnterpriseDto) {
+        return {
+            name: registerDto.enterpriseName,
+            subdomain: registerDto.subdomain,
+            email: registerDto.enterpriseEmail,
+            phone: registerDto.enterprisePhone,
+            addressId: registerDto.enterpriseAddressId,
+            taxIdType: registerDto.enterpriseTaxIdType,
+            taxIdNumber: registerDto.enterpriseTaxIdNumber,
+        };
+    }
+
+    /**
+     * Mapea los datos del usuario admin del DTO eliminando el prefijo "admin"
+     */
+    private mapAdminData(registerDto: RegisterEnterpriseDto) {
+        return {
+            name: registerDto.adminName,
+            lastName: registerDto.adminLastName,
+            email: registerDto.adminEmail,
+            phoneNumber: registerDto.adminPhoneNumber,
+            addressId: registerDto.adminAddressId,
+            identificationType: registerDto.adminIdentificationType,
+            identificationNumber: registerDto.adminIdentificationNumber,
+        };
     }
 
     private handdleErrorsDb(error: any): never {

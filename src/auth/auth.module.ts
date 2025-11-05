@@ -8,12 +8,12 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
-import { CryptoService } from './services/crypto.service';
+import { CryptoService, AuthValidationService } from './services';
 import { LocationModule } from 'src/location/location.module';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, jwtStrategy, CryptoService],
+  providers: [AuthService, jwtStrategy, CryptoService, AuthValidationService],
   imports: [
     ConfigModule,
     LocationModule,

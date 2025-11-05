@@ -1,26 +1,15 @@
-import { Controller, Post, Body, UseFilters, Res, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseFilters, Res, Req } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
-import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth } from '@nestjs/swagger';
+
 import { AuthService } from './auth.service';
-import {  LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto, LoginResponseDto, RegisterResponseDto } from './dto';
+import { LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto } from './dto';
 import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code.dto';
+import type { AuthResponseDto } from './interfaces';
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
-import {
-  AuthApiTags,
-  RegisterDoc,
-  LoginDoc,
-  LoginDevDoc,
-  GoogleLoginDoc,
-  VerifyEmailDoc,
-  ResendVerificationDoc,
-  LogoutDoc,
-} from './docs';
+import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
-import { TenantGuard, UserTypeGuard, AllowedUserTypes } from './guards';
-import { UserType } from '../users/entities/user.entity';
 
 @AuthApiTags()
 @Throttle({ default: { limit: 200, ttl: 60000 } })
@@ -49,7 +38,7 @@ export class AuthController {
     @Body() registerDto: RegisterDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
-  ): Promise<Omit<RegisterResponseDto, 'token'>> {
+  ): Promise<Omit<AuthResponseDto, 'token'>> {
     // Extraer subdomain del request (agregado por SubdomainMiddleware)
     const subdomain = req['subdomain'];
     const result = await this.authService.register(registerDto, subdomain);
@@ -65,7 +54,7 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response
-  ): Promise<Omit<LoginResponseDto, 'token'>> {
+  ): Promise<Omit<AuthResponseDto, 'token'>> {
     const result = await this.authService.login(loginDto);
     CookieHelper.setAuthCookie(res, result.token);
 
@@ -76,7 +65,7 @@ export class AuthController {
   @LoginDevDoc()
   @Post('login-dev')
   @UseFilters(CustomBadRequestFilter)
-  async loginDev(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
+  async loginDev(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
       return await this.authService.login(loginDto);
   }
 
@@ -85,7 +74,7 @@ export class AuthController {
   async googleLogin(
     @Body() googleLoginDto: GoogleLoginDto,
     @Res({ passthrough: true }) res: Response
-  ): Promise<Omit<LoginResponseDto, 'token'>> {
+  ): Promise<Omit<AuthResponseDto, 'token'>> {
     const result = await this.authService.googleLogin(googleLoginDto);
     CookieHelper.setAuthCookie(res, result.token);
 

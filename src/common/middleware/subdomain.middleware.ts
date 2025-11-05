@@ -1,4 +1,4 @@
-import { Injectable, NestMiddleware, BadRequestException } from '@nestjs/common';
+import { Injectable, NestMiddleware,  } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
 /**
@@ -12,6 +12,7 @@ import { Request, Response, NextFunction } from 'express';
  */
 @Injectable()
 export class SubdomainMiddleware implements NestMiddleware {
+  
   use(req: Request, res: Response, next: NextFunction) {
     const host = req.headers.host || req.hostname;
 
