@@ -45,6 +45,3 @@ README.md
 .eslintrc.js
 eslint.config.mjs
 .editorconfig
-tsconfig.json
-tsconfig.build.json
-nest-cli.json
