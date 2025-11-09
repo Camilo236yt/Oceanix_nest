@@ -1,11 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SubdomainMiddleware } from './common/middleware';
-import { setupSwagger, swaggerBasicAuth } from './config';
+import { setupSwagger, swaggerBasicAuth, getCorsConfig } from './config';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Configuración de CORS para multi-tenancy
+  app.enableCors(getCorsConfig());
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
