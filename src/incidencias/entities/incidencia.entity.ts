@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 @Entity('incidencias')
 export class Incidencia {
     @PrimaryGeneratedColumn('uuid')
@@ -10,13 +10,15 @@ export class Incidencia {
     @Column()
     status: string;
     @Column()
-    createdAt: Date;
-    @Column()
-    updatedAt: Date;
-    @Column()
     photoUrl?: string;
+    @Column({unique: true})
+    ProducReferenceId: string;  
     @Column()
     tenantId: string;
+    @CreateDateColumn({ type: 'timestamp' })
+    createdAt: Date;
+    @UpdateDateColumn({ type: 'timestamp' })
+    updatedAt: Date;
+
+    
 }
-
-

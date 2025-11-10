@@ -1,11 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Incidencia } from './entities/incidencia.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class IncidenciasService {
-  create(createIncidenciaDto: CreateIncidenciaDto) {
-    return 'This action adds a new incidencias';
+
+constructor(
+
+@InjectRepository(Incidencia)
+private readonly incidenciaRepository: Repository<Incidencia>
+
+) {}
+
+  
+async  create(createIncidenciaDto: CreateIncidenciaDto) {
+const tenantId = 'obtenido-del-contexto-de-multi-tenancy'; // Aquí deberías obtener el tenantId del contexto actual
+
+return await  this.incidenciaRepository.save({tenantId, ...createIncidenciaDto});
+
   }
 
   findAll() {
