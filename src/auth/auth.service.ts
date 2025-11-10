@@ -9,7 +9,6 @@ import { RegisterDto, RegisterEnterpriseDto, LoginDto, GoogleLoginDto } from './
 import { JwtPayload, AuthResponseDto } from './interfaces';
 import { CryptoService, AuthValidationService } from './services';
 import { InvalidCredentialsException, EmailAlreadyExistsException, AuthDatabaseException } from './exceptions';
-import { DokployService } from '../dokploy/dokploy.service';
 
 
 @Injectable()
@@ -23,7 +22,6 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly cryptoService: CryptoService,
         private readonly authValidationService: AuthValidationService,
-        private readonly dokployService: DokployService,
     ) { }
 
     async register(registerDto: RegisterDto, subdomain: string): Promise<AuthResponseDto> {
@@ -142,9 +140,6 @@ export class AuthService {
             const { password, ...userWithoutPassword } = savedUser;
             const token = this.generateTokenJwt({ id: savedUser.id });
 
-            // Crear dominio en Dokploy (no bloquea el registro si falla)
-            this.createDomainInDokploy(registerDto.subdomain);
-
             return {
                 enterprise: savedEnterprise,
                 admin: userWithoutPassword,
@@ -195,25 +190,6 @@ export class AuthService {
             identificationType: registerDto.adminIdentificationType,
             identificationNumber: registerDto.adminIdentificationNumber,
         };
-    }
-
-    /**
-     * Crea un dominio en Dokploy de forma asíncrona (no bloquea el registro)
-     * @param subdomain El subdominio a crear
-     */
-    private createDomainInDokploy(subdomain: string): void {
-        // Ejecutar de forma asíncrona sin esperar
-        this.dokployService.createDomain(subdomain)
-            .then((result) => {
-                if (result) {
-                    this.logger.log(`Domain created successfully for subdomain: ${subdomain}`);
-                } else {
-                    this.logger.warn(`Failed to create domain for subdomain: ${subdomain}. Check Dokploy configuration.`);
-                }
-            })
-            .catch((error) => {
-                this.logger.error(`Error creating domain for subdomain: ${subdomain}`, error.message);
-            });
     }
 
     private handdleErrorsDb(error: any): never {

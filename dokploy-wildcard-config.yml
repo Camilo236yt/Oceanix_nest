@@ -1,0 +1,38 @@
+# Archivo de configuración wildcard para Dokploy
+# Guardar este archivo como: /etc/dokploy/traefik/dynamic/wildcard.yml
+
+http:
+  routers:
+    # Router wildcard HTTP (redirige a HTTPS)
+    oceanix-wildcard-http:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.oceanix\\.space$`)"
+      service: oceanix-frontend
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+      priority: 50
+
+    # Router wildcard HTTPS
+    oceanix-wildcard-https:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.oceanix\\.space$`)"
+      service: oceanix-frontend
+      entryPoints:
+        - websecure
+      priority: 50
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    # Servicio que apunta al contenedor de Angular
+    oceanix-frontend:
+      loadBalancer:
+        servers:
+          - url: "http://oceanix-oceanixangular-aqszyp:80"
+        passHostHeader: true
+
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
