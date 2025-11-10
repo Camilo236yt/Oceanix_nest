@@ -1,0 +1,43 @@
+http:
+  routers:
+    # Router específico para oceanix.space (debe ir PRIMERO)
+    oceanix-oceanixangular-aqszyp-router-63:
+      rule: Host(`oceanix.space`)
+      service: oceanix-oceanixangular-aqszyp-service-63
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+    oceanix-oceanixangular-aqszyp-router-websecure-63:
+      rule: Host(`oceanix.space`)
+      service: oceanix-oceanixangular-aqszyp-service-63
+      middlewares: []
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+    # Routers wildcard para subdominios (van DESPUÉS del específico)
+    oceanix-wildcard-router:
+      rule: HostRegexp(`{subdomain:[a-z0-9-]+}.oceanix.space`)
+      service: oceanix-oceanixangular-aqszyp-service-63
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+    oceanix-wildcard-router-websecure:
+      rule: HostRegexp(`{subdomain:[a-z0-9-]+}.oceanix.space`)
+      service: oceanix-oceanixangular-aqszyp-service-63
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+        domains:
+          - main: oceanix.space
+            sans:
+              - "*.oceanix.space"
+  services:
+    oceanix-oceanixangular-aqszyp-service-63:
+      loadBalancer:
+        servers:
+          - url: http://oceanix-oceanixangular-aqszyp:80
+        passHostHeader: true

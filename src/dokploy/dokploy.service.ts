@@ -60,13 +60,22 @@ export class DokployService {
     };
 
     try {
-      const response = await fetch(`${this.dokployApiUrl}/domain.create`, {
+      this.logger.debug(`Request URL: ${this.dokployApiUrl}/domain.create`);
+      this.logger.debug(`Payload: ${JSON.stringify(payload, null, 2)}`);
+      this.logger.debug(`Token length: ${this.dokployApiToken.length} chars`);
+
+      // Dokploy usa tRPC, necesita formato especial
+      const trpcPayload = {
+        json: payload
+      };
+
+      const response = await fetch(`${this.dokployApiUrl}/trpc/domain.create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.dokployApiToken}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(trpcPayload),
         signal: AbortSignal.timeout(30000), // 30 second timeout
       });
 
