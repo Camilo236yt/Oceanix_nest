@@ -10,6 +10,7 @@ import { User } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { CryptoService, AuthValidationService } from './services';
 import { LocationModule } from 'src/location/location.module';
+import { DokployModule } from '../dokploy/dokploy.module';
 
 @Module({
   controllers: [AuthController],
@@ -17,6 +18,7 @@ import { LocationModule } from 'src/location/location.module';
   imports: [
     ConfigModule,
     LocationModule,
+    DokployModule,
     TypeOrmModule.forFeature([User, Enterprise]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
