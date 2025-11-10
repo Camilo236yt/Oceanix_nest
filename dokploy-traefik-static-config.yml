@@ -1,0 +1,56 @@
+# Configuración estática de Traefik para Dokploy
+# Este archivo se debe agregar en el servidor en: /etc/dokploy/traefik/traefik.yml
+
+# Entrypoints (puertos de escucha)
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+# Providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  file:
+    directory: /etc/dokploy/traefik/dynamic
+    watch: true
+
+# Certificate Resolvers
+certificatesResolvers:
+  # Resolver original con HTTP challenge (para dominios específicos)
+  letsencrypt:
+    acme:
+      email: tu-email@ejemplo.com  # CAMBIAR ESTO
+      storage: /etc/dokploy/traefik/acme.json
+      httpChallenge:
+        entryPoint: web
+
+  # Nuevo resolver con DNS challenge para wildcard
+  letsencrypt-dns:
+    acme:
+      email: tu-email@ejemplo.com  # CAMBIAR ESTO
+      storage: /etc/dokploy/traefik/acme-dns.json
+      dnsChallenge:
+        provider: cloudflare
+        delayBeforeCheck: 30
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
+
+# API y Dashboard
+api:
+  dashboard: true
+  insecure: false
+
+# Logs
+log:
+  level: INFO
+
+accessLog: {}

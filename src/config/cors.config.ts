@@ -52,7 +52,7 @@ export function getCorsConfig(): CorsOptions {
   };
 
   const corsConfig: CorsOptions = {
-    origin: corsOriginValidator,
+    origin: true, // Permite TODOS los orígenes
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
     allowedHeaders: [

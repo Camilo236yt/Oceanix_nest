@@ -1,0 +1,70 @@
+http:
+  routers:
+    # Router específico para oceanix.space
+    oceanix-oceanixangular-aqszyp-router-61:
+      rule: Host(`oceanix.space`)
+      priority: 100
+      service: oceanix-oceanixangular-aqszyp-service-61
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+    oceanix-oceanixangular-aqszyp-router-websecure-61:
+      rule: Host(`oceanix.space`)
+      priority: 100
+      service: oceanix-oceanixangular-aqszyp-service-61
+      middlewares: []
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Router para admin.oceanix.space (específico)
+    oceanix-oceanixangular-aqszyp-router-62:
+      rule: Host(`admin.oceanix.space`) && PathPrefix(`/login`)
+      priority: 100
+      service: oceanix-oceanixangular-aqszyp-service-62
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+    oceanix-oceanixangular-aqszyp-router-websecure-62:
+      rule: Host(`admin.oceanix.space`) && PathPrefix(`/login`)
+      priority: 100
+      service: oceanix-oceanixangular-aqszyp-service-62
+      middlewares:
+        - stripprefix-oceanix-oceanixangular-aqszyp-62
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+    # Routers wildcard para TODOS los subdominios (DESPUÉS de los específicos)
+    oceanix-wildcard-router:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.oceanix\\.space$`)"
+      priority: 50
+      service: oceanix-oceanixangular-aqszyp-service-61
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+    oceanix-wildcard-router-websecure:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.oceanix\\.space$`)"
+      priority: 50
+      service: oceanix-oceanixangular-aqszyp-service-61
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-dns
+
+  services:
+    oceanix-oceanixangular-aqszyp-service-61:
+      loadBalancer:
+        servers:
+          - url: http://oceanix-oceanixangular-aqszyp:80
+        passHostHeader: true
+    oceanix-oceanixangular-aqszyp-service-62:
+      loadBalancer:
+        servers:
+          - url: http://oceanix-oceanixangular-aqszyp:80
+        passHostHandler: true
