@@ -22,7 +22,7 @@ const tenantId = 'obtenido-del-contexto-de-multi-tenancy'; // Aquí deberías ob
 return await  this.incidenciaRepository.save({tenantId, ...createIncidenciaDto});
 
   }
-
+//TODO: PAGINACIÓN ULTIMO
   findAll() {
     return `This action returns all incidencia`;
   }
@@ -34,7 +34,8 @@ return await  this.incidenciaRepository.save({tenantId, ...createIncidenciaDto})
   update(id: number, updateIncidenciaDto: UpdateIncidenciaDto) {
     return `This action updates a #${id} incidencia`;
   }
-
+// TODO: USAR SOFT DELETE "proceso"
+// DESACTIVAR INCIDENCIA EN LUGAR DE BORRARLA
   remove(id: number) {
     return `This action removes a #${id} incidencia`;
   }

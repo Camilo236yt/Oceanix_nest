@@ -19,6 +19,7 @@ export class Incidencia {
     createdAt: Date;
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
+//TODO: SOFT DELETE COLUMNA IsActive 
+// validar todas las propiedades y restricciones necesarias
 
-    
 }
