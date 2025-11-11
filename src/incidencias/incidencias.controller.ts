@@ -21,16 +21,16 @@ export class IncidenciasController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.incidenciasService.findOne(+id);
+    return this.incidenciasService.findOne(id);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateIncidenciaDto: UpdateIncidenciaDto) {
-    return this.incidenciasService.update(+id, updateIncidenciaDto);
+    return this.incidenciasService.update(id, updateIncidenciaDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.incidenciasService.remove(+id);
+    return this.incidenciasService.remove(id);
   }
 }

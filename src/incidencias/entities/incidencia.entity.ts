@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 @Entity('incidencias')
 export class Incidencia {
     @PrimaryGeneratedColumn('uuid')
@@ -19,6 +19,8 @@ export class Incidencia {
     createdAt: Date;
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
+    @DeleteDateColumn()
+     deletedAt?: Date;
 //TODO: SOFT DELETE COLUMNA IsActive 
 // validar todas las propiedades y restricciones necesarias
 
