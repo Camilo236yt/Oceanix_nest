@@ -87,16 +87,8 @@ export class AuthService {
 
         this.cryptoService.validatePasswordSync(password, user.password);
 
-        // Validar que el usuario pertenece al subdomain (excepto SUPER_ADMIN)
-        if (subdomain && user.userType !== UserType.SUPER_ADMIN) {
-            if (!user.enterprise) {
-                throw new InvalidCredentialsException('User has no enterprise assigned');
-            }
-
-            if (user.enterprise.subdomain !== subdomain) {
-                throw new InvalidCredentialsException(`Cannot login from subdomain: ${subdomain}. Please use: ${user.enterprise.subdomain}.oceanix.space`);
-            }
-        }
+        // Validar que el usuario pertenece al subdomain (delega al servicio de validación)
+        this.authValidationService.validateUserBelongsToSubdomain(user, subdomain);
 
         const { password: _, ...userWithoutPassword } = user;
 
