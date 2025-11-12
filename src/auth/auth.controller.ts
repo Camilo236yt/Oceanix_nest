@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto } from './dto';
+import { LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto, ActivateAccountDto } from './dto';
 import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code.dto';
 import type { AuthResponseDto } from './interfaces';
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
@@ -22,10 +22,20 @@ export class AuthController {
   @Throttle({ default: { limit: 200, ttl: 60000 } })
   @Post('register-enterprise')
   async registerEnterprise(
-    @Body() registerDto: RegisterEnterpriseDto,
-    @Res({ passthrough: true }) res: Response
+    @Body() registerDto: RegisterEnterpriseDto
   ) {
-    const result = await this.authService.registerEnterprise(registerDto);
+    // NO seteamos cookies aquí - el usuario debe activar desde su subdomain
+    return await this.authService.registerEnterprise(registerDto);
+  }
+
+  @Post('activate-account')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async activateAccount(
+    @Body() dto: ActivateAccountDto,
+    @GetSubdomain() subdomain: string,
+    @Res({ passthrough: true }) res: Response
+  ): Promise<Omit<AuthResponseDto, 'token'>> {
+    const result = await this.authService.activateAccount(dto.activationToken, subdomain);
     CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
