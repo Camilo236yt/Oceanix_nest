@@ -73,18 +73,30 @@ export class AuthService {
     }
 
 
-    async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+    async login(loginDto: LoginDto, subdomain?: string): Promise<AuthResponseDto> {
         const { email, password } = loginDto;
 
         const user = await this.userRepositoy.findOne({
             where: { email },
-            select: { id: true, password: true, email: true, name: true, lastName: true }
+            select: { id: true, password: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
+            relations: { enterprise: true }
         });
 
         if (!user)
             throw new InvalidCredentialsException();
 
         this.cryptoService.validatePasswordSync(password, user.password);
+
+        // Validar que el usuario pertenece al subdomain (excepto SUPER_ADMIN)
+        if (subdomain && user.userType !== UserType.SUPER_ADMIN) {
+            if (!user.enterprise) {
+                throw new InvalidCredentialsException('User has no enterprise assigned');
+            }
+
+            if (user.enterprise.subdomain !== subdomain) {
+                throw new InvalidCredentialsException(`Cannot login from subdomain: ${subdomain}. Please use: ${user.enterprise.subdomain}.oceanix.space`);
+            }
+        }
 
         const { password: _, ...userWithoutPassword } = user;
 

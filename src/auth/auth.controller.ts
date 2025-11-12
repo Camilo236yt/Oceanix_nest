@@ -10,6 +10,7 @@ import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
 import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
+import { GetSubdomain } from '../common/decorators';
 
 @AuthApiTags()
 @Throttle({ default: { limit: 200, ttl: 60000 } })
@@ -53,9 +54,10 @@ export class AuthController {
   @UseFilters(CustomBadRequestFilter)
   async login(
     @Body() loginDto: LoginDto,
+    @GetSubdomain() subdomain: string,
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<AuthResponseDto, 'token'>> {
-    const result = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto, subdomain);
     CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
@@ -65,8 +67,11 @@ export class AuthController {
   @LoginDevDoc()
   @Post('login-dev')
   @UseFilters(CustomBadRequestFilter)
-  async loginDev(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-      return await this.authService.login(loginDto);
+  async loginDev(
+    @Body() loginDto: LoginDto,
+    @GetSubdomain() subdomain: string
+  ): Promise<AuthResponseDto> {
+      return await this.authService.login(loginDto, subdomain);
   }
 
   @GoogleLoginDoc()
