@@ -1,78 +1,114 @@
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import {
+  MAIN_DOMAIN,
+  ALLOWED_METHODS,
+  ALLOWED_HEADERS,
+  EXPOSED_HEADERS,
+  PREFLIGHT_MAX_AGE,
+  OPTIONS_SUCCESS_STATUS,
+  LOCALHOST_HOSTS,
+} from './constants';
 
 /**
  * Configuración de CORS para multi-tenancy
  * Permite oceanix.space y todos sus subdominios dinámicos
  */
-export function getCorsConfig(): CorsOptions {
+
+// ============================================
+// FUNCIONES DE VALIDACIÓN
+// ============================================
+
+/**
+ * Verifica si un origen pertenece al dominio principal o subdominios
+ */
+function isMainDomainOrigin(origin: string): boolean {
+  return origin.includes(MAIN_DOMAIN);
+}
+
+/**
+ * Verifica si un origen es localhost (desarrollo)
+ */
+function isLocalhostOrigin(origin: string): boolean {
+  return LOCALHOST_HOSTS.some((host) => origin.includes(host));
+}
+
+/**
+ * Obtiene lista de orígenes permitidos explícitamente
+ */
+function getAllowedOrigins(): string[] {
   const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
 
-  // Lista de URLs permitidas
-  const allowedOrigins = [
+  return [
     apiBaseUrl,
     frontendUrl,
-    'https://oceanix.space',
-    'http://oceanix.space',
+    `https://${MAIN_DOMAIN}`,
+    `http://${MAIN_DOMAIN}`,
     'http://localhost:3000',
     'http://localhost:4200',
     'http://localhost:4300',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:4200',
   ].filter(Boolean);
+}
 
-  // Función para validar origen
-  const corsOriginValidator = (
-    origin: string,
-    callback: (err: Error | null, allow?: boolean) => void,
-  ) => {
-    // Permitir requests sin origin (Postman, mobile apps, etc.)
-    if (!origin) {
-      return callback(null, true);
-    }
+/**
+ * Valida si un origen tiene permitido hacer requests CORS
+ */
+function corsOriginValidator(
+  origin: string,
+  callback: (err: Error | null, allow?: boolean) => void,
+): void {
+  // Permitir requests sin origin (Postman, mobile apps, etc.)
+  if (!origin) {
+    return callback(null, true);
+  }
 
-    // Permitir todos los subdominios de oceanix.space
-    if (origin.includes('oceanix.space')) {
-      return callback(null, true);
-    }
+  // Permitir todos los subdominios de oceanix.space
+  if (isMainDomainOrigin(origin)) {
+    return callback(null, true);
+  }
 
-    // Permitir localhost en desarrollo
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
+  // Permitir localhost en desarrollo
+  if (isLocalhostOrigin(origin)) {
+    return callback(null, true);
+  }
 
-    // Verificar si está en la lista de permitidos
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+  // Verificar si está en la lista de permitidos explícitos
+  const allowedOrigins = getAllowedOrigins();
+  if (allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
 
-    // Rechazar otros orígenes
-    console.warn(`🚫 CORS blocked origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'), false);
-  };
+  // Rechazar otros orígenes
+  console.warn(`🚫 CORS blocked origin: ${origin}`);
+  callback(new Error('Not allowed by CORS'), false);
+}
+
+// ============================================
+// CONFIGURACIÓN PRINCIPAL
+// ============================================
+
+/**
+ * Obtiene la configuración completa de CORS
+ */
+export function getCorsConfig(): CorsOptions {
+  const allowedOrigins = getAllowedOrigins();
 
   const corsConfig: CorsOptions = {
-    origin: true, // Permite TODOS los orígenes
+    origin: corsOriginValidator,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Cookie',
-      'Accept',
-      'Origin',
-      'X-Requested-With',
-      'X-Tenant-Id',
-      'Cache-Control',
-    ],
-    exposedHeaders: ['Set-Cookie', 'Authorization', 'X-Tenant-Id'],
+    methods: [...ALLOWED_METHODS],
+    allowedHeaders: [...ALLOWED_HEADERS],
+    exposedHeaders: [...EXPOSED_HEADERS],
     preflightContinue: false,
-    optionsSuccessStatus: 204,
-    maxAge: 86400, // Cache preflight por 24h
+    optionsSuccessStatus: OPTIONS_SUCCESS_STATUS,
+    maxAge: PREFLIGHT_MAX_AGE,
   };
 
+  // Logs de configuración
   console.log('🌐 CORS configurado para:', allowedOrigins);
-  console.log('✅ Aceptando todos los subdominios de oceanix.space');
+  console.log(`✅ Aceptando todos los subdominios de ${MAIN_DOMAIN}`);
 
   return corsConfig;
 }
