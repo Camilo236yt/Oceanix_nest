@@ -4,6 +4,10 @@ import { COOKIE_CONFIG, COOKIE_OPTIONS } from '../constants';
 export class CookieHelper {
   /**
    * Configuración de cookies para producción/desarrollo
+   *
+   * IMPORTANTE: En arquitectura multi-tenant con backend en subdomain separado,
+   * NO se debe setear el domain de la cookie. El navegador la asociará automáticamente
+   * al subdomain del frontend que hizo la petición (gracias al header Origin).
    */
   private static getCookieOptions(): CookieOptions {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -12,7 +16,8 @@ export class CookieHelper {
     return {
       ...envOptions,
       maxAge: COOKIE_CONFIG.MAX_AGE,
-      domain: isProduction ? process.env.COOKIE_DOMAIN : undefined,
+      // NO setear domain para permitir cookies cross-subdomain
+      // La cookie se asociará al origen de la petición automáticamente
       path: COOKIE_CONFIG.PATH,
     };
   }
@@ -21,7 +26,13 @@ export class CookieHelper {
    * Establece la cookie de autenticación
    */
   static setAuthCookie(res: Response, token: string): void {
-    res.cookie(COOKIE_CONFIG.NAME, token, this.getCookieOptions());
+    const options = this.getCookieOptions();
+    console.log('🍪 Setting cookie:', {
+      name: COOKIE_CONFIG.NAME,
+      options,
+      tokenLength: token?.length || 0,
+    });
+    res.cookie(COOKIE_CONFIG.NAME, token, options);
   }
 
   /**
