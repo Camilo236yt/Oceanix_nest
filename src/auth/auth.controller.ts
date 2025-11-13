@@ -46,8 +46,7 @@ export class AuthController {
     });
 
     const result = await this.authService.activateAccount(dto.activationToken, subdomain);
-    // Setear cookie con domain específico del subdomain de la empresa
-    CookieHelper.setAuthCookie(res, result.token, subdomain);
+    CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
     return responseWithoutToken;
@@ -64,8 +63,7 @@ export class AuthController {
     // Extraer subdomain del request (agregado por SubdomainMiddleware)
     const subdomain = req['subdomain'];
     const result = await this.authService.register(registerDto, subdomain);
-    // Setear cookie con domain específico del subdomain de la empresa
-    CookieHelper.setAuthCookie(res, result.token, subdomain);
+    CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
     return responseWithoutToken;
@@ -80,8 +78,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<AuthResponseDto, 'token'>> {
     const result = await this.authService.login(loginDto, subdomain);
-    // Setear cookie con domain específico del subdomain de la empresa
-    CookieHelper.setAuthCookie(res, result.token, subdomain);
+    CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
     return responseWithoutToken;
@@ -128,11 +125,9 @@ export class AuthController {
   @SkipThrottle()
   @Post('logout')
   logout(
-    @GetSubdomain() subdomain: string,
     @Res({ passthrough: true }) res: Response
   ): { message: string } {
-    // Limpiar cookie con el mismo domain que se usó al setearla
-    CookieHelper.clearAuthCookie(res, subdomain);
+    CookieHelper.clearAuthCookie(res);
     return { message: 'Logout exitoso' };
   }
 

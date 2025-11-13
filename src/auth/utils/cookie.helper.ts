@@ -5,46 +5,40 @@ export class CookieHelper {
   /**
    * Configuración de cookies para producción/desarrollo
    *
-   * IMPORTANTE: En arquitectura multi-tenant, se setea el domain específico
-   * del subdomain de la empresa (ej: techsol-abc.oceanix.space) en lugar de
-   * usar '.oceanix.space' (que compartiría entre todos los subdominios).
+   * IMPORTANTE: NO se setea el domain de la cookie para que se vincule
+   * automáticamente al hostname del servidor que la genera (backend-dev.oceanix.space).
    *
-   * Esto previene que la cookie persista al cambiar de subdomain.
+   * Con sameSite: 'none' + secure: true, permite requests cross-origin desde
+   * otros subdomains, pero la cookie solo se envía al backend específico.
+   *
+   * Esto previene que la cookie se comparta entre diferentes subdomains de empresas,
+   * manteniendo el aislamiento entre tenants.
    *
    * La seguridad se mantiene mediante:
    * - httpOnly: true (JavaScript no puede acceder)
    * - secure: true (solo HTTPS)
-   * - sameSite: 'none' (permite requests cross-origin desde backend-dev)
-   * - domain: subdomain específico de la empresa
+   * - sameSite: 'none' (permite requests cross-origin)
+   * - domain: NO seteado (cookie vinculada al backend específico)
    */
-  private static getCookieOptions(subdomain?: string): CookieOptions {
+  private static getCookieOptions(): CookieOptions {
     const isProduction = process.env.NODE_ENV === 'production';
     const envOptions = isProduction ? COOKIE_OPTIONS.PRODUCTION : COOKIE_OPTIONS.DEVELOPMENT;
 
-    const cookieOptions: CookieOptions = {
+    return {
       ...envOptions,
       maxAge: COOKIE_CONFIG.MAX_AGE,
       path: COOKIE_CONFIG.PATH,
+      // NO setear domain - se vincula automáticamente al hostname del servidor
     };
-
-    // Solo setear domain si estamos en producción con subdomain específico
-    // En desarrollo, no setear domain para que funcione en localhost
-    if (isProduction && subdomain) {
-      // Usar subdomain específico en lugar de wildcard
-      cookieOptions.domain = `${subdomain}.oceanix.space`;
-    }
-
-    return cookieOptions;
   }
 
   /**
    * Establece la cookie de autenticación
    * @param res Response object
    * @param token JWT token
-   * @param subdomain Subdomain de la empresa para setear el domain de la cookie
    */
-  static setAuthCookie(res: Response, token: string, subdomain?: string): void {
-    const options = this.getCookieOptions(subdomain);
+  static setAuthCookie(res: Response, token: string): void {
+    const options = this.getCookieOptions();
 
     // Log detallado de la configuración
     console.log('🍪 Setting cookie:', {
@@ -64,10 +58,9 @@ export class CookieHelper {
   /**
    * Limpia la cookie de autenticación
    * @param res Response object
-   * @param subdomain Subdomain de la empresa (debe coincidir con el usado al setear)
    */
-  static clearAuthCookie(res: Response, subdomain?: string): void {
-    const options = this.getCookieOptions(subdomain);
+  static clearAuthCookie(res: Response): void {
+    const options = this.getCookieOptions();
     res.clearCookie(COOKIE_CONFIG.NAME, options);
   }
 
