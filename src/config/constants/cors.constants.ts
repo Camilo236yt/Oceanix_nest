@@ -33,6 +33,7 @@ export const ALLOWED_HEADERS = [
   'Origin',
   'X-Requested-With',
   'X-Tenant-Id',
+  'X-Subdomain',
   'Cache-Control',
 ] as const;
 
