@@ -37,20 +37,7 @@ export class CookieHelper {
    */
   static setAuthCookie(res: Response, token: string): void {
     const options = this.getCookieOptions();
-
-    // Log detallado de la configuración
-    console.log('🍪 Setting cookie:', {
-      name: COOKIE_CONFIG.NAME,
-      options,
-      tokenLength: token?.length || 0,
-    });
-
-    // Setear la cookie
     res.cookie(COOKIE_CONFIG.NAME, token, options);
-
-    // Verificar que se haya seteado en los headers
-    const setCookieHeader = res.getHeader('Set-Cookie');
-    console.log('📤 Set-Cookie header after setting:', setCookieHeader);
   }
 
   /**
