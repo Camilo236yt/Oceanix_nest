@@ -4,3 +4,12 @@ export enum incidenciaStatus {
   RESOLVED = 'RESOLVED',
   CLOSED = 'CLOSED',
 }
+
+export enum TipoIncidencia {
+  POR_DANO = 'por_daño',
+  POR_PERDIDA = 'por_perdida',
+  POR_ERROR_HUMANO = 'por_error_humano',
+  POR_MANTENIMIENTO = 'por_mantenimiento',
+  POR_FALLA_TECNICA = 'por_falla_tecnica',
+  OTRO = 'otro',
+}

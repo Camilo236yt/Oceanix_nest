@@ -1,68 +1,103 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Incidencia } from './entities/incidencia.entity';
 import { Repository } from 'typeorm';
-
+//TODO: PAGINACIÓN ULTIMO
 @Injectable()
 export class IncidenciasService {
-//TODO: PAGINACIÓN ULTIMO
   constructor(
     @InjectRepository(Incidencia)
-    private readonly incidenciaRepository: Repository<Incidencia>
+    private readonly incidenciaRepository: Repository<Incidencia>,
   ) {}
 
+  /**
+   * ✅ Método auxiliar centralizado para manejar errores de base de datos
+   * Se usa en create() y update() para evitar duplicar lógica.
+   */
+  private handleDBError(error: any, context: string) {
+    // Violación de clave única (ej: referencia duplicada)
+    if (error.code === '23505') {
+      throw new ConflictException(`Error: registro duplicado (${context})`);
+    }
+    // Otros errores de base de datos
+    throw new InternalServerErrorException(`Error al ${context}: ${error.message}`);
+  }
+
+  /**
+   * ✅ Crea una incidencia y maneja errores con try/catch
+   */
   async create(createIncidenciaDto: CreateIncidenciaDto) {
-    // Se mantiene un tenantId de ejemplo. En producción debe venir del contexto o del token.
-    const tenantId = 'obtenido-del-contexto-de-multi-tenancy';
+    const tenantId = 'obtenido-del-contexto-de-multi-tenancy'; // 🔹 Simulado
 
-    // Se crea una nueva instancia de la entidad usando el DTO + tenantId
-    const incidencia = this.incidenciaRepository.create({
-      tenantId,
-      ...createIncidenciaDto
+    try {
+      const incidencia = this.incidenciaRepository.create({
+        tenantId,
+        ...createIncidenciaDto,
+      });
+
+      return await this.incidenciaRepository.save(incidencia);
+    } catch (error) {
+      this.handleDBError(error, 'crear la incidencia');
+    }
+  }
+
+  /**
+   * ✅ Filtra incidencias por empresa (tenant)
+   */
+  async findAll(tenantId: string) {
+    // 🔹 Cumple con la condición: "filtrar por empresa para no revolver todas"
+    return await this.incidenciaRepository.find({
+      where: { tenantId },
     });
-
-    // Se guarda la incidencia en base de datos
-    return await this.incidenciaRepository.save(incidencia);
   }
 
-  async findAll() {
-    // Antes era un string estático; ahora devuelve las incidencias reales desde el repositorio.
-    return await this.incidenciaRepository.find();
-  }
-
-  async findOne(id: string) {
-    // Se cambió el tipo de id (antes number) porque la entidad usa UUID (string).
+  /**
+   * ✅ Obtiene una incidencia específica, filtrando también por tenantId
+   */
+  async findOne(id: string, tenantId: string) {
+    // 🔹 Filtro por tenantId agregado correctamente
     const incidencia = await this.incidenciaRepository.findOne({
-      where: { id }
+      where: { id, tenantId },
     });
 
-    // Se agrega verificación si no existe la incidencia.
-    if (!incidencia) throw new NotFoundException(`Incidencia ${id} no encontrada`);
+    if (!incidencia) {
+      throw new NotFoundException(`Incidencia ${id} no encontrada`);
+    }
 
     return incidencia;
   }
 
-  async update(id: string, updateIncidenciaDto: UpdateIncidenciaDto) {
-    // Se actualiza directamente en BD usando el id tipo string (UUID).
-    await this.incidenciaRepository.update(id, updateIncidenciaDto);
+  /**
+   * ✅ Antes de actualizar valida que exista (reutiliza findOne)
+   * ✅ Manejo de errores con handleDBError()
+   */
+  async update(
+    id: string,
+    updateIncidenciaDto: UpdateIncidenciaDto,
+    tenantId: string,
+  ) {
+    // Validar existencia (reutiliza findOne)
+    const incidencia = await this.findOne(id, tenantId);
 
-    // Se consulta nuevamente la incidencia actualizada.
-    const updated = await this.incidenciaRepository.findOne({ where: { id } });
+    Object.assign(incidencia, updateIncidenciaDto);
 
-    // Misma validación: si no existe, se arroja excepción.
-    if (!updated) throw new NotFoundException(`Incidencia ${id} no encontrada`);
-
-    return updated;
+    try {
+      return await this.incidenciaRepository.save(incidencia);
+    } catch (error) {
+      this.handleDBError(error, 'actualizar la incidencia');
+    }
   }
 
-  // ✅ SOFT DELETE
-  async remove(id: string) {
-    // Se cambió delete() por softDelete() para habilitar borrado lógico.
-    const result = await this.incidenciaRepository.softDelete(id);
+  /**
+   * ✅ Soft delete con validación por empresa (tenantId)
+   */
+  async remove(id: string, tenantId: string) {
+    const incidencia = await this.findOne(id, tenantId); // Validación previa
 
-    // SoftDelete devuelve ".affected", se valida que exista al menos una coincidencia.
+    const result = await this.incidenciaRepository.softDelete(incidencia.id);
+
     if (!result.affected) {
       throw new NotFoundException(`Incidencia ${id} no encontrada`);
     }
@@ -70,10 +105,13 @@ export class IncidenciasService {
     return { message: `Incidencia ${id} desactivada` };
   }
 
-  // ✅ RESTAURAR
-  async restore(id: string) {
-    // Se usa restore() propio del soft delete de TypeORM.
-    await this.incidenciaRepository.restore(id);
+  /**
+   * ✅ Restaura incidencia (soft delete invertido)
+   */
+  async restore(id: string, tenantId: string) {
+    const incidencia = await this.findOne(id, tenantId); // Reutiliza validación
+
+    await this.incidenciaRepository.restore(incidencia.id);
     return { message: `Incidencia ${id} reactivada` };
   }
 }

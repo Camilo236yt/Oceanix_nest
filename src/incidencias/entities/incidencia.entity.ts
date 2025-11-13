@@ -6,12 +6,21 @@ import {
   PrimaryGeneratedColumn, 
   UpdateDateColumn 
 } from "typeorm";
+import { TipoIncidencia } from "../dto/enum/status-incidencias.enum"; // ✅ importar nuevo enum
 
 @Entity('incidencias')
 export class Incidencia {
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+ // ✅ Nuevo campo ENUM para el tipo de incidencia
+  @Column({
+    type: 'enum',
+    enum: TipoIncidencia,
+    default: TipoIncidencia.OTRO, // valor por defecto
+  })
+  tipo: TipoIncidencia;
 
   @Column({ nullable: false })
   name: string;
