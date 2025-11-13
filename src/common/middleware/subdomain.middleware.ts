@@ -22,6 +22,8 @@ export class SubdomainMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     // Prioridad 1: Leer del header X-Subdomain (enviado por el frontend)
     const xSubdomain = req.headers['x-subdomain'] as string;
+    console.log("middelware",xSubdomain);
+    
     if (xSubdomain) {
       req['subdomain'] = xSubdomain;
       return next();

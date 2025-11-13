@@ -35,6 +35,9 @@ export class AuthController {
     @GetSubdomain() subdomain: string,
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<AuthResponseDto, 'token'>> {
+
+    console.log(subdomain);
+    
     const result = await this.authService.activateAccount(dto.activationToken, subdomain);
     CookieHelper.setAuthCookie(res, result.token);
 
