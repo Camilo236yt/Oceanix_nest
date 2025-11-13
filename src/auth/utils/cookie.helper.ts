@@ -5,20 +5,18 @@ export class CookieHelper {
   /**
    * Configuración de cookies para producción/desarrollo
    *
-   * IMPORTANTE: NO se setea el domain de la cookie para que se vincule
-   * automáticamente al hostname del servidor que la genera (backend-dev.oceanix.space).
+   * IMPORTANTE: Se usa domain wildcard '.oceanix.space' para que la cookie
+   * sea accesible desde todos los subdominios (frontend y backend).
    *
-   * Con sameSite: 'none' + secure: true, permite requests cross-origin desde
-   * otros subdomains, pero la cookie solo se envía al backend específico.
-   *
-   * Esto previene que la cookie se comparta entre diferentes subdomains de empresas,
-   * manteniendo el aislamiento entre tenants.
-   *
-   * La seguridad se mantiene mediante:
+   * La cookie se comparte entre subdominios, pero la seguridad se mantiene mediante:
    * - httpOnly: true (JavaScript no puede acceder)
    * - secure: true (solo HTTPS)
    * - sameSite: 'none' (permite requests cross-origin)
-   * - domain: NO seteado (cookie vinculada al backend específico)
+   * - Validación en frontend: limpia sesión si subdomain no coincide con empresa
+   * - Validación en backend: verifica que subdomain coincida con usuario.enterprise
+   *
+   * Esto permite persistencia al recargar la página mientras mantiene aislamiento
+   * entre tenants mediante validación en ambos lados.
    */
   private static getCookieOptions(): CookieOptions {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -28,7 +26,7 @@ export class CookieHelper {
       ...envOptions,
       maxAge: COOKIE_CONFIG.MAX_AGE,
       path: COOKIE_CONFIG.PATH,
-      // NO setear domain - se vincula automáticamente al hostname del servidor
+      domain: COOKIE_CONFIG.DOMAIN, // '.oceanix.space' - wildcard para todos los subdominios
     };
   }
 
