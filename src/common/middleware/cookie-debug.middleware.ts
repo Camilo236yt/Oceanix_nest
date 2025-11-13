@@ -37,8 +37,14 @@ export class CookieDebugMiddleware implements NestMiddleware {
           if (setCookieHeader) {
             console.log('  Set-Cookie value:', setCookieHeader);
 
-            // Analizar la cookie
-            const cookieStr = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
+            // Analizar la cookie - convertir a string
+            let cookieStr: string;
+            if (Array.isArray(setCookieHeader)) {
+              cookieStr = setCookieHeader[0];
+            } else {
+              cookieStr = String(setCookieHeader);
+            }
+
             console.log('  🔍 Análisis de cookie:');
             console.log('    - HttpOnly:', cookieStr.includes('HttpOnly') ? '✅' : '❌');
             console.log('    - Secure:', cookieStr.includes('Secure') ? '✅' : '❌');
