@@ -6,8 +6,14 @@ export class CookieHelper {
    * Configuración de cookies para producción/desarrollo
    *
    * IMPORTANTE: En arquitectura multi-tenant con backend en subdomain separado,
-   * NO se debe setear el domain de la cookie. El navegador la asociará automáticamente
-   * al subdomain del frontend que hizo la petición (gracias al header Origin).
+   * se setea domain: '.oceanix.space' para permitir que la cookie sea accesible
+   * desde cualquier subdomain (techcorp.oceanix.space, backend-dev.oceanix.space, etc.)
+   *
+   * La seguridad se mantiene mediante:
+   * - httpOnly: true (JavaScript no puede acceder)
+   * - secure: true (solo HTTPS)
+   * - sameSite: 'none' (permite cross-subdomain)
+   * - Validación backend: subdomain vs usuario.enterprise.subdomain
    */
   private static getCookieOptions(): CookieOptions {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -16,9 +22,8 @@ export class CookieHelper {
     return {
       ...envOptions,
       maxAge: COOKIE_CONFIG.MAX_AGE,
-      // NO setear domain para permitir cookies cross-subdomain
-      // La cookie se asociará al origen de la petición automáticamente
       path: COOKIE_CONFIG.PATH,
+      domain: COOKIE_CONFIG.DOMAIN, // Permite cookies cross-subdomain
     };
   }
 
