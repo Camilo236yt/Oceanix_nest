@@ -46,7 +46,8 @@ export class AuthController {
     });
 
     const result = await this.authService.activateAccount(dto.activationToken, subdomain);
-    CookieHelper.setAuthCookie(res, result.token);
+    // Setear cookie con domain específico del subdomain de la empresa
+    CookieHelper.setAuthCookie(res, result.token, subdomain);
 
     const { token, ...responseWithoutToken } = result;
     return responseWithoutToken;
@@ -63,7 +64,8 @@ export class AuthController {
     // Extraer subdomain del request (agregado por SubdomainMiddleware)
     const subdomain = req['subdomain'];
     const result = await this.authService.register(registerDto, subdomain);
-    CookieHelper.setAuthCookie(res, result.token);
+    // Setear cookie con domain específico del subdomain de la empresa
+    CookieHelper.setAuthCookie(res, result.token, subdomain);
 
     const { token, ...responseWithoutToken } = result;
     return responseWithoutToken;
@@ -78,7 +80,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<AuthResponseDto, 'token'>> {
     const result = await this.authService.login(loginDto, subdomain);
-    CookieHelper.setAuthCookie(res, result.token);
+    // Setear cookie con domain específico del subdomain de la empresa
+    CookieHelper.setAuthCookie(res, result.token, subdomain);
 
     const { token, ...responseWithoutToken } = result;
     return responseWithoutToken;
@@ -124,8 +127,12 @@ export class AuthController {
   @LogoutDoc()
   @SkipThrottle()
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response): { message: string } {
-    CookieHelper.clearAuthCookie(res);
+  logout(
+    @GetSubdomain() subdomain: string,
+    @Res({ passthrough: true }) res: Response
+  ): { message: string } {
+    // Limpiar cookie con el mismo domain que se usó al setearla
+    CookieHelper.clearAuthCookie(res, subdomain);
     return { message: 'Logout exitoso' };
   }
 
