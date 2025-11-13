@@ -33,11 +33,18 @@ export class AuthController {
   async activateAccount(
     @Body() dto: ActivateAccountDto,
     @GetSubdomain() subdomain: string,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<AuthResponseDto, 'token'>> {
 
-    console.log(subdomain);
-    
+    console.log('🔐 Activate account request:', {
+      subdomain,
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      host: req.headers.host,
+      userAgent: req.headers['user-agent'],
+    });
+
     const result = await this.authService.activateAccount(dto.activationToken, subdomain);
     CookieHelper.setAuthCookie(res, result.token);
 
