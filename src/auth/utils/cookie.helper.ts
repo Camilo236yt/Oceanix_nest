@@ -22,12 +22,20 @@ export class CookieHelper {
     const isProduction = process.env.NODE_ENV === 'production';
     const envOptions = isProduction ? COOKIE_OPTIONS.PRODUCTION : COOKIE_OPTIONS.DEVELOPMENT;
 
-    return {
+    // En desarrollo (localhost), NO configurar domain para que funcione en localhost
+    // En producción, usar el domain wildcard '.oceanix.space'
+    const cookieOptions: CookieOptions = {
       ...envOptions,
       maxAge: COOKIE_CONFIG.MAX_AGE,
       path: COOKIE_CONFIG.PATH,
-      domain: COOKIE_CONFIG.DOMAIN, // '.oceanix.space' - wildcard para todos los subdominios
     };
+
+    // Solo agregar domain en producción
+    if (isProduction) {
+      cookieOptions.domain = COOKIE_CONFIG.DOMAIN;
+    }
+
+    return cookieOptions;
   }
 
   /**
