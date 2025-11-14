@@ -7,9 +7,6 @@ import { Throttle } from '@nestjs/throttler';
 // agregar autenticación y autorización más adelante
 // agregar decorador para obtener tenantId del contexto de multi-tenancy
 //agregar decorador para obtener usuario autenticado
-
-
-
 @Controller('incidencias')
 @Throttle({ default: { limit: 20, ttl: 60 } })
 export class IncidenciasController {
