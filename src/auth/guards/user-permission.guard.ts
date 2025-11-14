@@ -49,58 +49,37 @@ export class UserPermissionGuard implements CanActivate {
    */
   private hasRequiredPermissions(user: any, requiredPermissions: ValidPermission[]): boolean {
     if (!user.roles || user.roles.length === 0) {
+      console.log('❌ User has no roles');
       return false;
     }
 
-    // Obtener todos los permisos del usuario de todos sus roles (incluyendo permisos heredados)
+    // Obtener todos los permisos del usuario de todos sus roles
     const userPermissions = new Set<string>();
-    
-    for (const userRole of user.roles) {
-      if (userRole.role && userRole.role.permissions) {
-        for (const rolePermission of userRole.role.permissions) {
-          if (rolePermission.permission && rolePermission.permission.isActive) {
-            // Agregar el permiso principal
-            userPermissions.add(rolePermission.permission.name);
-            
-            // Agregar permisos hijos (recursivo)
-            this.addChildPermissions(rolePermission.permission, userPermissions);
-            
-            // Agregar permisos padre (heredados)
-            this.addParentPermissions(rolePermission.permission, userPermissions);
-          }
+
+    // NUEVA ESTRUCTURA: roles es un array de JwtUserRole {id, name, permissions: string[]}
+    for (const role of user.roles) {
+      if (role.permissions && Array.isArray(role.permissions)) {
+        // Los permisos ya vienen como array de strings (nombres de permisos)
+        for (const permissionName of role.permissions) {
+          userPermissions.add(permissionName);
         }
       }
     }
 
-    // Verificar que tenga TODOS los permisos requeridos
-    return requiredPermissions.every(permission => 
+    console.log(`🔑 User ${user.email} permissions:`, Array.from(userPermissions).join(', '));
+    console.log(`🔒 Required permissions:`, requiredPermissions.join(', '));
+
+    // Verificar que tenga AL MENOS UNO de los permisos requeridos (OR logic)
+    const hasPermission = requiredPermissions.some(permission =>
       userPermissions.has(permission as string)
     );
-  }
 
-  /**
-   * Agrega recursivamente todos los permisos hijos
-   */
-  private addChildPermissions(permission: any, userPermissions: Set<string>): void {
-    if (permission.children && permission.children.length > 0) {
-      for (const child of permission.children) {
-        if (child.isActive) {
-          userPermissions.add(child.name);
-          // Recursión para permisos hijos de hijos
-          this.addChildPermissions(child, userPermissions);
-        }
-      }
+    if (!hasPermission) {
+      console.log('❌ User does NOT have required permissions');
+    } else {
+      console.log('✅ User has required permissions');
     }
-  }
 
-  /**
-   * Agrega recursivamente todos los permisos padre (herencia hacia arriba)
-   */
-  private addParentPermissions(permission: any, userPermissions: Set<string>): void {
-    if (permission.parent && permission.parent.isActive) {
-      userPermissions.add(permission.parent.name);
-      // Recursión para permisos padre de padre
-      this.addParentPermissions(permission.parent, userPermissions);
-    }
+    return hasPermission;
   }
 }
