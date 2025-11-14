@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "cli": "ts-node -r tsconfig-paths/register src/cli.ts",
     "seed:locations": "npm run cli seed:locations",
-    "seed": "ts-node -r tsconfig-paths/register src/cli/seed.cli.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/cli/seed.cli.ts",
+    "seed:prod": "node dist/cli/seed.cli.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
