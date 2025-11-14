@@ -19,7 +19,6 @@ import { StorageModule } from './storage/storage.module';
 import { LocationModule } from './location/location.module';
 import { HttpExceptionFilter } from './common/filters';
 import { ResponseInterceptor, CacheInterceptor } from './common/interceptors';
-import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
@@ -49,8 +48,7 @@ import { SeedModule } from './seed/seed.module';
      NotificationModule,
      RedisModule,
      StorageModule,
-     LocationModule,
-     SeedModule
+     LocationModule
   ],
   controllers: [],
   providers: [

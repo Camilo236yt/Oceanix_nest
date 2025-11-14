@@ -14,26 +14,26 @@ export class PermissionsService {
   ) {}
 
   async create(createPermissionDto: CreatePermissionDto) {
-    const { parentId, ...permissionData } = createPermissionDto;
 
-    // Validar que el parent existe si se proporciona
-    if (parentId) {
-      const parentPermission = await this.findOne(parentId);
-      if (!parentPermission) {
-        throw new NotFoundException(`Parent permission with id ${parentId} not found`);
-      }
+    
+    try{
+        
+      const permission =  this.permissionRepository.create(createPermissionDto);
+
+      return await this.permissionRepository.save(permission);
+
+    } catch (error) {
+      
     }
 
-    const permission = this.permissionRepository.create({
-      ...permissionData,
-      ...(parentId && { parent: { id: parentId } }),
-    });
 
-    return await this.permissionRepository.save(permission);
+
+
+    return 'This action adds a new permission';
   }
 
   findAll() {
-    // No cargamos relaciones parent/children en listado para mejor performance
+
     return this.permissionRepository.find({
       where: {
         isActive: true,
@@ -41,39 +41,29 @@ export class PermissionsService {
       order: {
         name: 'ASC',
       },
-    });
+      });
   }
 
   async findOne(id: string) {
-    // En detalle sí cargamos la jerarquía completa
-    const permission = await this.permissionRepository.findOne({
+
+    const Permission = await this.permissionRepository.findOne({
       where: {
         id,
         isActive: true,
-      },
-      relations: ['parent', 'children'],
-    });
+        },
+        });
 
-    if (!permission) throw new NotFoundException(`Permission with id ${id} not found`);
+    if (!Permission)  throw new NotFoundException(`Permission with id ${id} not found`);
+    
+    return Permission;
 
-    return permission;
   }
 
   async update(id: string, updatePermissionDto: UpdatePermissionDto) {
-    const { parentId, ...permissionData } = updatePermissionDto;
-
-    // Validar que el parent existe si se proporciona
-    if (parentId) {
-      const parentPermission = await this.findOne(parentId);
-      if (!parentPermission) {
-        throw new NotFoundException(`Parent permission with id ${parentId} not found`);
-      }
-    }
 
     const permission = await this.permissionRepository.preload({
       id,
-      ...permissionData,
-      parent: parentId ? { id: parentId } : undefined,
+      ...updatePermissionDto,
     });
 
     if (!permission) {

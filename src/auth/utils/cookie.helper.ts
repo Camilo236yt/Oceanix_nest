@@ -4,19 +4,6 @@ import { COOKIE_CONFIG, COOKIE_OPTIONS } from '../constants';
 export class CookieHelper {
   /**
    * Configuración de cookies para producción/desarrollo
-   *
-   * IMPORTANTE: Se usa domain wildcard '.oceanix.space' para que la cookie
-   * sea accesible desde todos los subdominios (frontend y backend).
-   *
-   * La cookie se comparte entre subdominios, pero la seguridad se mantiene mediante:
-   * - httpOnly: true (JavaScript no puede acceder)
-   * - secure: true (solo HTTPS)
-   * - sameSite: 'none' (permite requests cross-origin)
-   * - Validación en frontend: limpia sesión si subdomain no coincide con empresa
-   * - Validación en backend: verifica que subdomain coincida con usuario.enterprise
-   *
-   * Esto permite persistencia al recargar la página mientras mantiene aislamiento
-   * entre tenants mediante validación en ambos lados.
    */
   private static getCookieOptions(): CookieOptions {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -25,24 +12,20 @@ export class CookieHelper {
     return {
       ...envOptions,
       maxAge: COOKIE_CONFIG.MAX_AGE,
+      domain: isProduction ? process.env.COOKIE_DOMAIN : undefined,
       path: COOKIE_CONFIG.PATH,
-      domain: COOKIE_CONFIG.DOMAIN, // '.oceanix.space' - wildcard para todos los subdominios
     };
   }
 
   /**
    * Establece la cookie de autenticación
-   * @param res Response object
-   * @param token JWT token
    */
   static setAuthCookie(res: Response, token: string): void {
-    const options = this.getCookieOptions();
-    res.cookie(COOKIE_CONFIG.NAME, token, options);
+    res.cookie(COOKIE_CONFIG.NAME, token, this.getCookieOptions());
   }
 
   /**
    * Limpia la cookie de autenticación
-   * @param res Response object
    */
   static clearAuthCookie(res: Response): void {
     const options = this.getCookieOptions();

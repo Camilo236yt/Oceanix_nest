@@ -3,14 +3,13 @@ import type { Request, Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto, ActivateAccountDto } from './dto';
+import { LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto } from './dto';
 import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code.dto';
 import type { AuthResponseDto } from './interfaces';
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
 import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
-import { GetSubdomain } from '../common/decorators';
 
 @AuthApiTags()
 @Throttle({ default: { limit: 200, ttl: 60000 } })
@@ -22,20 +21,10 @@ export class AuthController {
   @Throttle({ default: { limit: 200, ttl: 60000 } })
   @Post('register-enterprise')
   async registerEnterprise(
-    @Body() registerDto: RegisterEnterpriseDto
-  ) {
-    // NO seteamos cookies aquí - el usuario debe activar desde su subdomain
-    return await this.authService.registerEnterprise(registerDto);
-  }
-
-  @Post('activate-account')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async activateAccount(
-    @Body() dto: ActivateAccountDto,
-    @GetSubdomain() subdomain: string,
+    @Body() registerDto: RegisterEnterpriseDto,
     @Res({ passthrough: true }) res: Response
-  ): Promise<Omit<AuthResponseDto, 'token'>> {
-    const result = await this.authService.activateAccount(dto.activationToken, subdomain);
+  ) {
+    const result = await this.authService.registerEnterprise(registerDto);
     CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
@@ -64,10 +53,9 @@ export class AuthController {
   @UseFilters(CustomBadRequestFilter)
   async login(
     @Body() loginDto: LoginDto,
-    @GetSubdomain() subdomain: string,
     @Res({ passthrough: true }) res: Response
   ): Promise<Omit<AuthResponseDto, 'token'>> {
-    const result = await this.authService.login(loginDto, subdomain);
+    const result = await this.authService.login(loginDto);
     CookieHelper.setAuthCookie(res, result.token);
 
     const { token, ...responseWithoutToken } = result;
@@ -77,11 +65,8 @@ export class AuthController {
   @LoginDevDoc()
   @Post('login-dev')
   @UseFilters(CustomBadRequestFilter)
-  async loginDev(
-    @Body() loginDto: LoginDto,
-    @GetSubdomain() subdomain: string
-  ): Promise<AuthResponseDto> {
-      return await this.authService.login(loginDto, subdomain);
+  async loginDev(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+      return await this.authService.login(loginDto);
   }
 
   @GoogleLoginDoc()
@@ -114,9 +99,7 @@ export class AuthController {
   @LogoutDoc()
   @SkipThrottle()
   @Post('logout')
-  logout(
-    @Res({ passthrough: true }) res: Response
-  ): { message: string } {
+  logout(@Res({ passthrough: true }) res: Response): { message: string } {
     CookieHelper.clearAuthCookie(res);
     return { message: 'Logout exitoso' };
   }

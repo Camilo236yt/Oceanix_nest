@@ -75,7 +75,6 @@ export class RolesService {
 
   async findAll(enterpriseId?: string) {
     const where = enterpriseId ? { enterpriseId } : {};
-    // Optimizado: Solo cargamos permisos sin la jerarquía parent/children
     return await this.rolesRepository.find({
       where,
       relations: ['permissions', 'permissions.permission'],
@@ -94,8 +93,6 @@ export class RolesService {
       where.enterpriseId = enterpriseId;
     }
 
-    // Optimizado: Solo cargamos 2 niveles de relaciones (role → permission → name/title)
-    // No cargamos parent/children de permissions para mejor performance
     const role = await this.rolesRepository.findOne({
       where,
       relations: ['permissions', 'permissions.permission'],

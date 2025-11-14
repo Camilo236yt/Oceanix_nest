@@ -15,8 +15,6 @@ export const configValidationSchema = Joi.object({
     // JWT & Cookies
     JWT_SECRET: Joi.string().default('your-super-secret-jwt-key-change-in-production'),
     JWT_EXPIRATION: Joi.string().default('24h'),
-    JWT_ACTIVATION_SECRET: Joi.string().default('your-activation-secret-key-change-in-production'),
-    JWT_ACTIVATION_EXPIRATION: Joi.string().default('5m'),
     COOKIE_DOMAIN: Joi.string().optional(),
 
     // Redis

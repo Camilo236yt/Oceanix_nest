@@ -2,7 +2,6 @@ export const COOKIE_CONFIG = {
   NAME: 'authToken',
   MAX_AGE: 24 * 60 * 60 * 1000, // 24 horas en milisegundos
   PATH: '/',
-  DOMAIN: '.oceanix.space', // Permite compartir cookies entre todos los subdominios
 } as const;
 
 export const COOKIE_OPTIONS = {

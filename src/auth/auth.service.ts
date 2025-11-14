@@ -2,12 +2,11 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 
 import { User, UserType } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { RegisterDto, RegisterEnterpriseDto, LoginDto, GoogleLoginDto } from './dto';
-import { JwtPayload, AuthResponseDto, ActivationTokenPayload, RegisterEnterpriseResponseDto } from './interfaces';
+import { JwtPayload, AuthResponseDto } from './interfaces';
 import { CryptoService, AuthValidationService } from './services';
 import { InvalidCredentialsException, EmailAlreadyExistsException, AuthDatabaseException } from './exceptions';
 
@@ -23,7 +22,6 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly cryptoService: CryptoService,
         private readonly authValidationService: AuthValidationService,
-        private readonly configService: ConfigService,
     ) { }
 
     async register(registerDto: RegisterDto, subdomain: string): Promise<AuthResponseDto> {
@@ -74,78 +72,19 @@ export class AuthService {
         throw new InternalServerErrorException('Resend verification email not implemented yet');
     }
 
-    /**
-     * Activa una cuenta validando el token de activación
-     * y generando el token de sesión para el subdomain correcto
-     */
-    async activateAccount(activationToken: string, subdomain?: string): Promise<AuthResponseDto> {
-        try {
-            // 1. Validar y decodificar el token de activación
-            const payload = this.jwtService.verify<ActivationTokenPayload>(activationToken, {
-                secret: this.configService.get('JWT_ACTIVATION_SECRET'),
-            });
 
-            // 2. Verificar que sea un token de activación
-            if (payload.type !== 'ACTIVATION') {
-                throw new InvalidCredentialsException();
-            }
-
-            // 3. Verificar que el subdomain coincida
-            if (!subdomain || payload.subdomain !== subdomain) {
-                throw new InvalidCredentialsException();
-            }
-
-            // 4. Obtener el usuario con su empresa
-            const user = await this.userRepositoy.findOne({
-                where: { id: payload.userId },
-                select: { id: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
-                relations: { enterprise: true },
-            });
-
-            if (!user) {
-                throw new InvalidCredentialsException();
-            }
-
-            // 5. Verificar que la empresa del usuario coincida con el subdomain
-            if (!user.enterprise || user.enterprise.subdomain !== subdomain) {
-                throw new InvalidCredentialsException();
-            }
-
-            // 6. Generar token de sesión normal
-            const sessionToken = this.generateTokenJwt({ id: user.id });
-
-            // 7. Retornar respuesta con token de sesión
-            return {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                lastName: user.lastName,
-                token: sessionToken,
-                message: 'Cuenta activada exitosamente',
-            };
-        } catch (error) {
-            // Si el token es inválido, expiró, o cualquier error de validación
-            this.logger.error(`Error activating account: ${error.message}`);
-            throw new InvalidCredentialsException();
-        }
-    }
-
-    async login(loginDto: LoginDto, subdomain?: string): Promise<AuthResponseDto> {
+    async login(loginDto: LoginDto): Promise<AuthResponseDto> {
         const { email, password } = loginDto;
 
         const user = await this.userRepositoy.findOne({
             where: { email },
-            select: { id: true, password: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
-            relations: { enterprise: true }
+            select: { id: true, password: true, email: true, name: true, lastName: true }
         });
 
         if (!user)
             throw new InvalidCredentialsException();
 
         this.cryptoService.validatePasswordSync(password, user.password);
-
-        // Validar que el usuario pertenece al subdomain (delega al servicio de validación)
-        this.authValidationService.validateUserBelongsToSubdomain(user, subdomain);
 
         const { password: _, ...userWithoutPassword } = user;
 
@@ -160,7 +99,7 @@ export class AuthService {
         throw new InternalServerErrorException('Google login not implemented yet');
     }
 
-    async registerEnterprise(registerDto: RegisterEnterpriseDto): Promise<RegisterEnterpriseResponseDto> {
+    async registerEnterprise(registerDto: RegisterEnterpriseDto) {
         // Validaciones antes de iniciar transacción
         this.authValidationService.validatePasswordConfirmation(registerDto.adminPassword, registerDto.adminConfirmPassword);
         await this.authValidationService.validateEnterpriseUniqueness(registerDto.subdomain, registerDto.enterpriseName);
@@ -197,22 +136,15 @@ export class AuthService {
             // Commit solo si todo fue exitoso
             await queryRunner.commitTransaction();
 
-            // Generar token de activación (5 minutos)
-            const activationToken = this.generateActivationToken({
-                userId: savedUser.id,
-                type: 'ACTIVATION',
-                subdomain: savedEnterprise.subdomain,
-            });
-
-            // Construir URL de redirección
-            const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
-            const redirectUrl = `https://${savedEnterprise.subdomain}.${appDomain}/auth/activate?token=${activationToken}`;
+            // Preparar respuesta DESPUÉS del commit exitoso
+            const { password, ...userWithoutPassword } = savedUser;
+            const token = this.generateTokenJwt({ id: savedUser.id });
 
             return {
-                subdomain: savedEnterprise.subdomain,
-                activationToken,
-                message: 'Empresa registrada exitosamente. Redirigiendo a tu espacio de trabajo...',
-                redirectUrl,
+                enterprise: savedEnterprise,
+                admin: userWithoutPassword,
+                token,
+                message: 'Empresa registrada exitosamente. Por favor verifica tu email.',
             };
         } catch (error) {
             if (queryRunner.isTransactionActive) {
@@ -228,17 +160,6 @@ export class AuthService {
 
     private generateTokenJwt(payload: JwtPayload) {
         return this.jwtService.sign(payload);
-    }
-
-    /**
-     * Genera un token JWT temporal de activación
-     * Este token expira en 5 minutos y se usa para activar la cuenta desde el subdomain correcto
-     */
-    private generateActivationToken(payload: ActivationTokenPayload): string {
-        return this.jwtService.sign(payload, {
-            secret: this.configService.get('JWT_ACTIVATION_SECRET'),
-            expiresIn: this.configService.get('JWT_ACTIVATION_EXPIRATION') || '5m',
-        });
     }
 
     /**

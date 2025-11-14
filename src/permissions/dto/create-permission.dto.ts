@@ -7,20 +7,17 @@ export class CreatePermissionDto {
     name: string;
 
     @IsString()
-    @MinLength(3)
-    title: string;
-
-    @IsOptional()
-    @IsString()
     @MinLength(5)
     description?: string;
-
-    @IsOptional()
+    
     @IsBoolean()
     isActive?: boolean;
-
+    
+    
     @IsOptional()
     @IsUUID()
     parentId?: string;
+
+
 
 }
