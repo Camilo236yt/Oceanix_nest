@@ -3,7 +3,7 @@ import { ApiCookieAuth } from '@nestjs/swagger';
 
 import { Auth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces';
-import type { EnrichedJwtUser } from 'src/auth/interfaces';
+import { User } from 'src/users/entities/user.entity';
 import { Cached } from 'src/common/decorators';
 
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -33,9 +33,8 @@ export class RolesController {
   @CreateRoleDoc()
   async create(
     @Body() createRoleDto: CreateRoleDto,
-    @GetUser() currentUser: EnrichedJwtUser
+    @GetUser() currentUser: User
   ) {
-    // Pass enterpriseId for tenant isolation
     return await this.rolesService.create(createRoleDto, currentUser.enterpriseId ?? undefined);
   }
 
@@ -43,15 +42,8 @@ export class RolesController {
   @Get()
   @Cached({ keyPrefix: 'roles', ttl: 600 })
   @FindAllRolesDoc()
-  async findAll(@GetUser() currentUser: EnrichedJwtUser) {
-    this.logger.log(`📋 GET /roles - User: ${currentUser.email}, Enterprise: ${currentUser.enterpriseId || 'N/A'}`);
-    this.logger.log(`👥 User roles: ${currentUser.roles?.map(r => r.name).join(', ') || 'None'}`);
-
-    // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
-    const roles = await this.rolesService.findAll(currentUser.enterpriseId ?? undefined);
-
-    this.logger.log(`✅ Returning ${roles.length} roles`);
-    return roles;
+  async findAll(@GetUser() currentUser: User) {
+    return await this.rolesService.findAll(currentUser.enterpriseId ?? undefined);
   }
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
@@ -60,7 +52,7 @@ export class RolesController {
   @FindOneRoleDoc()
   async findOne(
     @Param('id') id: string,
-    @GetUser() currentUser: EnrichedJwtUser
+    @GetUser() currentUser: User
   ) {
     return await this.rolesService.findOne(id, currentUser.enterpriseId ?? undefined);
   }
@@ -71,7 +63,7 @@ export class RolesController {
   async update(
     @Param('id') id: string,
     @Body() updateRoleDto: UpdateRoleDto,
-    @GetUser() currentUser: EnrichedJwtUser
+    @GetUser() currentUser: User
   ) {
     return await this.rolesService.update(id, updateRoleDto, currentUser.enterpriseId ?? undefined);
   }
@@ -81,7 +73,7 @@ export class RolesController {
   @DeleteRoleDoc()
   async remove(
     @Param('id') id: string,
-    @GetUser() currentUser: EnrichedJwtUser
+    @GetUser() currentUser: User
   ) {
     return await this.rolesService.remove(id, currentUser.enterpriseId ?? undefined);
   }

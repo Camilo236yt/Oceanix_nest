@@ -145,34 +145,25 @@ export class AuthService {
     async login(loginDto: LoginDto, subdomain?: string): Promise<AuthResponseDto> {
         const { email, password } = loginDto;
 
-        this.logger.log(`🔑 Login attempt for email: ${email}, subdomain: ${subdomain || 'N/A'}`);
-
         const user = await this.userRepositoy.findOne({
             where: { email },
             select: { id: true, password: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
             relations: { enterprise: true }
         });
 
-        if (!user) {
-            this.logger.warn(`❌ Login failed: User not found for email ${email}`);
+        if (!user)
             throw new InvalidCredentialsException();
-        }
 
         this.cryptoService.validatePasswordSync(password, user.password);
 
         // Validar que el usuario pertenece al subdomain (delega al servicio de validación)
         this.authValidationService.validateUserBelongsToSubdomain(user, subdomain);
 
-        this.logger.log(`✅ Login successful for user: ${user.email} (ID: ${user.id})`);
-
         const { password: _, ...userWithoutPassword } = user;
-        const token = this.generateTokenJwt({ id: user.id });
-
-        this.logger.log(`🎫 JWT Token generated for user ${user.email}: ${token.substring(0, 20)}...${token.substring(token.length - 20)}`);
 
         return {
             ...userWithoutPassword,
-            token
+            token: this.generateTokenJwt({ id: user.id })
         };
     }
 

@@ -26,28 +26,19 @@ export class CacheInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const cacheKey = this.generateCacheKey(request, cacheOptions);
 
-    console.log(`🗄️  Cache key: ${cacheKey}`);
-
     // Intentar obtener del cache
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
-      console.log(`✅ Cache HIT for key: ${cacheKey}`);
-      console.log(`📦 Cached data:`, JSON.stringify(cached).substring(0, 200));
       return new Observable((subscriber) => {
         subscriber.next(cached);
         subscriber.complete();
       });
     }
 
-    console.log(`❌ Cache MISS for key: ${cacheKey}`);
-
     // Si no está en cache, continuar con el handler y guardar resultado
     return next.handle().pipe(
       tap(async (data) => {
-        console.log(`💾 Saving to cache key: ${cacheKey}`);
-        console.log(`📊 Data to cache (length: ${Array.isArray(data) ? data.length : 'not array'}):`, JSON.stringify(data).substring(0, 200));
         await this.redisService.set(cacheKey, data, cacheOptions.ttl || 600);
-        console.log(`✅ Data saved to cache successfully`);
       }),
     );
   }

@@ -75,24 +75,10 @@ export class RolesService {
 
   async findAll(enterpriseId?: string) {
     const where = enterpriseId ? { enterpriseId } : {};
-    console.log(`🔍 RolesService.findAll - Querying with where:`, JSON.stringify(where));
-
-    // Optimizado: Solo cargamos permisos sin la jerarquía parent/children
-    const roles = await this.rolesRepository.find({
+    return await this.rolesRepository.find({
       where,
       relations: ['permissions', 'permissions.permission'],
     });
-
-    console.log(`📊 RolesService.findAll - Found ${roles.length} roles`);
-    if (roles.length > 0) {
-      console.log(`📋 First role:`, JSON.stringify({
-        id: roles[0].id,
-        name: roles[0].name,
-        permissionsCount: roles[0].permissions?.length || 0
-      }));
-    }
-
-    return roles;
   }
 
   async findOne(id: string, enterpriseId?: string, validateActive = true) {
