@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
-import { EmailAlreadyExistsException } from '../exceptions';
+import { EmailAlreadyExistsException, InvalidCredentialsException } from '../exceptions';
 import { USER_MESSAGES } from 'src/users/constants';
 import { ENTERPRISE_MESSAGES } from 'src/enterprise/constants';
 
@@ -100,6 +100,32 @@ export class AuthValidationService {
     });
     if (existingByName) {
       throw new BadRequestException(ENTERPRISE_MESSAGES.NAME_ALREADY_EXISTS);
+    }
+  }
+
+  /**
+   * Valida que el usuario pertenezca al subdomain correcto
+   * Solo aplica para usuarios que NO son SUPER_ADMIN
+   */
+  validateUserBelongsToSubdomain(user: User, subdomain?: string): void {
+    // SUPER_ADMIN puede acceder desde cualquier subdomain (incluso sin subdomain)
+    if (user.userType === 'SUPER_ADMIN') {
+      return;
+    }
+
+    // Para usuarios normales, el subdomain es obligatorio
+    if (!subdomain) {
+      throw new InvalidCredentialsException();
+    }
+
+    // Usuario debe tener empresa asignada
+    if (!user.enterprise) {
+      throw new InvalidCredentialsException();
+    }
+
+    // El subdomain debe coincidir con la empresa del usuario
+    if (user.enterprise.subdomain !== subdomain) {
+      throw new InvalidCredentialsException();
     }
   }
 }

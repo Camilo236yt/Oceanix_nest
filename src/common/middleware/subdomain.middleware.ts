@@ -2,45 +2,51 @@ import { Injectable, NestMiddleware,  } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
 /**
- * Middleware que extrae el subdomain del header Host
- * Ejemplo: acme.forif.co -> extrae "acme"
+ * Middleware que extrae el subdomain del request
  *
- * Para desarrollo local, puedes usar:
- * - acme.localhost:3000
- * - Editar /etc/hosts para agregar subdominios personalizados
- * - Usar herramientas como ngrok con subdominios reales
+ * Prioridades:
+ * 1. Header X-Subdomain (enviado explícitamente por el cliente)
+ * 2. Header Origin/Referer (extraído automáticamente del origen de la petición)
+ *
+ * Ejemplos:
+ * - Origin: https://techcorp.oceanix.space -> extrae "techcorp"
+ * - X-Subdomain: techcorp -> extrae "techcorp"
  */
 @Injectable()
 export class SubdomainMiddleware implements NestMiddleware {
-  
-  use(req: Request, res: Response, next: NextFunction) {
-    const host = req.headers.host || req.hostname;
 
-    if (!host) {
-      req['subdomain'] = undefined;
+  use(req: Request, res: Response, next: NextFunction) {
+    // Prioridad 1: Header X-Subdomain (control explícito del cliente)
+    const xSubdomain = req.headers['x-subdomain'] as string;
+    if (xSubdomain) {
+      req['subdomain'] = xSubdomain;
+      console.log('🔵 Subdomain from X-Subdomain header:', xSubdomain);
       return next();
     }
 
-    // Extraer el subdomain del host
-    // Ejemplo: acme.forif.co -> ["acme", "forif", "co"]
-    const hostParts = host.split(':')[0].split('.');
+    // Prioridad 2: Extraer del Origin/Referer (automático desde el origen de la petición)
+    const origin = req.headers.origin || req.headers.referer;
+    if (origin) {
+      try {
+        const url = new URL(origin);
+        const hostname = url.hostname;
+        const hostParts = hostname.split('.');
 
-    // Si hay al menos 3 partes (subdomain.domain.tld), extraer el subdomain
-    if (hostParts.length >= 3) {
-      const subdomain = hostParts[0];
-
-      // Validar que el subdomain no sea "www" (caso especial)
-      if (subdomain && subdomain !== 'www') {
-        req['subdomain'] = subdomain;
-      } else {
-        req['subdomain'] = undefined;
+        // Si hay al menos 3 partes (subdomain.domain.tld), extraer el subdomain
+        if (hostParts.length >= 3 && hostParts[0] !== 'www') {
+          req['subdomain'] = hostParts[0];
+          console.log('🟢 Subdomain from Origin:', hostParts[0]);
+          return next();
+        }
+      } catch (error) {
+        // Si hay error parseando la URL, continuar
+        console.log('⚠️  Error parsing Origin/Referer:', error.message);
       }
-    } else {
-      // Para desarrollo local (localhost, 127.0.0.1, etc.)
-      // O cuando se accede directamente al dominio principal
-      req['subdomain'] = undefined;
     }
 
+    // No se encontró subdomain
+    req['subdomain'] = undefined;
+    console.log('🔴 No subdomain found');
     next();
   }
 }
