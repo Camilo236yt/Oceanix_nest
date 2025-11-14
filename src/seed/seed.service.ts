@@ -5,7 +5,7 @@ import { Permission } from 'src/permissions/entities/permission.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
 import { Role } from 'src/roles/entities/role.entity';
 import { RolePermission } from 'src/roles/entities/role-permission.entity';
-import { User } from 'src/users/entities/user.entity';
+import { User, UserType } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
 import { ValidPermission } from 'src/auth/interfaces';
 import * as bcrypt from 'bcrypt';
@@ -38,13 +38,55 @@ export class SeedService {
   async runAllSeeds(): Promise<void> {
     this.logger.log('Starting database seeding...');
 
-    // Primero crear los permisos globales
+    // Primero limpiar toda la base de datos
+    await this.cleanDatabase();
+
+    // Crear los permisos globales
     const permissions = await this.seedPermissions();
 
-    // Luego crear empresas con roles y usuarios
+    // Crear empresas con roles y usuarios
     await this.seedEnterprises(permissions);
 
     this.logger.log('Database seeding completed!');
+  }
+
+  /**
+   * Limpia toda la base de datos en el orden correcto
+   * (respetando las foreign keys)
+   */
+  async cleanDatabase(): Promise<void> {
+    this.logger.log('🧹 Cleaning database...');
+
+    try {
+      // 1. Eliminar relaciones user-role
+      this.logger.log('Deleting user-role relationships...');
+      await this.userRoleRepository.query('DELETE FROM user_roles');
+
+      // 2. Eliminar usuarios (excepto SUPER_ADMIN si existe)
+      this.logger.log('Deleting users...');
+      await this.userRepository.query('DELETE FROM users WHERE "userType" != \'SUPER_ADMIN\'');
+
+      // 3. Eliminar relaciones role-permission
+      this.logger.log('Deleting role-permission relationships...');
+      await this.rolePermissionRepository.query('DELETE FROM role_permission');
+
+      // 4. Eliminar roles
+      this.logger.log('Deleting roles...');
+      await this.roleRepository.query('DELETE FROM roles');
+
+      // 5. Eliminar permisos
+      this.logger.log('Deleting permissions...');
+      await this.permissionRepository.query('DELETE FROM permissions');
+
+      // 6. Eliminar empresas
+      this.logger.log('Deleting enterprises...');
+      await this.enterpriseRepository.query('DELETE FROM enterprises');
+
+      this.logger.log('✅ Database cleaned successfully!');
+    } catch (error) {
+      this.logger.error('Error cleaning database:', error.message);
+      throw error;
+    }
   }
 
   /**
@@ -403,6 +445,9 @@ export class SeedService {
 
     // Fase 2: Crear permisos con parent
     for (const permData of permissionsData.filter((p) => p.parent)) {
+      if (!permData.parent) {
+        continue;
+      }
       const parentPermission = createdPermissions.get(permData.parent);
       if (!parentPermission) {
         this.logger.error(
@@ -639,7 +684,7 @@ export class SeedService {
       enterpriseId: enterprise.id,
       isActive: true,
       isEmailVerified: true,
-      userType: 'EMPLOYEE',
+      userType: UserType.EMPLOYEE,
     });
     const savedIncidentAdmin = await this.userRepository.save(incidentAdmin);
 
@@ -664,7 +709,7 @@ export class SeedService {
       enterpriseId: enterprise.id,
       isActive: true,
       isEmailVerified: true,
-      userType: 'EMPLOYEE',
+      userType: UserType.EMPLOYEE,
     });
     const savedUserAdmin = await this.userRepository.save(userAdmin);
 
@@ -689,7 +734,7 @@ export class SeedService {
       enterpriseId: enterprise.id,
       isActive: true,
       isEmailVerified: true,
-      userType: 'EMPLOYEE',
+      userType: UserType.EMPLOYEE,
     });
     const savedViewer = await this.userRepository.save(viewer);
 
