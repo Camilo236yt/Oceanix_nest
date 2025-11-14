@@ -24,7 +24,11 @@ export class jwtStrategy extends PassportStrategy(Strategy) {
                 (request: Request) => {
                     const token = request?.cookies?.authToken;
                     if (token) {
-                        console.log('🔐 JWT Token extracted from cookie');
+                        const logger = new Logger('JwtExtractor');
+                        logger.log(`🔐 JWT Token extracted from cookie: ${token.substring(0, 20)}...${token.substring(token.length - 20)}`);
+                    } else {
+                        const logger = new Logger('JwtExtractor');
+                        logger.warn('⚠️  No authToken cookie found in request');
                     }
                     return token;
                 },
