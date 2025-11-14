@@ -541,7 +541,7 @@ export class SeedService {
 
     // Rol 1: Super Admin (TODOS los permisos)
     const superAdminRole = this.roleRepository.create({
-      name: 'Super Admin',
+      name: `Administrador ${enterprise.subdomain}`,
       description: 'Administrator with full access to all system features',
       enterpriseId: enterprise.id,
       isActive: true,
@@ -565,7 +565,7 @@ export class SeedService {
 
     // Rol 2: Administrador de Incidencias
     const incidentAdminRole = this.roleRepository.create({
-      name: 'Administrador de Incidencias',
+      name: `Gestor de Incidencias ${enterprise.subdomain}`,
       description: 'Puede gestionar todas las incidencias del sistema',
       enterpriseId: enterprise.id,
       isActive: true,
@@ -601,9 +601,9 @@ export class SeedService {
       `Created role: ${savedIncidentAdminRole.name} with ${incidentPermissions.length} permissions`,
     );
 
-    // Rol 2: Administrador de Usuarios
+    // Rol 3: Administrador de Usuarios
     const userAdminRole = this.roleRepository.create({
-      name: 'Administrador de Usuarios',
+      name: `Gestor de Usuarios ${enterprise.subdomain}`,
       description: 'Puede gestionar usuarios y roles del sistema',
       enterpriseId: enterprise.id,
       isActive: true,
@@ -640,9 +640,9 @@ export class SeedService {
       `Created role: ${savedUserAdminRole.name} with ${userPermissions.length} permissions`,
     );
 
-    // Rol 3: Visualizador de Incidencias
+    // Rol 4: Visualizador de Incidencias
     const viewerRole = this.roleRepository.create({
-      name: 'Visualizador de Incidencias',
+      name: `Observador ${enterprise.subdomain}`,
       description: 'Solo puede ver incidencias propias',
       enterpriseId: enterprise.id,
       isActive: true,

@@ -53,5 +53,9 @@ pids
 *.pid.lock
 
 .claude
+
+# AI commit script (contains API usage)
+ai-commit.js
+
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

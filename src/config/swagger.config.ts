@@ -13,6 +13,16 @@ export function setupSwagger(app: INestApplication): void {
     .setVersion('1.0')
     .addBearerAuth()
     .addCookieAuth('authToken')
+    .addGlobalParameters({
+      name: 'X-Subdomain',
+      in: 'header',
+      required: true,
+      schema: {
+        type: 'string',
+        example: 'techcorp',
+        description: 'Enterprise subdomain for multi-tenant isolation'
+      }
+    })
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
