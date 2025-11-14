@@ -1,6 +1,6 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 import { RedisService } from '../../redis/redis.service';
 import type { CacheOptions } from '../interfaces';
 import { Reflector } from '@nestjs/core';
@@ -43,11 +43,11 @@ export class CacheInterceptor implements NestInterceptor {
 
     // Si no está en cache, continuar con el handler y guardar resultado
     return next.handle().pipe(
-      map(async (data) => {
+      tap(async (data) => {
         console.log(`💾 Saving to cache key: ${cacheKey}`);
-        console.log(`📊 Data to cache:`, JSON.stringify(data).substring(0, 200));
+        console.log(`📊 Data to cache (length: ${Array.isArray(data) ? data.length : 'not array'}):`, JSON.stringify(data).substring(0, 200));
         await this.redisService.set(cacheKey, data, cacheOptions.ttl || 600);
-        return data;
+        console.log(`✅ Data saved to cache successfully`);
       }),
     );
   }
@@ -106,9 +106,8 @@ export class CacheKeyBuilderInterceptor implements NestInterceptor {
 
     // Si no está en cache, continuar con el handler y guardar resultado
     return next.handle().pipe(
-      map(async (data) => {
+      tap(async (data) => {
         await this.redisService.set(cacheKey, data, this.options.ttl);
-        return data;
       }),
     );
   }
