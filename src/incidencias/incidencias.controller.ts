@@ -2,15 +2,20 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe  } fro
 import { IncidenciasService } from './incidencias.service';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
+import { Throttle } from '@nestjs/throttler';
 
 // agregar autenticación y autorización más adelante
 // agregar decorador para obtener tenantId del contexto de multi-tenancy
 //agregar decorador para obtener usuario autenticado
+
+
 @Controller('incidencias')
+@Throttle({ default: { limit: 20, ttl: 60 } })
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) {}
 
   @Post()
+  @Throttle({ default: { limit: 5, ttl: 60 } })
   create(@Body() createIncidenciaDto: CreateIncidenciaDto) {
     return this.incidenciasService.create(createIncidenciaDto);
   }
@@ -45,4 +50,6 @@ export class IncidenciasController {
     const tenantId = 'empresa-demo'; // 🔹 temporal
     return this.incidenciasService.remove(id, tenantId);
   }
+  
 }
+
