@@ -522,16 +522,16 @@ export class SeedService {
       const savedEnterprise = await this.enterpriseRepository.save(enterprise);
       this.logger.log(`Created enterprise: ${savedEnterprise.name}`);
 
-      // Crear 3 roles para esta empresa
+      // Crear 4 roles para esta empresa
       await this.seedRolesForEnterprise(savedEnterprise, permissions);
 
-      // Crear 3 usuarios para esta empresa
+      // Crear 4 usuarios para esta empresa
       await this.seedUsersForEnterprise(savedEnterprise);
     }
   }
 
   /**
-   * Crea 3 roles para una empresa específica
+   * Crea 4 roles para una empresa específica
    */
   async seedRolesForEnterprise(
     enterprise: Enterprise,
@@ -539,7 +539,31 @@ export class SeedService {
   ): Promise<void> {
     this.logger.log(`Creating roles for enterprise: ${enterprise.name}`);
 
-    // Rol 1: Administrador de Incidencias
+    // Rol 1: Super Admin (TODOS los permisos)
+    const superAdminRole = this.roleRepository.create({
+      name: 'Super Admin',
+      description: 'Administrator with full access to all system features',
+      enterpriseId: enterprise.id,
+      isActive: true,
+      isSystemRole: false,
+    });
+    const savedSuperAdminRole = await this.roleRepository.save(superAdminRole);
+
+    // Asignar TODOS los permisos
+    let superAdminPermCount = 0;
+    for (const permission of permissions.values()) {
+      const rolePermission = this.rolePermissionRepository.create({
+        role: savedSuperAdminRole,
+        permission: permission,
+      });
+      await this.rolePermissionRepository.save(rolePermission);
+      superAdminPermCount++;
+    }
+    this.logger.log(
+      `Created role: ${savedSuperAdminRole.name} with ${superAdminPermCount} permissions (ALL PERMISSIONS)`,
+    );
+
+    // Rol 2: Administrador de Incidencias
     const incidentAdminRole = this.roleRepository.create({
       name: 'Administrador de Incidencias',
       description: 'Puede gestionar todas las incidencias del sistema',
@@ -651,7 +675,7 @@ export class SeedService {
   }
 
   /**
-   * Crea 3 usuarios para una empresa específica
+   * Crea 4 usuarios para una empresa específica
    */
   async seedUsersForEnterprise(enterprise: Enterprise): Promise<void> {
     this.logger.log(`Creating users for enterprise: ${enterprise.name}`);
@@ -662,19 +686,44 @@ export class SeedService {
       order: { createdAt: 'ASC' },
     });
 
-    if (roles.length !== 3) {
+    if (roles.length !== 4) {
       this.logger.error(
-        `Expected 3 roles for enterprise ${enterprise.name}, found ${roles.length}`,
+        `Expected 4 roles for enterprise ${enterprise.name}, found ${roles.length}`,
       );
       return;
     }
 
-    const [incidentAdminRole, userAdminRole, viewerRole] = roles;
+    const [superAdminRole, incidentAdminRole, userAdminRole, viewerRole] = roles;
 
     // Hashear la contraseña común para todos los usuarios
     const hashedPassword = await bcrypt.hash('Password123!', 10);
 
-    // Usuario 1: Admin de Incidencias
+    // Usuario 1: Super Admin (TODOS los permisos)
+    const superAdmin = this.userRepository.create({
+      name: 'Admin',
+      lastName: 'Super',
+      email: `admin.super@${enterprise.subdomain}.com`,
+      password: hashedPassword,
+      phoneNumber: '+1234567799',
+      enterpriseId: enterprise.id,
+      isActive: true,
+      isEmailVerified: true,
+      userType: UserType.EMPLOYEE,
+    });
+    const savedSuperAdmin = await this.userRepository.save(superAdmin);
+
+    // Asignar rol Super Admin
+    const superAdminUserRole = this.userRoleRepository.create({
+      userId: savedSuperAdmin.id,
+      roleId: superAdminRole.id,
+      enterpriseId: enterprise.id,
+    });
+    await this.userRoleRepository.save(superAdminUserRole);
+    this.logger.log(
+      `Created user: ${savedSuperAdmin.email} with role: ${superAdminRole.name} (ALL PERMISSIONS)`,
+    );
+
+    // Usuario 2: Admin de Incidencias
     const incidentAdmin = this.userRepository.create({
       name: 'Carlos',
       lastName: 'Rodríguez',

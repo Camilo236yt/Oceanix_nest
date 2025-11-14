@@ -1,11 +1,15 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 import { User, UserType } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
+import { Role } from 'src/roles/entities/role.entity';
+import { Permission } from 'src/permissions/entities/permission.entity';
+import { RolePermission } from 'src/roles/entities/role-permission.entity';
+import { UserRole } from 'src/users/entities/user-role.entity';
 import { RegisterDto, RegisterEnterpriseDto, LoginDto, GoogleLoginDto } from './dto';
 import { JwtPayload, AuthResponseDto, ActivationTokenPayload, RegisterEnterpriseResponseDto } from './interfaces';
 import { CryptoService, AuthValidationService } from './services';
@@ -19,6 +23,14 @@ export class AuthService {
     constructor(
         @InjectRepository(User)
         private readonly userRepositoy: Repository<User>,
+        @InjectRepository(Role)
+        private readonly roleRepository: Repository<Role>,
+        @InjectRepository(Permission)
+        private readonly permissionRepository: Repository<Permission>,
+        @InjectRepository(RolePermission)
+        private readonly rolePermissionRepository: Repository<RolePermission>,
+        @InjectRepository(UserRole)
+        private readonly userRoleRepository: Repository<UserRole>,
         private readonly dataSource: DataSource,
         private readonly jwtService: JwtService,
         private readonly cryptoService: CryptoService,
@@ -193,6 +205,35 @@ export class AuthService {
                 isLegalRepresentative: true,
             });
             const savedUser = await queryRunner.manager.save(User, adminUser);
+
+            // 3. Crear rol "Super Admin" con todos los permisos
+            const superAdminRole = queryRunner.manager.create(Role, {
+                name: 'Super Admin',
+                description: 'Administrator with full access to all system features',
+                enterpriseId: savedEnterprise.id,
+                isActive: true,
+            });
+            const savedRole = await queryRunner.manager.save(Role, superAdminRole);
+
+            // 4. Obtener TODOS los permisos del sistema
+            const allPermissions = await this.permissionRepository.find();
+
+            // 5. Asignar todos los permisos al rol Super Admin
+            const rolePermissions = allPermissions.map(permission =>
+                queryRunner.manager.create(RolePermission, {
+                    role: savedRole,
+                    permission,
+                })
+            );
+            await queryRunner.manager.save(RolePermission, rolePermissions);
+
+            // 6. Asignar el rol Super Admin al usuario admin
+            const userRole = queryRunner.manager.create(UserRole, {
+                userId: savedUser.id,
+                roleId: savedRole.id,
+                enterpriseId: savedEnterprise.id,
+            });
+            await queryRunner.manager.save(UserRole, userRole);
 
             // Commit solo si todo fue exitoso
             await queryRunner.commitTransaction();

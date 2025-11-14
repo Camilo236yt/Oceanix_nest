@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Logger } from '@nestjs/common';
 import { ApiCookieAuth } from '@nestjs/swagger';
 
 import { Auth, GetUser } from 'src/auth/decorator';
-import { ValidPermission } from 'src/auth/interfaces/valid-permission';
+import { ValidPermission } from 'src/auth/interfaces';
+import type { EnrichedJwtUser } from 'src/auth/interfaces';
 import { Cached } from 'src/common/decorators';
-import { User } from 'src/users/entities/user.entity';
 
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -22,6 +22,8 @@ import {
 @ApiCookieAuth('authToken')
 @Controller('roles')
 export class RolesController {
+  private readonly logger = new Logger(RolesController.name);
+
   constructor(
     private readonly rolesService: RolesService
   ) {}
@@ -31,19 +33,25 @@ export class RolesController {
   @CreateRoleDoc()
   async create(
     @Body() createRoleDto: CreateRoleDto,
-    @GetUser() currentUser: User
+    @GetUser() currentUser: EnrichedJwtUser
   ) {
     // Pass enterpriseId for tenant isolation
-    return await this.rolesService.create(createRoleDto, currentUser.enterpriseId);
+    return await this.rolesService.create(createRoleDto, currentUser.enterpriseId ?? undefined);
   }
 
-//  @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
+  @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
   @Get()
   @Cached({ keyPrefix: 'roles', ttl: 600 })
   @FindAllRolesDoc()
-  async findAll(@GetUser() currentUser: User) {
+  async findAll(@GetUser() currentUser: EnrichedJwtUser) {
+    this.logger.log(`📋 GET /roles - User: ${currentUser.email}, Enterprise: ${currentUser.enterpriseId || 'N/A'}`);
+    this.logger.log(`👥 User roles: ${currentUser.roles?.map(r => r.name).join(', ') || 'None'}`);
+
     // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
-    return await this.rolesService.findAll(currentUser.enterpriseId);
+    const roles = await this.rolesService.findAll(currentUser.enterpriseId ?? undefined);
+
+    this.logger.log(`✅ Returning ${roles.length} roles`);
+    return roles;
   }
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
@@ -52,9 +60,9 @@ export class RolesController {
   @FindOneRoleDoc()
   async findOne(
     @Param('id') id: string,
-    @GetUser() currentUser: User
+    @GetUser() currentUser: EnrichedJwtUser
   ) {
-    return await this.rolesService.findOne(id, currentUser.enterpriseId);
+    return await this.rolesService.findOne(id, currentUser.enterpriseId ?? undefined);
   }
 
   @Auth(ValidPermission.manageRoles, ValidPermission.editRoles)
@@ -63,9 +71,9 @@ export class RolesController {
   async update(
     @Param('id') id: string,
     @Body() updateRoleDto: UpdateRoleDto,
-    @GetUser() currentUser: User
+    @GetUser() currentUser: EnrichedJwtUser
   ) {
-    return await this.rolesService.update(id, updateRoleDto, currentUser.enterpriseId);
+    return await this.rolesService.update(id, updateRoleDto, currentUser.enterpriseId ?? undefined);
   }
 
   @Auth(ValidPermission.manageRoles, ValidPermission.deleteRoles)
@@ -73,8 +81,8 @@ export class RolesController {
   @DeleteRoleDoc()
   async remove(
     @Param('id') id: string,
-    @GetUser() currentUser: User
+    @GetUser() currentUser: EnrichedJwtUser
   ) {
-    return await this.rolesService.remove(id, currentUser.enterpriseId);
+    return await this.rolesService.remove(id, currentUser.enterpriseId ?? undefined);
   }
 }
