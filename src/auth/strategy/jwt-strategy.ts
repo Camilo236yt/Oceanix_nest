@@ -22,13 +22,17 @@ export class jwtStrategy extends PassportStrategy(Strategy) {
             jwtFromRequest: ExtractJwt.fromExtractors([
                 // Primero intenta extraer desde cookies
                 (request: Request) => {
+                    const logger = new Logger('JwtExtractor');
+
+                    // Debug: mostrar todas las cookies
+                    logger.log(`📦 All cookies: ${JSON.stringify(request?.cookies || {})}`);
+
                     const token = request?.cookies?.authToken;
                     if (token) {
-                        const logger = new Logger('JwtExtractor');
                         logger.log(`🔐 JWT Token extracted from cookie: ${token.substring(0, 20)}...${token.substring(token.length - 20)}`);
                     } else {
-                        const logger = new Logger('JwtExtractor');
                         logger.warn('⚠️  No authToken cookie found in request');
+                        logger.warn(`📋 Available cookies: ${Object.keys(request?.cookies || {}).join(', ') || 'none'}`);
                     }
                     return token;
                 },

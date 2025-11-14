@@ -45,7 +45,10 @@ export class CookieHelper {
    */
   static setAuthCookie(res: Response, token: string): void {
     const options = this.getCookieOptions();
+    console.log(`🍪 Setting cookie "${COOKIE_CONFIG.NAME}" with options:`, JSON.stringify(options));
+    console.log(`🎫 Token: ${token.substring(0, 20)}...${token.substring(token.length - 20)}`);
     res.cookie(COOKIE_CONFIG.NAME, token, options);
+    console.log(`✅ Cookie "${COOKIE_CONFIG.NAME}" set successfully`);
   }
 
   /**
