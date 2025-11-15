@@ -13,7 +13,20 @@ import { sanitizeUserForCache, sanitizeUsersArrayForCache } from './dto/safe-use
 import { User, UserType } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { USER_MESSAGES, USER_CACHE } from './constants';
+import {
+  UsersApiTags,
+  CreateUserDoc,
+  FindAllUsersDoc,
+  FindOneUserDoc,
+  UpdateUserDoc,
+  DeleteUserDoc,
+  ChangePasswordDoc,
+  AssignRolesDoc,
+  RemoveRoleDoc,
+  GetUserRolesDoc,
+} from './docs';
 
+@UsersApiTags()
 @Controller('users')
 export class UsersController {
   constructor(
@@ -22,6 +35,7 @@ export class UsersController {
 
   @Post()
   @Auth(ValidPermission.createUsers)
+  @CreateUserDoc()
   async create(
     @Body() createUserDto: CreateUserDto,
     @GetUser() currentUser: User,
@@ -53,6 +67,7 @@ export class UsersController {
   @Get()
   @Auth(ValidPermission.manageUsers)
   @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USERS_LIST_TTL })
+  @FindAllUsersDoc()
   async findAll(@GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
     const result = await this.usersService.findAll(
@@ -69,6 +84,7 @@ export class UsersController {
   @Get(':id')
   @Auth(ValidPermission.manageUsers)
   @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USER_DETAIL_TTL })
+  @FindOneUserDoc()
   async findOne(@Param('id') id: string, @GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation
     const user = await this.usersService.findOne(id, true, currentUser.enterpriseId);
@@ -79,6 +95,7 @@ export class UsersController {
 
   @Patch(':id')
   @Auth(ValidPermission.editUsers)
+  @UpdateUserDoc()
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -92,6 +109,7 @@ export class UsersController {
 
   @Delete(':id')
   @Auth(ValidPermission.deleteUsers)
+  @DeleteUserDoc()
   async remove(@Param('id') id: string, @GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation
     const result = await this.usersService.remove(id, currentUser.enterpriseId);
@@ -101,6 +119,7 @@ export class UsersController {
 
   @Patch('me/password')
   @Auth()
+  @ChangePasswordDoc()
   async changePassword(@GetUser() user: User, @Body() changePasswordDto: ChangePasswordDto) {
     await this.usersService.changePassword(user.id, changePasswordDto);
     return { message: USER_MESSAGES.PASSWORD_CHANGED };
@@ -109,6 +128,7 @@ export class UsersController {
   // Role management endpoints
   @Post(':userId/roles')
   @Auth(ValidPermission.manageUsers)
+  @AssignRolesDoc()
   async assignRoles(
     @Param('userId') userId: string,
     @Body() assignRolesDto: AssignRolesDto,
@@ -131,6 +151,7 @@ export class UsersController {
 
   @Delete(':userId/roles/:roleId')
   @Auth(ValidPermission.manageUsers)
+  @RemoveRoleDoc()
   async removeRole(
     @Param('userId') userId: string,
     @Param('roleId') roleId: string,
@@ -153,6 +174,7 @@ export class UsersController {
 
   @Get(':userId/roles')
   @Auth(ValidPermission.manageUsers)
+  @GetUserRolesDoc()
   async getUserRoles(
     @Param('userId') userId: string,
     @GetUser() currentUser: User,
