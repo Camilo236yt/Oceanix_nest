@@ -4,7 +4,6 @@ import { ApiCookieAuth } from '@nestjs/swagger';
 import { Auth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces';
 import { User } from 'src/users/entities/user.entity';
-import { Cached } from 'src/common/decorators';
 
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -40,15 +39,14 @@ export class RolesController {
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
   @Get()
-  @Cached({ keyPrefix: 'roles', ttl: 600 })
   @FindAllRolesDoc()
   async findAll(@GetUser() currentUser: User) {
+    this.logger.log(`[findAll] User: ${currentUser.email}, EnterpriseId: ${currentUser.enterpriseId}, UserType: ${currentUser.userType}`);
     return await this.rolesService.findAll(currentUser.enterpriseId ?? undefined);
   }
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
   @Get(':id')
-  @Cached({ keyPrefix: 'roles', ttl: 600 })
   @FindOneRoleDoc()
   async findOne(
     @Param('id') id: string,

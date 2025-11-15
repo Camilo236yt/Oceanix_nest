@@ -74,11 +74,22 @@ export class RolesService {
   }
 
   async findAll(enterpriseId?: string) {
-    const where = enterpriseId ? { enterpriseId } : {};
-    return await this.rolesRepository.find({
+    // IMPORTANTE: Siempre filtrar por enterpriseId para aislamiento multi-tenant
+    // Si no se proporciona enterpriseId, solo retornar roles globales (null)
+    const where = enterpriseId
+      ? { enterpriseId }
+      : { enterpriseId: IsNull() };
+
+    console.log('[RolesService.findAll] EnterpriseId received:', enterpriseId);
+    console.log('[RolesService.findAll] Where clause:', JSON.stringify(where));
+
+    const roles = await this.rolesRepository.find({
       where,
       relations: ['permissions', 'permissions.permission'],
     });
+
+    console.log('[RolesService.findAll] Roles found:', roles.length);
+    return roles;
   }
 
   async findOne(id: string, enterpriseId?: string, validateActive = true) {
