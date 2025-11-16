@@ -1,7 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException } from '@nestjs/common';
 
-import { Cached } from 'src/common/decorators';
-
 import { Auth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces/valid-permission';
 
@@ -12,7 +10,7 @@ import { AssignRolesDto } from './dto/assign-roles.dto';
 import { sanitizeUserForCache, sanitizeUsersArrayForCache } from './dto/safe-user-response.dto';
 import { User, UserType } from './entities/user.entity';
 import { UsersService } from './users.service';
-import { USER_MESSAGES, USER_CACHE } from './constants';
+import { USER_MESSAGES } from './constants';
 import {
   UsersApiTags,
   CreateUserDoc,
@@ -66,7 +64,6 @@ export class UsersController {
 
   @Get()
   @Auth(ValidPermission.manageUsers)
-  @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USERS_LIST_TTL })
   @FindAllUsersDoc()
   async findAll(@GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
@@ -83,7 +80,6 @@ export class UsersController {
 
   @Get(':id')
   @Auth(ValidPermission.manageUsers)
-  @Cached({ keyPrefix: 'users', ttl: USER_CACHE.USER_DETAIL_TTL })
   @FindOneUserDoc()
   async findOne(@Param('id') id: string, @GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation

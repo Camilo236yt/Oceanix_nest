@@ -44,6 +44,9 @@ export class SeedService {
     // Crear los permisos globales
     const permissions = await this.seedPermissions();
 
+    // Crear usuario SUPER_ADMIN del sistema (sin empresa)
+    await this.seedSuperAdmin();
+
     // Crear empresas con roles y usuarios
     await this.seedEnterprises(permissions);
 
@@ -87,6 +90,42 @@ export class SeedService {
       this.logger.error('Error cleaning database:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Crea el usuario SUPER_ADMIN del sistema (sin empresa)
+   * Este usuario tiene acceso global para gestionar todas las empresas
+   */
+  async seedSuperAdmin(): Promise<void> {
+    this.logger.log('Creating SUPER_ADMIN user...');
+
+    // Verificar si ya existe un SUPER_ADMIN
+    const existingSuperAdmin = await this.userRepository.findOne({
+      where: { userType: UserType.SUPER_ADMIN },
+    });
+
+    if (existingSuperAdmin) {
+      this.logger.warn('SUPER_ADMIN already exists. Skipping...');
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash('SuperAdmin123!', 10);
+
+    const superAdmin = this.userRepository.create({
+      name: 'Super',
+      lastName: 'Admin',
+      email: 'superadmin@oceanix.space',
+      password: hashedPassword,
+      phoneNumber: '+1000000000',
+      enterpriseId: null, // Sin empresa - acceso global
+      isActive: true,
+      isEmailVerified: true,
+      userType: UserType.SUPER_ADMIN,
+      isLegalRepresentative: false,
+    });
+
+    await this.userRepository.save(superAdmin);
+    this.logger.log(`✅ Created SUPER_ADMIN: ${superAdmin.email} (NO enterprise - global access)`);
   }
 
   /**
