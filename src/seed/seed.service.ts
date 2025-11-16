@@ -117,7 +117,7 @@ export class SeedService {
       email: 'superadmin@oceanix.space',
       password: hashedPassword,
       phoneNumber: '+1000000000',
-      enterpriseId: null, // Sin empresa - acceso global
+      enterpriseId: undefined as unknown as string, // Sin empresa - acceso global (null en BD)
       isActive: true,
       isEmailVerified: true,
       userType: UserType.SUPER_ADMIN,
