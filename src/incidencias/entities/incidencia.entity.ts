@@ -1,12 +1,18 @@
-import { 
-  Column, 
-  CreateDateColumn, 
-  DeleteDateColumn, 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  UpdateDateColumn 
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn
 } from "typeorm";
 import { TipoIncidencia } from "../dto/enum/status-incidencias.enum"; // ✅ importar nuevo enum
+
+// TODO: Crear archivo de entidad para IncidentImage (crear archivo separado en entities/)
+// TODO: Agregar relación OneToMany con IncidentImage
+// TODO: Cambiar tenantId por enterpriseId y agregar relación con Enterprise
+// TODO: Agregar relación con User para empleado asignado
+
 
 @Entity('incidencias')
 export class Incidencia {

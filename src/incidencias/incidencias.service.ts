@@ -4,7 +4,10 @@ import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Incidencia } from './entities/incidencia.entity';
 import { Repository } from 'typeorm';
-//TODO: PAGINACIÓN ULTIMO
+
+// TODO: Inyectar servicio de asignación de empleados (crear en carpeta services/)
+// TODO: Inyectar servicio de Storage para subir imágenes a MinIO
+
 @Injectable()
 export class IncidenciasService {
   constructor(
@@ -29,7 +32,12 @@ export class IncidenciasService {
    * ✅ Crea una incidencia y maneja errores con try/catch
    */
   async create(createIncidenciaDto: CreateIncidenciaDto) {
+    // TODO: Recibir enterpriseId y array de imágenes como parámetros
+    // TODO: Reemplazar tenantId quemado por enterpriseId del parámetro
     const tenantId = 'obtenido-del-contexto-de-multi-tenancy'; // 🔹 Simulado
+
+    // TODO: Validar máximo 5 imágenes y subirlas a MinIO
+    // TODO: Guardar URLs de imágenes en entidad IncidentImage (crear archivo de entidad)
 
     try {
       const incidencia = this.incidenciaRepository.create({
@@ -37,7 +45,11 @@ export class IncidenciasService {
         ...createIncidenciaDto,
       });
 
-      return await this.incidenciaRepository.save(incidencia);
+      const savedIncidencia = await this.incidenciaRepository.save(incidencia);
+
+      // TODO: Llamar servicio de asignación para asignar empleado automáticamente
+
+      return savedIncidencia;
     } catch (error) {
       this.handleDBError(error, 'crear la incidencia');
     }
