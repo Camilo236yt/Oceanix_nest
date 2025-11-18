@@ -4,6 +4,7 @@ import { StorageController } from './storage.controller';
 
 @Module({
   providers: [StorageService],
-  controllers: [StorageController]
+  controllers: [StorageController],
+  exports: [StorageService] // Exportado para inyección en otros módulos (IncidenciasService)
 })
 export class StorageModule {}

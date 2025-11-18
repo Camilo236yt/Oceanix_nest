@@ -1,53 +1,92 @@
-import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import type { Express } from 'express';
+
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Incidencia } from './entities/incidencia.entity';
-import { Repository } from 'typeorm';
-
-// TODO: Inyectar servicio de asignación de empleados (crear en carpeta services/)
-// TODO: Inyectar servicio de Storage para subir imágenes a MinIO
+import { IncidentImage } from './entities/incident-image.entity';
+import { StorageService } from 'src/storage/storage.service';
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZES, STORAGE_BUCKETS } from 'src/storage/config/storage.config';
+import { EmployeeAssignmentService } from './services/employee-assignment.service';
 
 @Injectable()
 export class IncidenciasService {
   constructor(
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
+    @InjectRepository(IncidentImage)
+    private readonly incidentImageRepository: Repository<IncidentImage>,
+    private readonly storageService: StorageService,
+    private readonly employeeAssignmentService: EmployeeAssignmentService,
   ) {}
 
   /**
-   * ✅ Método auxiliar centralizado para manejar errores de base de datos
+   * Método auxiliar centralizado para manejar errores de base de datos
    * Se usa en create() y update() para evitar duplicar lógica.
    */
   private handleDBError(error: any, context: string) {
-    // Violación de clave única (ej: referencia duplicada)
-    if (error.code === '23505') {
+    if (error?.code === '23505') {
       throw new ConflictException(`Error: registro duplicado (${context})`);
     }
-    // Otros errores de base de datos
-    throw new InternalServerErrorException(`Error al ${context}: ${error.message}`);
+    throw new InternalServerErrorException(`Error al ${context}: ${error?.message ?? 'unknown'}`);
   }
 
   /**
-   * ✅ Crea una incidencia y maneja errores con try/catch
+   * Crea una incidencia con soporte para imágenes (máximo 5) y aislamiento por enterpriseId.
    */
-  async create(createIncidenciaDto: CreateIncidenciaDto) {
-    // TODO: Recibir enterpriseId y array de imágenes como parámetros
-    // TODO: Reemplazar tenantId quemado por enterpriseId del parámetro
-    const tenantId = 'obtenido-del-contexto-de-multi-tenancy'; // 🔹 Simulado
+  async create(
+    createIncidenciaDto: CreateIncidenciaDto,
+    enterpriseId?: string,
+    images?: Express.Multer.File[],
+  ) {
+    if (!enterpriseId) {
+      throw new BadRequestException('enterpriseId es requerido para crear incidencias');
+    }
 
-    // TODO: Validar máximo 5 imágenes y subirlas a MinIO
-    // TODO: Guardar URLs de imágenes en entidad IncidentImage (crear archivo de entidad)
+    if (images && images.length > 5) {
+      throw new BadRequestException('Máximo 5 imágenes permitidas');
+    }
 
     try {
       const incidencia = this.incidenciaRepository.create({
-        tenantId,
+        tenantId: enterpriseId,
         ...createIncidenciaDto,
       });
 
       const savedIncidencia = await this.incidenciaRepository.save(incidencia);
 
-      // TODO: Llamar servicio de asignación para asignar empleado automáticamente
+      // Subir imágenes a MinIO y guardar URLs
+      if (images && images.length) {
+        const uploadedUrls: string[] = [];
+        for (const file of images) {
+          this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
+          this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
+
+          const path = `incidencias/${enterpriseId}/${savedIncidencia.id}`;
+          const { url } = await this.storageService.uploadFile(
+            file,
+            STORAGE_BUCKETS.TICKETS,
+            path,
+          );
+          uploadedUrls.push(url);
+        }
+
+        if (uploadedUrls.length) {
+          const imageEntities = uploadedUrls.map((url) =>
+            this.incidentImageRepository.create({ url, incidencia: savedIncidencia })
+          );
+          await this.incidentImageRepository.save(imageEntities);
+        }
+      }
+
+      // Asignación automática (no bloqueante)
+      try {
+        await (this.employeeAssignmentService as any)?.assignAutomatically?.(savedIncidencia, enterpriseId);
+      } catch {
+        // Silenciar errores de asignación para no bloquear la creación
+      }
 
       return savedIncidencia;
     } catch (error) {
@@ -56,20 +95,18 @@ export class IncidenciasService {
   }
 
   /**
-   * ✅ Filtra incidencias por empresa (tenant)
+   * Filtra incidencias por empresa (tenant)
    */
   async findAll(tenantId: string) {
-    // 🔹 Cumple con la condición: "filtrar por empresa para no revolver todas"
     return await this.incidenciaRepository.find({
       where: { tenantId },
     });
   }
 
   /**
-   * ✅ Obtiene una incidencia específica, filtrando también por tenantId
+   * Obtiene una incidencia específica, filtrando también por tenantId
    */
   async findOne(id: string, tenantId: string) {
-    // 🔹 Filtro por tenantId agregado correctamente
     const incidencia = await this.incidenciaRepository.findOne({
       where: { id, tenantId },
     });
@@ -82,15 +119,14 @@ export class IncidenciasService {
   }
 
   /**
-   * ✅ Antes de actualizar valida que exista (reutiliza findOne)
-   * ✅ Manejo de errores con handleDBError()
+   * Antes de actualizar valida que exista (reutiliza findOne)
+   * Manejo de errores con handleDBError()
    */
   async update(
     id: string,
     updateIncidenciaDto: UpdateIncidenciaDto,
     tenantId: string,
   ) {
-    // Validar existencia (reutiliza findOne)
     const incidencia = await this.findOne(id, tenantId);
 
     Object.assign(incidencia, updateIncidenciaDto);
@@ -103,10 +139,10 @@ export class IncidenciasService {
   }
 
   /**
-   * ✅ Soft delete con validación por empresa (tenantId)
+   * Soft delete con validación por empresa (tenantId)
    */
   async remove(id: string, tenantId: string) {
-    const incidencia = await this.findOne(id, tenantId); // Validación previa
+    const incidencia = await this.findOne(id, tenantId);
 
     const result = await this.incidenciaRepository.softDelete(incidencia.id);
 
@@ -118,10 +154,10 @@ export class IncidenciasService {
   }
 
   /**
-   * ✅ Restaura incidencia (soft delete invertido)
+   * Restaura incidencia (soft delete invertido)
    */
   async restore(id: string, tenantId: string) {
-    const incidencia = await this.findOne(id, tenantId); // Reutiliza validación
+    const incidencia = await this.findOne(id, tenantId);
 
     await this.incidenciaRepository.restore(incidencia.id);
     return { message: `Incidencia ${id} reactivada` };

@@ -1,64 +1,105 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe  } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { FilesInterceptor } from '@nestjs/platform-express';
+
 import { IncidenciasService } from './incidencias.service';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
-import { Throttle } from '@nestjs/throttler';
 
-// TODO: Implementar autenticación con decorador @Auth y obtener usuario con @GetUser (ver ejemplo en módulo users)
+import { Auth, GetUser } from 'src/auth/decorator';
+import { ValidPermission } from 'src/auth/interfaces/valid-permission';
+import { User } from 'src/users/entities/user.entity';
+import type { Express } from 'express';
+
+// Cambios aplicados en este controlador:
+// - Se agregó protección con @Auth() usando permisos del enum ValidPermission.
+// - Se incorporó @GetUser() para obtener el usuario autenticado y su enterpriseId.
+// - Se añadió soporte de subida de hasta 5 imágenes con FilesInterceptor y @UploadedFiles().
+// - Se reemplazó el tenantId quemado por currentUser.enterpriseId en todas las operaciones.
 
 @Controller('incidencias')
 @Throttle({ default: { limit: 20, ttl: 60 } })
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) {}
 
-  // TODO: Agregar decorador @Auth() con el permiso apropiado del enum ValidPermission
-  // TODO: Agregar @GetUser() para obtener currentUser
-  // TODO: Investigar MinIO y aceptar hasta 5 imágenes con @UploadedFiles()
+  /**
+   * Crea una incidencia.
+   * - Permiso requerido: createIncidents
+   * - Rate limit específico por endpoint
+   * - Acepta hasta 5 imágenes mediante el campo 'images'
+   * - Envía enterpriseId (tenant) al servicio para aislamiento multi-tenant
+   */
   @Post()
+  @Auth(ValidPermission.createIncidents)
   @Throttle({ default: { limit: 5, ttl: 60 } })
-  create(@Body() createIncidenciaDto: CreateIncidenciaDto) {
-    // TODO: Enviar currentUser.enterpriseId al servicio
-    return this.incidenciasService.create(createIncidenciaDto);
+  @UseInterceptors(FilesInterceptor('images', 5))
+  create(
+    @Body() createIncidenciaDto: CreateIncidenciaDto,
+    @GetUser() currentUser: User,
+    @UploadedFiles() images: Express.Multer.File[],
+  ) {
+    return this.incidenciasService.create(
+      createIncidenciaDto,
+      currentUser.enterpriseId,
+      images,
+    );
   }
 
-  // TODO: Implementar decorador @Auth() con permisos apropiados
+  /**
+   * Lista todas las incidencias del tenant actual.
+   * - Permiso requerido: viewIncidents
+   * - Usa enterpriseId del usuario autenticado
+   */
   @Get()
-  findAll() {
-    // TODO: Usar currentUser.enterpriseId en lugar de tenantId quemado
-    const tenantId = 'empresa-demo'; // 🔹 temporal
-    return this.incidenciasService.findAll(tenantId);
+  @Auth(ValidPermission.viewIncidents)
+  findAll(@GetUser() currentUser: User) {
+    return this.incidenciasService.findAll(currentUser.enterpriseId);
   }
 
-  // TODO: Implementar decorador @Auth()
+  /**
+   * Obtiene una incidencia específica por ID, aislada por tenant.
+   * - Permiso requerido: viewIncidents
+   * - Valida UUID v4 en el parámetro 'id'
+   */
   @Get(':id')
+  @Auth(ValidPermission.viewIncidents)
   findOne(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser() currentUser: User,
   ) {
-    // TODO: Usar currentUser.enterpriseId
-    const tenantId = 'empresa-demo'; // 🔹 temporal
-    return this.incidenciasService.findOne(id, tenantId);
+    return this.incidenciasService.findOne(id, currentUser.enterpriseId);
   }
 
-  // TODO: Implementar decorador @Auth()
+  /**
+   * Actualiza una incidencia por ID.
+   * - Permiso requerido: editIncidents
+   * - Pasa enterpriseId para asegurar aislamiento por empresa
+   */
   @Patch(':id')
+  @Auth(ValidPermission.editIncidents)
   update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() updateIncidenciaDto: UpdateIncidenciaDto,
+    @GetUser() currentUser: User,
   ) {
-    // TODO: Usar currentUser.enterpriseId
-    const tenantId = 'empresa-demo'; // 🔹 temporal
-    return this.incidenciasService.update(id, updateIncidenciaDto, tenantId);
+    return this.incidenciasService.update(
+      id,
+      updateIncidenciaDto,
+      currentUser.enterpriseId,
+    );
   }
 
-  // TODO: Implementar decorador @Auth()
+  /**
+   * Elimina (soft delete) una incidencia por ID.
+   * - Permiso requerido: deleteIncidents
+   * - Pasa enterpriseId para validar pertenencia al tenant
+   */
   @Delete(':id')
+  @Auth(ValidPermission.deleteIncidents)
   remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser() currentUser: User,
   ) {
-    // TODO: Usar currentUser.enterpriseId
-    const tenantId = 'empresa-demo'; // 🔹 temporal
-    return this.incidenciasService.remove(id, tenantId);
+    return this.incidenciasService.remove(id, currentUser.enterpriseId);
   }
-  
 }
-
