@@ -1,8 +1,7 @@
-import { applyDecorators, UseGuards } from "@nestjs/common";
-import { ValidPermission } from "../interfaces/valid-permission";
-import { AuthGuard } from "@nestjs/passport";
-import { UserPermissionGuard, TenantGuard } from "../guards";
-import { PermissionProtected } from "./permission-protected.decorator";
+import { applyDecorators, UseGuards } from '@nestjs/common';
+import { ValidPermission } from '../interfaces/valid-permission';
+import { JwtAuthGuard, UserPermissionGuard, TenantGuard } from '../guards';
+import { PermissionProtected } from './permission-protected.decorator';
 
 /**
  * Combined authentication and authorization decorator.
@@ -16,6 +15,6 @@ import { PermissionProtected } from "./permission-protected.decorator";
 export function Auth(...permissions: ValidPermission[]) {
   return applyDecorators(
     PermissionProtected(...permissions),
-    UseGuards(AuthGuard('jwt'), TenantGuard, UserPermissionGuard)
+    UseGuards(JwtAuthGuard, TenantGuard, UserPermissionGuard),
   );
 }

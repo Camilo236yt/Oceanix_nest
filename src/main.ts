@@ -1,30 +1,32 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
+
 import { AppModule } from './app.module';
 import { SubdomainMiddleware } from './common/middleware';
-import { setupSwagger, swaggerBasicAuth, getCorsConfig } from './config';
-import cookieParser from 'cookie-parser';
+import { getCorsConfig, setupSwagger, swaggerBasicAuth } from './config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Configuración de CORS para multi-tenancy
   app.enableCors(getCorsConfig());
-
-  // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // Proteger Swagger con autenticación básica
-  app.use('/api/v1/docs', swaggerBasicAuth());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
-  // Configurar Swagger
+  app.use('/api/v1/docs', swaggerBasicAuth());
   setupSwagger(app);
 
-  // Middleware global
   app.use(cookieParser());
-
-  // Registrar middleware de subdomain para multi-tenancy
   app.use(new SubdomainMiddleware().use);
 
   await app.listen(process.env.PORT ?? 3000);
 }
+
 bootstrap();

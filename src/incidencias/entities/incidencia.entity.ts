@@ -10,7 +10,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { TipoIncidencia } from '../dto/enum/status-incidencias.enum';
+import { TipoIncidencia } from '../enums/incidencia.enums';
 import { IncidentImage } from '../entities/incident-image.entity';
 import { Enterprise } from '../../enterprise/entities/enterprise.entity';
 import { User } from '../../users/entities/user.entity';

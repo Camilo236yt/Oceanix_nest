@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, InternalServerError
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
+import { randomUUID } from 'crypto';
 
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
@@ -10,6 +11,7 @@ import { IncidentImage } from './entities/incident-image.entity';
 import { StorageService } from 'src/storage/storage.service';
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZES, STORAGE_BUCKETS } from 'src/storage/config/storage.config';
 import { EmployeeAssignmentService } from './services/employee-assignment.service';
+import { IncidenciaStatus } from './enums/incidencia.enums';
 
 @Injectable()
 export class IncidenciasService {
@@ -49,13 +51,19 @@ export class IncidenciasService {
       throw new BadRequestException('Máximo 5 imágenes permitidas');
     }
 
+    let savedIncidencia: Incidencia | null = null;
+
     try {
       const incidencia = this.incidenciaRepository.create({
         tenantId: enterpriseId,
+        status: IncidenciaStatus.PENDING,
+        ProducReferenceId: `INC-${randomUUID()}`,
         ...createIncidenciaDto,
       });
 
-      const savedIncidencia = await this.incidenciaRepository.save(incidencia);
+      savedIncidencia = await this.incidenciaRepository.save(incidencia);
+
+      const incidenciaRecord = savedIncidencia;
 
       // Subir imágenes a MinIO y guardar URLs
       if (images && images.length) {
@@ -64,7 +72,7 @@ export class IncidenciasService {
           this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
           this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
 
-          const path = `incidencias/${enterpriseId}/${savedIncidencia.id}`;
+          const path = `incidencias/${enterpriseId}/${incidenciaRecord.id}`;
           const { url } = await this.storageService.uploadFile(
             file,
             STORAGE_BUCKETS.TICKETS,
@@ -75,7 +83,7 @@ export class IncidenciasService {
 
         if (uploadedUrls.length) {
           const imageEntities = uploadedUrls.map((url) =>
-            this.incidentImageRepository.create({ url, incidencia: savedIncidencia })
+            this.incidentImageRepository.create({ url, incidencia: incidenciaRecord })
           );
           await this.incidentImageRepository.save(imageEntities);
         }
@@ -83,14 +91,22 @@ export class IncidenciasService {
 
       // Asignación automática (no bloqueante)
       try {
-        await (this.employeeAssignmentService as any)?.assignAutomatically?.(savedIncidencia, enterpriseId);
+        await (this.employeeAssignmentService as any)?.assignAutomatically?.(incidenciaRecord, enterpriseId);
       } catch {
         // Silenciar errores de asignación para no bloquear la creación
       }
 
       return savedIncidencia;
     } catch (error) {
-      this.handleDBError(error, 'crear la incidencia');
+      if (savedIncidencia?.id) {
+        await this.incidenciaRepository.delete(savedIncidencia.id);
+      }
+
+      if (error?.code) {
+        this.handleDBError(error, 'crear la incidencia');
+      }
+
+      throw new InternalServerErrorException(`Error al crear la incidencia: ${error.message}`);
     }
   }
 
@@ -163,3 +179,4 @@ export class IncidenciasService {
     return { message: `Incidencia ${id} reactivada` };
   }
 }
+

@@ -21,6 +21,13 @@ export class StorageService {
     this.initializeBuckets();
   }
 
+  private sanitizeFileName(name: string): string {
+    return name
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_.-]/g, '_');
+  }
+
   /**
    * Inicializa los buckets necesarios si no existen
    */
@@ -53,7 +60,8 @@ export class StorageService {
   ): Promise<{ key: string; url: string }> {
     try {
       const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.originalname}`;
+      const safeOriginalName = this.sanitizeFileName(file.originalname);
+      const fileName = `${timestamp}-${safeOriginalName}`;
       const key = path ? `${path}/${fileName}` : fileName;
 
       const command = new PutObjectCommand({
@@ -62,8 +70,8 @@ export class StorageService {
         Body: file.buffer,
         ContentType: file.mimetype,
         Metadata: {
-          originalName: file.originalname,
-          uploadedBy: 'system', // Aquí podrías agregar el ID del usuario
+          originalName: safeOriginalName,
+          uploadedBy: 'system',
         },
       });
 

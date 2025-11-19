@@ -1,6 +1,5 @@
-import { IsEnum, IsString, MinLength } from "class-validator";
-import { incidenciaStatus } from "./enum/status-incidencias.enum";
-import { TipoIncidencia } from "./enum/status-incidencias.enum"; // ✅ importar nuevo enum
+import { IsEnum, IsString, MinLength } from 'class-validator';
+import { TipoIncidencia } from '../enums/incidencia.enums';
 
 export class CreateIncidenciaDto {
   @IsString()
@@ -10,15 +9,6 @@ export class CreateIncidenciaDto {
   @IsString()
   description: string;
 
-  @IsEnum(incidenciaStatus)
-  status: incidenciaStatus;
-
-  @IsEnum(TipoIncidencia) // ✅ nueva propiedad para el tipo de incidencia
+  @IsEnum(TipoIncidencia)
   tipo: TipoIncidencia;
-
-  @IsString()
-  photoUrl?: string;
-
-  @IsString()
-  ProducReferenceId: string;
 }
