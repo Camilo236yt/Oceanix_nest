@@ -24,6 +24,7 @@ import {
   FindAllIncidenciasDoc,
   FindOneIncidenciaDoc,
   GetIncidenciaImageDoc,
+  GetIncidenciaImagesDoc,
   IncidenciasApiTags,
   UpdateIncidenciaDoc,
 } from './docs/incidencias.swagger';
@@ -63,6 +64,7 @@ export class IncidenciasController {
     return this.incidenciasService.findAll(tenantId);
   }
 
+  
   @Get(':id')
   @Auth(ValidPermission.viewIncidents)
   @FindOneIncidenciaDoc()
@@ -97,6 +99,16 @@ export class IncidenciasController {
     @GetUser('enterpriseId') tenantId: string,
   ) {
     return this.incidenciasService.remove(id, tenantId);
+  }
+
+  @Get(':incidenciaId/images')
+  @Auth(ValidPermission.viewIncidents)
+  @GetIncidenciaImagesDoc()
+  async listImages(
+    @Param('incidenciaId', new ParseUUIDPipe({ version: '4' })) incidenciaId: string,
+    @GetUser('enterpriseId') tenantId: string,
+  ) {
+    return this.incidenciasService.listImages(incidenciaId, tenantId);
   }
 
   @Get(':incidenciaId/images/:imageId')

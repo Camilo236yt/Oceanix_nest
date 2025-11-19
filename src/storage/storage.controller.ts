@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { StorageService } from './storage.service';
 import { STORAGE_BUCKETS, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from './config/storage.config';
@@ -29,6 +29,8 @@ export class StorageController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload a single file' })
+  @ApiResponse({ status: 201, description: 'File uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'No file uploaded or validation failed' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -58,6 +60,7 @@ export class StorageController {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
+    
 
     // Validar tipo y tamaño del archivo
     this.storageService.validateFileType(file, [
@@ -73,6 +76,8 @@ export class StorageController {
   @Post('upload-multiple')
   @UseInterceptors(FilesInterceptor('files', 10))
   @ApiOperation({ summary: 'Upload multiple files (max 10)' })
+  @ApiResponse({ status: 201, description: 'Files uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'No files uploaded or validation failed' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -115,6 +120,8 @@ export class StorageController {
   @Post('upload-avatar')
   @UseInterceptors(FileInterceptor('avatar'))
   @ApiOperation({ summary: 'Upload user avatar' })
+  @ApiResponse({ status: 201, description: 'Avatar uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'No avatar file uploaded or validation failed' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -148,6 +155,8 @@ export class StorageController {
 
   @Get('file/:bucket/:key')
   @ApiOperation({ summary: 'Get a file by bucket and key' })
+  @ApiResponse({ status: 200, description: 'Binary file stream' })
+  @ApiResponse({ status: 404, description: 'File not found' })
   async getFile(
     @Param('bucket') bucket: string,
     @Param('key') key: string,
@@ -175,6 +184,8 @@ export class StorageController {
 
   @Get('signed-url/:bucket/:key')
   @ApiOperation({ summary: 'Get a signed URL for temporary access' })
+  @ApiResponse({ status: 200, description: 'Signed URL generated' })
+  @ApiResponse({ status: 404, description: 'File not found' })
   async getSignedUrl(
     @Param('bucket') bucket: string,
     @Param('key') key: string,
@@ -191,6 +202,7 @@ export class StorageController {
 
   @Get('list/:bucket')
   @ApiOperation({ summary: 'List files in a bucket' })
+  @ApiResponse({ status: 200, description: 'List of files in the bucket' })
   async listFiles(
     @Param('bucket') bucket: string,
     @Query('prefix') prefix?: string,
@@ -207,6 +219,8 @@ export class StorageController {
 
   @Delete('file/:bucket/:key')
   @ApiOperation({ summary: 'Delete a file' })
+  @ApiResponse({ status: 200, description: 'File deleted successfully' })
+  @ApiResponse({ status: 404, description: 'File not found' })
   async deleteFile(
     @Param('bucket') bucket: string,
     @Param('key') key: string,

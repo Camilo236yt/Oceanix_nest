@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
 import { Incidencia } from './incidencia.entity';
 
 @Entity('images')
@@ -18,7 +18,11 @@ export class IncidentImage {
   @Column({ nullable: false })
   originalName: string;
 
-  @ManyToOne(() => Incidencia, { onDelete: 'CASCADE' })
+  @Column({ type: 'uuid' })
+  incidenciaId: string;
+
+  @ManyToOne(() => Incidencia, (incidencia) => incidencia.images, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'incidenciaId' })
   incidencia: Incidencia;
 
   @CreateDateColumn({ type: 'timestamp' })

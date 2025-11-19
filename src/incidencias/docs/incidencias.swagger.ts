@@ -64,6 +64,16 @@ export const CreateIncidenciaDoc = () =>
           status: 'PENDING',
           ProducReferenceId: 'INC-123456789',
           createdAt: '2025-11-18T09:21:15.988Z',
+          imageGroupId: '0a996172-9b0f-45f6-879f-51e9f08de111',
+          images: [
+            {
+              id: 'b3fb3b7a-a0b2-4ff8-920d-2e5d0c07bbf7',
+              incidenciaId: '0a996172-9b0f-45f6-879f-51e9f08de111',
+              url: 'http://localhost:9000/oceanix-tickets/incidencias/<tenant>/<incidencia>/1337-foto.png',
+              mimeType: 'image/png',
+              originalName: 'foto.png',
+            },
+          ],
         },
       },
     }),
@@ -131,6 +141,16 @@ export const FindOneIncidenciaDoc = () =>
           tipo: 'por_dano',
           status: 'PENDING',
           createdAt: '2025-11-18T09:21:15.988Z',
+          imageGroupId: '0a996172-9b0f-45f6-879f-51e9f08de111',
+          images: [
+            {
+              id: 'b3fb3b7a-a0b2-4ff8-920d-2e5d0c07bbf7',
+              incidenciaId: '0a996172-9b0f-45f6-879f-51e9f08de111',
+              url: 'http://localhost:9000/oceanix-tickets/...',
+              mimeType: 'image/png',
+              originalName: 'foto1.png',
+            },
+          ],
         },
       },
     }),
@@ -199,6 +219,48 @@ export const DeleteIncidenciaDoc = () =>
     ApiResponse({
       status: 403,
       description: 'El usuario no tiene permisos para eliminar incidencias',
+    }),
+  );
+
+export const GetIncidenciaImagesDoc = () =>
+  applyDecorators(
+    ApiBearerAuth(),
+    ApiCookieAuth('authToken'),
+    ApiOperation({
+      summary: 'Listar imágenes de una incidencia',
+      description:
+        'Devuelve los metadatos de todas las imágenes asociadas a la incidencia. Solo necesitas el ID de la incidencia para obtenerlas.',
+    }),
+    ApiParam({
+      name: 'incidenciaId',
+      description: 'UUID de la incidencia',
+      example: '0a996172-9b0f-45f6-879f-51e9f08de111',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Listado de imágenes',
+      schema: {
+        example: {
+          imageGroupId: '0a996172-9b0f-45f6-879f-51e9f08de111',
+          images: [
+            {
+              id: 'b3fb3b7a-a0b2-4ff8-920d-2e5d0c07bbf7',
+              incidenciaId: '0a996172-9b0f-45f6-879f-51e9f08de111',
+              url: 'http://localhost:9000/oceanix-tickets/incidencias/<tenant>/<incidencia>/<archivo>.png',
+              mimeType: 'image/png',
+              originalName: 'foto1.png',
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({
+      status: 404,
+      description: 'Incidencia no encontrada',
+    }),
+    ApiResponse({
+      status: 403,
+      description: 'El usuario no tiene permisos para ver incidencias',
     }),
   );
 

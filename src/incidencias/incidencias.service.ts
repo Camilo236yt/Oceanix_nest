@@ -104,6 +104,7 @@ export class IncidenciasService {
               mimeType: fileMeta.mimeType,
               originalName: fileMeta.originalName,
               incidencia: incidenciaRecord,
+              incidenciaId: incidenciaRecord.id,
             })
           );
           await this.incidentImageRepository.save(imageEntities);
@@ -121,7 +122,10 @@ export class IncidenciasService {
         // Silenciar errores de asignación para no bloquear la creación
       }
 
-      return incidenciaRecord;
+      return {
+        ...incidenciaRecord,
+        imageGroupId: incidenciaRecord.id,
+      };
     } catch (error) {
       if (savedIncidencia?.id) {
         await this.incidenciaRepository.delete(savedIncidencia.id);
@@ -228,6 +232,26 @@ export class IncidenciasService {
 
     await this.incidenciaRepository.restore(incidencia.id);
     return { message: `Incidencia ${id} reactivada` };
+  }
+
+  async listImages(incidenciaId: string, tenantId: string) {
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id: incidenciaId, tenantId },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException('Incidencia no encontrada');
+    }
+
+    const images = await this.incidentImageRepository.find({
+      where: { incidencia: { id: incidenciaId } },
+      select: ['id', 'url', 'mimeType', 'originalName', 'incidenciaId'],
+    });
+
+    return {
+      imageGroupId: incidenciaId,
+      images,
+    };
   }
 }
 
