@@ -344,9 +344,9 @@ export class AuthService {
         })) || [];
 
         // 4. Generate default logo/favicon/banner if not set
-        const logoUrl = enterpriseConfig.logoUrl || this.generateDefaultLogo(user.enterprise.name, enterpriseConfig.primaryColor);
-        const faviconUrl = enterpriseConfig.faviconUrl || this.generateDefaultFavicon(user.enterprise.name, enterpriseConfig.primaryColor);
-        const bannerUrl = enterpriseConfig.bannerUrl || this.generateDefaultBanner(user.enterprise.name, enterpriseConfig.primaryColor);
+        const logoUrl = enterpriseConfig.logoUrl || this.generateDefaultLogo(user.enterprise.name);
+        const faviconUrl = enterpriseConfig.faviconUrl || this.generateDefaultFavicon(user.enterprise.name);
+        const bannerUrl = enterpriseConfig.bannerUrl || this.generateDefaultBanner(user.enterprise.name);
 
         // 5. Build response
         return {
@@ -384,49 +384,36 @@ export class AuthService {
     }
 
     /**
-     * Generate default logo URL using UI Avatars API
-     * @param name Enterprise name
-     * @param color Primary color (hex without #)
-     * @returns URL to generated logo
+     * Generate default logo URL using Lorem Picsum
+     * Uses enterprise name as seed to ensure consistent image
+     * @param name Enterprise name (used as seed for consistency)
+     * @returns URL to generated logo from Lorem Picsum
      */
-    private generateDefaultLogo(name: string, color?: string): string {
-        const backgroundColor = color?.replace('#', '') || '2563EB';
-        const textColor = 'ffffff';
-        const size = 200;
-        const encodedName = encodeURIComponent(name);
-
-        return `https://ui-avatars.com/api/?name=${encodedName}&background=${backgroundColor}&color=${textColor}&size=${size}&bold=true&format=svg`;
+    private generateDefaultLogo(name: string): string {
+        const seed = encodeURIComponent(name);
+        return `https://picsum.photos/seed/${seed}/200/200`;
     }
 
     /**
-     * Generate default favicon URL using UI Avatars API
-     * @param name Enterprise name (first letter)
-     * @param color Primary color (hex without #)
-     * @returns URL to generated favicon
+     * Generate default favicon URL using Lorem Picsum
+     * Uses enterprise name as seed to ensure consistent image across reloads
+     * @param name Enterprise name (used as seed for consistency)
+     * @returns URL to generated favicon from Lorem Picsum
      */
-    private generateDefaultFavicon(name: string, color?: string): string {
-        const backgroundColor = color?.replace('#', '') || '2563EB';
-        const textColor = 'ffffff';
-        const size = 64;
-        const firstLetter = name.charAt(0).toUpperCase();
-
-        return `https://ui-avatars.com/api/?name=${firstLetter}&background=${backgroundColor}&color=${textColor}&size=${size}&bold=true&format=png`;
+    private generateDefaultFavicon(name: string): string {
+        const seed = encodeURIComponent(name + '-favicon');
+        return `https://picsum.photos/seed/${seed}/64/64`;
     }
 
     /**
-     * Generate default banner URL using placeholder service
-     * @param name Enterprise name
-     * @param color Primary color (hex without #)
-     * @returns URL to generated banner
+     * Generate default banner URL using Lorem Picsum
+     * Uses enterprise name as seed to ensure consistent image
+     * @param name Enterprise name (used as seed for consistency)
+     * @returns URL to generated banner from Lorem Picsum
      */
-    private generateDefaultBanner(name: string, color?: string): string {
-        const backgroundColor = color?.replace('#', '') || '2563EB';
-        const textColor = 'ffffff';
-        const width = 1200;
-        const height = 400;
-        const encodedName = encodeURIComponent(name);
-
-        return `https://ui-avatars.com/api/?name=${encodedName}&background=${backgroundColor}&color=${textColor}&size=${width}&bold=true&format=svg&length=3`;
+    private generateDefaultBanner(name: string): string {
+        const seed = encodeURIComponent(name + '-banner');
+        return `https://picsum.photos/seed/${seed}/1200/400`;
     }
 
     private handdleErrorsDb(error: any): never {
