@@ -22,6 +22,7 @@ import { ResponseInterceptor, CacheInterceptor } from './common/interceptors';
 import { SeedModule } from './seed/seed.module';
 import { ReportsModule } from './reports/reports.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { EnterpriseConfigModule } from './enterprise-config/enterprise-config.module';
 
 @Module({
   imports: [
@@ -54,7 +55,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
      LocationModule,
      SeedModule,
      ReportsModule,
-     DashboardModule
+     DashboardModule,
+     EnterpriseConfigModule
   ],
   controllers: [],
   providers: [

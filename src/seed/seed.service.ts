@@ -10,6 +10,9 @@ import { UserRole } from 'src/users/entities/user-role.entity';
 import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
 import { TipoIncidencia, incidenciaStatus } from 'src/incidencias/dto/enum/status-incidencias.enum';
 import { ValidPermission } from 'src/auth/interfaces';
+import { EnterpriseConfig } from 'src/enterprise-config/entities/enterprise-config.entity';
+import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-document.entity';
+import { VerificationStatus, DocumentType, DocumentStatus } from 'src/enterprise-config/enums/verification-status.enum';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -34,6 +37,10 @@ export class SeedService {
     private readonly userRoleRepository: Repository<UserRole>,
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
+    @InjectRepository(EnterpriseConfig)
+    private readonly enterpriseConfigRepository: Repository<EnterpriseConfig>,
+    @InjectRepository(EnterpriseDocument)
+    private readonly enterpriseDocumentRepository: Repository<EnterpriseDocument>,
   ) {}
 
   /**
@@ -57,6 +64,10 @@ export class SeedService {
     // Crear incidencias de prueba para cada empresa
     await this.seedIncidencias();
 
+    // Crear configuraciones y documentos de empresas
+    await this.seedEnterpriseConfigs();
+    await this.seedEnterpriseDocuments();
+
     this.logger.log('Database seeding completed!');
   }
 
@@ -68,31 +79,39 @@ export class SeedService {
     this.logger.log('🧹 Cleaning database...');
 
     try {
-      // 1. Eliminar incidencias (no tienen foreign keys que las referencien)
+      // 1. Eliminar documentos de empresas (dependen de enterprises)
+      this.logger.log('Deleting enterprise documents...');
+      await this.enterpriseDocumentRepository.query('DELETE FROM enterprise_documents');
+
+      // 2. Eliminar configuraciones de empresas (dependen de enterprises)
+      this.logger.log('Deleting enterprise configs...');
+      await this.enterpriseConfigRepository.query('DELETE FROM enterprise_config');
+
+      // 3. Eliminar incidencias (no tienen foreign keys que las referencien)
       this.logger.log('Deleting incidencias...');
       await this.incidenciaRepository.query('DELETE FROM incidencias');
 
-      // 2. Eliminar relaciones user-role
+      // 4. Eliminar relaciones user-role
       this.logger.log('Deleting user-role relationships...');
       await this.userRoleRepository.query('DELETE FROM user_roles');
 
-      // 3. Eliminar usuarios (excepto SUPER_ADMIN si existe)
+      // 5. Eliminar usuarios (excepto SUPER_ADMIN si existe)
       this.logger.log('Deleting users...');
       await this.userRepository.query('DELETE FROM users WHERE "userType" != \'SUPER_ADMIN\'');
 
-      // 4. Eliminar relaciones role-permission
+      // 6. Eliminar relaciones role-permission
       this.logger.log('Deleting role-permission relationships...');
       await this.rolePermissionRepository.query('DELETE FROM role_permission');
 
-      // 5. Eliminar roles
+      // 7. Eliminar roles
       this.logger.log('Deleting roles...');
       await this.roleRepository.query('DELETE FROM roles');
 
-      // 6. Eliminar permisos
+      // 8. Eliminar permisos
       this.logger.log('Deleting permissions...');
       await this.permissionRepository.query('DELETE FROM permissions');
 
-      // 7. Eliminar empresas
+      // 9. Eliminar empresas
       this.logger.log('Deleting enterprises...');
       await this.enterpriseRepository.query('DELETE FROM enterprises');
 
@@ -474,6 +493,28 @@ export class SeedService {
         name: ValidPermission.manageSystem,
         title: 'Gestionar Sistema',
         description: 'Permite administrar configuración del sistema',
+      },
+
+      // Enterprise Configuration & Verification
+      {
+        name: ValidPermission.manageEnterpriseConfig,
+        title: 'Gestionar Configuración de Empresa',
+        description: 'Permite configurar colores, logos y dominios de email de la empresa',
+      },
+      {
+        name: ValidPermission.uploadEnterpriseDocuments,
+        title: 'Subir Documentos de Empresa',
+        description: 'Permite subir documentos legales de la empresa',
+      },
+      {
+        name: ValidPermission.verifyEnterprises,
+        title: 'Verificar Empresas',
+        description: 'Permite verificar o rechazar empresas (solo SUPER_ADMIN)',
+      },
+      {
+        name: ValidPermission.approveDocuments,
+        title: 'Aprobar Documentos',
+        description: 'Permite aprobar o rechazar documentos de empresas (solo SUPER_ADMIN)',
       },
     ];
 
@@ -1003,5 +1044,189 @@ export class SeedService {
     const result = new Date(date);
     result.setDate(result.getDate() + days);
     return result;
+  }
+
+  /**
+   * Crea configuraciones para las empresas
+   */
+  async seedEnterpriseConfigs(): Promise<void> {
+    this.logger.log('Seeding enterprise configs...');
+
+    const enterprises = await this.enterpriseRepository.find();
+
+    if (enterprises.length === 0) {
+      this.logger.warn('No enterprises found. Skipping configs seed...');
+      return;
+    }
+
+    const configs = [
+      // TechCorp - Verificada
+      {
+        enterpriseId: enterprises[0].id,
+        isVerified: true,
+        verificationStatus: VerificationStatus.VERIFIED,
+        verificationDate: new Date('2025-01-15'),
+        primaryColor: '#2563EB',
+        secondaryColor: '#1E40AF',
+        accentColor: '#F59E0B',
+        emailDomains: ['techcorp.com', 'tc.com'],
+        requireCorporateEmail: false,
+      },
+      // Global Services - Pendiente
+      {
+        enterpriseId: enterprises[1].id,
+        isVerified: false,
+        verificationStatus: VerificationStatus.PENDING,
+        primaryColor: '#10B981',
+        secondaryColor: '#059669',
+        accentColor: '#8B5CF6',
+        emailDomains: ['globalservices.com'],
+        requireCorporateEmail: true,
+      },
+      // Innovation Labs - Rechazada
+      {
+        enterpriseId: enterprises[2].id,
+        isVerified: false,
+        verificationStatus: VerificationStatus.REJECTED,
+        rejectionReason: 'Tax ID document is expired. Please upload updated documentation.',
+        verificationDate: new Date('2025-02-10'),
+        primaryColor: '#EF4444',
+        secondaryColor: '#DC2626',
+        accentColor: '#F97316',
+        emailDomains: ['innovationlabs.com', 'ilabs.io'],
+        requireCorporateEmail: false,
+      },
+    ];
+
+    for (const configData of configs) {
+      const config = this.enterpriseConfigRepository.create(configData);
+      await this.enterpriseConfigRepository.save(config);
+      this.logger.log(
+        `Created config for enterprise: ${enterprises.find((e) => e.id === configData.enterpriseId)?.name} (Status: ${configData.verificationStatus})`,
+      );
+    }
+
+    this.logger.log('✅ Successfully seeded enterprise configs');
+  }
+
+  /**
+   * Crea documentos de prueba para las empresas
+   */
+  async seedEnterpriseDocuments(): Promise<void> {
+    this.logger.log('Seeding enterprise documents...');
+
+    const enterprises = await this.enterpriseRepository.find();
+
+    if (enterprises.length === 0) {
+      this.logger.warn('No enterprises found. Skipping documents seed...');
+      return;
+    }
+
+    const documents = [
+      // TechCorp - Todos aprobados
+      {
+        enterpriseId: enterprises[0].id,
+        type: DocumentType.TAX_ID,
+        fileName: 'techcorp_rut_2025.pdf',
+        fileKey: 'enterprises/techcorp/documents/tax_id.pdf',
+        fileUrl: 'https://example.com/docs/techcorp_tax_id.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 245632,
+        description: 'RUT vigente 2025',
+        status: DocumentStatus.APPROVED,
+        approvalDate: new Date('2025-01-12'),
+        version: 1,
+      },
+      {
+        enterpriseId: enterprises[0].id,
+        type: DocumentType.CHAMBER_COMMERCE,
+        fileName: 'techcorp_chamber_commerce.pdf',
+        fileKey: 'enterprises/techcorp/documents/chamber.pdf',
+        fileUrl: 'https://example.com/docs/techcorp_chamber.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 189456,
+        description: 'Certificado Cámara de Comercio',
+        status: DocumentStatus.APPROVED,
+        approvalDate: new Date('2025-01-13'),
+        version: 1,
+      },
+      {
+        enterpriseId: enterprises[0].id,
+        type: DocumentType.LEGAL_REP_ID,
+        fileName: 'techcorp_legal_rep_id.pdf',
+        fileKey: 'enterprises/techcorp/documents/legal_rep.pdf',
+        fileUrl: 'https://example.com/docs/techcorp_legal_rep.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 156234,
+        description: 'Cédula representante legal',
+        status: DocumentStatus.APPROVED,
+        approvalDate: new Date('2025-01-14'),
+        version: 1,
+      },
+
+      // Global Services - Pendientes
+      {
+        enterpriseId: enterprises[1].id,
+        type: DocumentType.TAX_ID,
+        fileName: 'globalservices_rut.pdf',
+        fileKey: 'enterprises/globalservices/documents/tax_id.pdf',
+        fileUrl: 'https://example.com/docs/globalservices_tax.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 234567,
+        description: 'RUT de la empresa',
+        status: DocumentStatus.PENDING,
+        version: 1,
+      },
+      {
+        enterpriseId: enterprises[1].id,
+        type: DocumentType.CHAMBER_COMMERCE,
+        fileName: 'globalservices_chamber.pdf',
+        fileKey: 'enterprises/globalservices/documents/chamber.pdf',
+        fileUrl: 'https://example.com/docs/globalservices_chamber.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 198765,
+        description: 'Certificado Cámara de Comercio',
+        status: DocumentStatus.PENDING,
+        version: 1,
+      },
+
+      // Innovation Labs - Uno rechazado, otros pendientes
+      {
+        enterpriseId: enterprises[2].id,
+        type: DocumentType.TAX_ID,
+        fileName: 'innovationlabs_rut_expired.pdf',
+        fileKey: 'enterprises/innovationlabs/documents/tax_id_old.pdf',
+        fileUrl: 'https://example.com/docs/innovationlabs_tax_old.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 267890,
+        description: 'RUT - versión anterior',
+        status: DocumentStatus.REJECTED,
+        rejectionReason: 'Documento vencido. Fecha de expedición: 2023-01-01. Por favor suba versión actualizada.',
+        approvalDate: new Date('2025-02-10'),
+        version: 1,
+      },
+      {
+        enterpriseId: enterprises[2].id,
+        type: DocumentType.LEGAL_REP_ID,
+        fileName: 'innovationlabs_legal_rep.pdf',
+        fileKey: 'enterprises/innovationlabs/documents/legal_rep.pdf',
+        fileUrl: 'https://example.com/docs/innovationlabs_legal.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 145678,
+        description: 'Cédula del representante legal',
+        status: DocumentStatus.PENDING,
+        version: 1,
+      },
+    ];
+
+    for (const docData of documents) {
+      const document = this.enterpriseDocumentRepository.create(docData);
+      await this.enterpriseDocumentRepository.save(document);
+      this.logger.log(
+        `Created document: ${docData.type} for ${enterprises.find((e) => e.id === docData.enterpriseId)?.name} (Status: ${docData.status})`,
+      );
+    }
+
+    this.logger.log('✅ Successfully seeded enterprise documents');
   }
 }

@@ -76,4 +76,10 @@ export enum ValidPermission {
     // System Administration
     manageRedis = 'manage_redis',
     manageSystem = 'manage_system',
+
+    // Enterprise Configuration & Verification
+    manageEnterpriseConfig = 'manage_enterprise_config',
+    uploadEnterpriseDocuments = 'upload_enterprise_documents',
+    verifyEnterprises = 'verify_enterprises',
+    approveDocuments = 'approve_documents',
 }

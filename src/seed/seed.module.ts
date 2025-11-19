@@ -8,6 +8,8 @@ import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
 import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
+import { EnterpriseConfig } from 'src/enterprise-config/entities/enterprise-config.entity';
+import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-document.entity';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
       User,
       UserRole,
       Incidencia,
+      EnterpriseConfig,
+      EnterpriseDocument,
     ]),
   ],
   providers: [SeedService],
