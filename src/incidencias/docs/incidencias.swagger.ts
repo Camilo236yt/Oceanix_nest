@@ -296,3 +296,30 @@ export const GetIncidenciaImageDoc = () =>
       description: 'El usuario no tiene permisos para ver incidencias',
     }),
   );
+
+export const GetImageByIdDoc = () =>
+  applyDecorators(
+    ApiBearerAuth(),
+    ApiCookieAuth('authToken'),
+    ApiOperation({
+      summary: 'Descargar imagen por ID',
+      description: 'Devuelve una imagen directamente usando su ID único.',
+    }),
+    ApiParam({
+      name: 'imageId',
+      description: 'UUID de la imagen',
+      example: '9a776172-9b0f-45f6-879f-51e9f08de999',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Imagen devuelta exitosamente (contenido binario)',
+    }),
+    ApiResponse({
+      status: 404,
+      description: 'Imagen no encontrada para este tenant',
+    }),
+    ApiResponse({
+      status: 403,
+      description: 'El usuario no tiene permisos para ver incidencias',
+    }),
+  );

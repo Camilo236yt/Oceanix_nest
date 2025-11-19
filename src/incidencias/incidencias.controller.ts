@@ -25,6 +25,7 @@ import {
   FindOneIncidenciaDoc,
   GetIncidenciaImageDoc,
   GetIncidenciaImagesDoc,
+  GetImageByIdDoc,
   IncidenciasApiTags,
   UpdateIncidenciaDoc,
 } from './docs/incidencias.swagger';
@@ -121,6 +122,20 @@ export class IncidenciasController {
     @Res() res: Response,
   ) {
     const file = await this.incidenciasService.getImage(imageId, incidenciaId, tenantId);
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+    res.send(file.data);
+  }
+
+  @Get('images/:imageId')
+  @Auth(ValidPermission.viewIncidents)
+  @GetImageByIdDoc()
+  async getImageById(
+    @Param('imageId', new ParseUUIDPipe({ version: '4' })) imageId: string,
+    @GetUser('enterpriseId') tenantId: string,
+    @Res() res: Response,
+  ) {
+    const file = await this.incidenciasService.getImageById(imageId, tenantId);
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
     res.send(file.data);

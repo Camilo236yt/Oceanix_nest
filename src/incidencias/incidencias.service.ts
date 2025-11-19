@@ -22,6 +22,15 @@ export class IncidenciasService {
     private readonly storageService: StorageService,
     private readonly employeeAssignmentService: EmployeeAssignmentService,
   ) {}
+  
+
+  private getApiBaseUrl(): string {
+    return (
+      process.env.API_BASE_URL ||
+      process.env.APP_URL ||
+      `http://localhost:${process.env.PORT ?? 3000}`
+    );
+  }
 
   /**
    * Método auxiliar centralizado para manejar errores de base de datos
@@ -107,11 +116,16 @@ export class IncidenciasService {
               incidenciaId: incidenciaRecord.id,
             })
           );
-          await this.incidentImageRepository.save(imageEntities);
+          const savedImages = await this.incidentImageRepository.save(imageEntities);
+          const apiBaseUrl = this.getApiBaseUrl();
 
-          incidenciaRecord.images = await this.incidentImageRepository.find({
-            where: { incidencia: { id: incidenciaRecord.id } },
-          });
+          for (const image of savedImages) {
+            image.url = `${apiBaseUrl}/api/v1/incidencias/images/${image.id}`;
+          }
+
+          await this.incidentImageRepository.save(savedImages);
+
+          incidenciaRecord.images = savedImages;
         }
       }
 
@@ -151,6 +165,28 @@ export class IncidenciasService {
       incidentImage.incidencia?.tenantId !== tenantId
     ) {
       throw new NotFoundException('Imagen no encontrada para esta incidencia');
+    }
+
+    const data = await this.storageService.getFile(
+      STORAGE_BUCKETS.TICKETS,
+      incidentImage.key,
+    );
+
+    return {
+      data,
+      mimeType: incidentImage.mimeType,
+      originalName: incidentImage.originalName,
+    };
+  }
+
+  async getImageById(imageId: string, tenantId: string) {
+    const incidentImage = await this.incidentImageRepository.findOne({
+      where: { id: imageId },
+      relations: ['incidencia'],
+    });
+
+    if (!incidentImage || incidentImage.incidencia?.tenantId !== tenantId) {
+      throw new NotFoundException('Imagen no encontrada para este tenant');
     }
 
     const data = await this.storageService.getFile(
@@ -244,7 +280,7 @@ export class IncidenciasService {
     }
 
     const images = await this.incidentImageRepository.find({
-      where: { incidencia: { id: incidenciaId } },
+      where: { incidenciaId },
       select: ['id', 'url', 'mimeType', 'originalName', 'incidenciaId'],
     });
 
