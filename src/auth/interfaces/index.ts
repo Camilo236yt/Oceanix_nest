@@ -4,3 +4,4 @@ export { ValidPermission } from './valid-permission';
 export type { AuthResponseDto } from './auth-response.interface';
 export type { ActivationTokenPayload } from './activation-token-payload.interface';
 export type { RegisterEnterpriseResponseDto } from './register-enterprise-response.interface';
+export type { UserProfileResponseDto } from './user-profile-response.interface';
