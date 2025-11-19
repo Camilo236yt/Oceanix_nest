@@ -7,6 +7,8 @@ import { Role } from 'src/roles/entities/role.entity';
 import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { User, UserType } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
+import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
+import { TipoIncidencia, incidenciaStatus } from 'src/incidencias/dto/enum/status-incidencias.enum';
 import { ValidPermission } from 'src/auth/interfaces';
 import * as bcrypt from 'bcrypt';
 
@@ -30,6 +32,8 @@ export class SeedService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
+    @InjectRepository(Incidencia)
+    private readonly incidenciaRepository: Repository<Incidencia>,
   ) {}
 
   /**
@@ -50,6 +54,9 @@ export class SeedService {
     // Crear empresas con roles y usuarios
     await this.seedEnterprises(permissions);
 
+    // Crear incidencias de prueba para cada empresa
+    await this.seedIncidencias();
+
     this.logger.log('Database seeding completed!');
   }
 
@@ -61,27 +68,31 @@ export class SeedService {
     this.logger.log('🧹 Cleaning database...');
 
     try {
-      // 1. Eliminar relaciones user-role
+      // 1. Eliminar incidencias (no tienen foreign keys que las referencien)
+      this.logger.log('Deleting incidencias...');
+      await this.incidenciaRepository.query('DELETE FROM incidencias');
+
+      // 2. Eliminar relaciones user-role
       this.logger.log('Deleting user-role relationships...');
       await this.userRoleRepository.query('DELETE FROM user_roles');
 
-      // 2. Eliminar usuarios (excepto SUPER_ADMIN si existe)
+      // 3. Eliminar usuarios (excepto SUPER_ADMIN si existe)
       this.logger.log('Deleting users...');
       await this.userRepository.query('DELETE FROM users WHERE "userType" != \'SUPER_ADMIN\'');
 
-      // 3. Eliminar relaciones role-permission
+      // 4. Eliminar relaciones role-permission
       this.logger.log('Deleting role-permission relationships...');
       await this.rolePermissionRepository.query('DELETE FROM role_permission');
 
-      // 4. Eliminar roles
+      // 5. Eliminar roles
       this.logger.log('Deleting roles...');
       await this.roleRepository.query('DELETE FROM roles');
 
-      // 5. Eliminar permisos
+      // 6. Eliminar permisos
       this.logger.log('Deleting permissions...');
       await this.permissionRepository.query('DELETE FROM permissions');
 
-      // 6. Eliminar empresas
+      // 7. Eliminar empresas
       this.logger.log('Deleting enterprises...');
       await this.enterpriseRepository.query('DELETE FROM enterprises');
 
@@ -836,5 +847,161 @@ export class SeedService {
     this.logger.log(
       `Created user: ${savedViewer.email} with role: ${viewerRole.name}`,
     );
+  }
+
+  /**
+   * Crea incidencias de prueba para todas las empresas
+   */
+  async seedIncidencias(): Promise<void> {
+    this.logger.log('Seeding incidencias...');
+
+    // Obtener todas las empresas
+    const enterprises = await this.enterpriseRepository.find();
+
+    if (enterprises.length === 0) {
+      this.logger.warn('No enterprises found. Skipping incidencias seed...');
+      return;
+    }
+
+    let totalCreated = 0;
+
+    for (const enterprise of enterprises) {
+      this.logger.log(`Creating incidencias for enterprise: ${enterprise.name}`);
+
+      // Crear incidencias variadas para generar datos realistas para el reporte
+      const incidenciasData = [
+        // Pérdidas (45 total distribuidas)
+        ...this.generateIncidenciasForType(
+          TipoIncidencia.POR_PERDIDA,
+          15,
+          enterprise.id,
+          'Pérdida',
+        ),
+
+        // Daños (27 total distribuidas)
+        ...this.generateIncidenciasForType(
+          TipoIncidencia.POR_DANO,
+          9,
+          enterprise.id,
+          'Daño',
+        ),
+
+        // Retrasos (30 total - agrupando tipos técnicos/operativos)
+        ...this.generateIncidenciasForType(
+          TipoIncidencia.POR_ERROR_HUMANO,
+          5,
+          enterprise.id,
+          'Error Humano',
+        ),
+        ...this.generateIncidenciasForType(
+          TipoIncidencia.POR_MANTENIMIENTO,
+          3,
+          enterprise.id,
+          'Mantenimiento',
+        ),
+        ...this.generateIncidenciasForType(
+          TipoIncidencia.POR_FALLA_TECNICA,
+          2,
+          enterprise.id,
+          'Falla Técnica',
+        ),
+
+        // Otros (18 total distribuidas)
+        ...this.generateIncidenciasForType(
+          TipoIncidencia.OTRO,
+          6,
+          enterprise.id,
+          'Otros',
+        ),
+      ];
+
+      // Guardar todas las incidencias
+      for (const incData of incidenciasData) {
+        const incidencia = this.incidenciaRepository.create(incData);
+        await this.incidenciaRepository.save(incidencia);
+        totalCreated++;
+      }
+
+      this.logger.log(
+        `Created ${incidenciasData.length} incidencias for ${enterprise.name}`,
+      );
+    }
+
+    this.logger.log(`✅ Successfully seeded ${totalCreated} incidencias in total`);
+  }
+
+  /**
+   * Genera datos de incidencias para un tipo específico
+   */
+  private generateIncidenciasForType(
+    tipo: TipoIncidencia,
+    count: number,
+    enterpriseId: string,
+    prefix: string,
+  ): Partial<Incidencia>[] {
+    const incidencias: Partial<Incidencia>[] = [];
+    const statuses = [
+      incidenciaStatus.RESOLVED,
+      incidenciaStatus.PENDING,
+      incidenciaStatus.IN_PROGRESS,
+      incidenciaStatus.CLOSED,
+    ];
+
+    // Distribución de estados según el dashboard:
+    // Resueltas: 65%, Pendientes: 28%, Críticas (IN_PROGRESS): 10%
+    const statusDistribution = [
+      ...Array(Math.ceil(count * 0.65)).fill(incidenciaStatus.RESOLVED),
+      ...Array(Math.ceil(count * 0.20)).fill(incidenciaStatus.PENDING),
+      ...Array(Math.ceil(count * 0.10)).fill(incidenciaStatus.IN_PROGRESS),
+      ...Array(Math.ceil(count * 0.05)).fill(incidenciaStatus.CLOSED),
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const status = statusDistribution[i] || statuses[i % statuses.length];
+
+      // Generar fechas realistas (últimos 11 meses)
+      const createdDate = this.getRandomDateInRange(
+        new Date('2025-01-01'),
+        new Date('2025-11-30'),
+      );
+
+      // Si está resuelta, agregar tiempo de resolución
+      const updatedDate =
+        status === incidenciaStatus.RESOLVED || status === incidenciaStatus.CLOSED
+          ? this.addDaysToDate(createdDate, Math.floor(Math.random() * 5) + 1) // 1-5 días
+          : new Date();
+
+      incidencias.push({
+        tipo,
+        name: `${prefix} #${i + 1} - ${enterpriseId.substring(0, 8)}`,
+        description: `Descripción detallada de ${prefix.toLowerCase()} ${i + 1} para la empresa`,
+        status: status,
+        ProducReferenceId: `PROD-${enterpriseId.substring(0, 4)}-${tipo}-${Date.now()}-${i}`,
+        tenantId: enterpriseId,
+        isActive: true,
+        createdAt: createdDate,
+        updatedAt: updatedDate,
+      });
+    }
+
+    return incidencias;
+  }
+
+  /**
+   * Genera una fecha aleatoria dentro de un rango
+   */
+  private getRandomDateInRange(start: Date, end: Date): Date {
+    return new Date(
+      start.getTime() + Math.random() * (end.getTime() - start.getTime()),
+    );
+  }
+
+  /**
+   * Agrega días a una fecha
+   */
+  private addDaysToDate(date: Date, days: number): Date {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
   }
 }

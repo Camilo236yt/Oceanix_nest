@@ -7,6 +7,7 @@ import { Role } from 'src/roles/entities/role.entity';
 import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { User } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
+import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UserRole } from 'src/users/entities/user-role.entity';
       RolePermission,
       User,
       UserRole,
+      Incidencia,
     ]),
   ],
   providers: [SeedService],
