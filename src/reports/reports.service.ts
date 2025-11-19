@@ -3,13 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incidencia } from '../incidencias/entities/incidencia.entity';
 import { DashboardReport } from './interfaces/report-stats.interface';
+import { DashboardMetrics } from './interfaces/dashboard-metrics.interface';
 import { TipoIncidencia } from '../incidencias/dto/enum/status-incidencias.enum';
+import { Enterprise } from '../enterprise/entities/enterprise.entity';
 
 @Injectable()
 export class ReportsService {
   constructor(
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
+    @InjectRepository(Enterprise)
+    private readonly enterpriseRepository: Repository<Enterprise>,
   ) {}
 
   async generateReport(
@@ -160,5 +164,129 @@ export class ReportsService {
     };
 
     return report;
+  }
+
+  async getDashboardMetrics(
+    enterpriseId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<DashboardMetrics> {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    // 1. Obtener tiempo promedio de respuesta por mes
+    const tiempoPromedioRespuesta = await this.getAverageResponseTimeByMonth(
+      enterpriseId,
+      start,
+      end,
+    );
+
+    // 2. Obtener porcentaje de cumplimiento por empresa (solo si es SUPER_ADMIN)
+    // Por ahora retornamos solo la empresa actual
+    const porcentajeCumplimientoEmpresa = await this.getComplianceByEnterprise(
+      enterpriseId,
+      start,
+      end,
+    );
+
+    return {
+      tiempoPromedioRespuesta,
+      porcentajeCumplimientoEmpresa,
+    };
+  }
+
+  private async getAverageResponseTimeByMonth(
+    enterpriseId: string,
+    start: Date,
+    end: Date,
+  ) {
+    const incidencias = await this.incidenciaRepository
+      .createQueryBuilder('inc')
+      .where('inc.tenantId = :enterpriseId', { enterpriseId })
+      .andWhere('inc.createdAt BETWEEN :start AND :end', { start, end })
+      .andWhere('inc.isActive = :isActive', { isActive: true })
+      .andWhere("inc.status IN ('RESOLVED', 'CLOSED')")
+      .getMany();
+
+    // Agrupar por mes
+    const monthlyData = new Map<string, { total: number; count: number }>();
+
+    incidencias.forEach((inc) => {
+      const month = inc.createdAt.toLocaleDateString('es-ES', {
+        month: 'short',
+        year: 'numeric',
+      });
+      const monthKey = inc.createdAt.toLocaleDateString('es-ES', {
+        month: 'short',
+      });
+
+      const days =
+        (inc.updatedAt.getTime() - inc.createdAt.getTime()) /
+        (1000 * 60 * 60 * 24);
+
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, { total: 0, count: 0 });
+      }
+
+      const data = monthlyData.get(monthKey)!;
+      data.total += days;
+      data.count += 1;
+    });
+
+    // Convertir a array con promedios
+    const result = Array.from(monthlyData.entries()).map(([mes, data]) => ({
+      mes: mes.charAt(0).toUpperCase() + mes.slice(1), // Capitalizar
+      promedio: parseFloat((data.total / data.count).toFixed(1)),
+    }));
+
+    // Ordenar por mes
+    const monthOrder = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    result.sort((a, b) => {
+      const aIndex = monthOrder.findIndex(m => a.mes.startsWith(m));
+      const bIndex = monthOrder.findIndex(m => b.mes.startsWith(m));
+      return aIndex - bIndex;
+    });
+
+    return result;
+  }
+
+  private async getComplianceByEnterprise(
+    enterpriseId: string,
+    start: Date,
+    end: Date,
+  ) {
+    // Obtener todas las empresas para comparación
+    const enterprises = await this.enterpriseRepository.find({
+      where: { isActive: true },
+    });
+
+    const results: Array<{ empresa: string; porcentaje: number }> = [];
+
+    for (const enterprise of enterprises) {
+      const total = await this.incidenciaRepository
+        .createQueryBuilder('inc')
+        .where('inc.tenantId = :tenantId', { tenantId: enterprise.id })
+        .andWhere('inc.isActive = :isActive', { isActive: true })
+        .andWhere('inc.createdAt BETWEEN :start AND :end', { start, end })
+        .getCount();
+
+      const resueltas = await this.incidenciaRepository
+        .createQueryBuilder('inc')
+        .where('inc.tenantId = :tenantId', { tenantId: enterprise.id })
+        .andWhere('inc.isActive = :isActive', { isActive: true })
+        .andWhere("inc.status IN ('RESOLVED', 'CLOSED')")
+        .andWhere('inc.createdAt BETWEEN :start AND :end', { start, end })
+        .getCount();
+
+      const porcentaje = total > 0 ? Math.round((resueltas / total) * 100) : 0;
+
+      results.push({
+        empresa: enterprise.name,
+        porcentaje,
+      });
+    }
+
+    return results;
   }
 }

@@ -90,4 +90,64 @@ export class ReportsController {
       getReportDto.endDate,
     );
   }
+
+  @Get()
+  @Auth(ValidPermission.viewReports)
+  @ApiOperation({
+    summary: 'Obtener métricas para dashboard',
+    description: 'Obtiene métricas de tiempo promedio de respuesta por mes y porcentaje de cumplimiento por empresa para gráficas del dashboard.'
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: true,
+    type: String,
+    description: 'Fecha de inicio en formato ISO (YYYY-MM-DD)',
+    example: '2025-01-01'
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: true,
+    type: String,
+    description: 'Fecha de fin en formato ISO (YYYY-MM-DD)',
+    example: '2025-11-30'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Métricas obtenidas exitosamente',
+    schema: {
+      example: {
+        tiempoPromedioRespuesta: [
+          { mes: 'Ene', promedio: 2.8 },
+          { mes: 'Feb', promedio: 2.9 },
+          { mes: 'Mar', promedio: 2.6 },
+          { mes: 'Abr', promedio: 2.7 },
+          { mes: 'May', promedio: 2.1 }
+        ],
+        porcentajeCumplimientoEmpresa: [
+          { empresa: 'Empresa A', porcentaje: 90 },
+          { empresa: 'Empresa B', porcentaje: 95 },
+          { empresa: 'Empresa C', porcentaje: 80 },
+          { empresa: 'Empresa D', porcentaje: 92 }
+        ]
+      }
+    }
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autorizado - Token inválido o faltante'
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Usuario no tiene permiso viewReports'
+  })
+  async getDashboardMetrics(
+    @Query() getReportDto: GetReportDto,
+    @GetUser() user: User,
+  ) {
+    return await this.reportsService.getDashboardMetrics(
+      user.enterpriseId,
+      getReportDto.startDate,
+      getReportDto.endDate,
+    );
+  }
 }
