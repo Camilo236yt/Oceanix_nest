@@ -23,6 +23,7 @@ import { SeedModule } from './seed/seed.module';
 import { ReportsModule } from './reports/reports.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EnterpriseConfigModule } from './enterprise-config/enterprise-config.module';
+import { UserPreferencesModule } from './user-preferences/user-preferences.module';
 
 @Module({
   imports: [
@@ -56,7 +57,8 @@ import { EnterpriseConfigModule } from './enterprise-config/enterprise-config.mo
      SeedModule,
      ReportsModule,
      DashboardModule,
-     EnterpriseConfigModule
+     EnterpriseConfigModule,
+     UserPreferencesModule
   ],
   controllers: [],
   providers: [
