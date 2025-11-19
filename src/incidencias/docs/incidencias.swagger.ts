@@ -201,3 +201,36 @@ export const DeleteIncidenciaDoc = () =>
       description: 'El usuario no tiene permisos para eliminar incidencias',
     }),
   );
+
+export const GetIncidenciaImageDoc = () =>
+  applyDecorators(
+    ApiBearerAuth(),
+    ApiCookieAuth('authToken'),
+    ApiOperation({
+      summary: 'Descargar imagen de incidencia',
+      description:
+        'Devuelve el archivo binario de una imagen asociada a la incidencia especificada.',
+    }),
+    ApiParam({
+      name: 'incidenciaId',
+      description: 'UUID de la incidencia',
+      example: '0a996172-9b0f-45f6-879f-51e9f08de111',
+    }),
+    ApiParam({
+      name: 'imageId',
+      description: 'UUID de la imagen',
+      example: '9a776172-9b0f-45f6-879f-51e9f08de999',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Imagen devuelta exitosamente (contenido binario)',
+    }),
+    ApiResponse({
+      status: 404,
+      description: 'Imagen no encontrada para la incidencia dada',
+    }),
+    ApiResponse({
+      status: 403,
+      description: 'El usuario no tiene permisos para ver incidencias',
+    }),
+  );

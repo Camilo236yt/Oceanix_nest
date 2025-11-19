@@ -7,12 +7,13 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Res,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import type { Express } from 'express';
+import type { Express, Response } from 'express';
 
 import { IncidenciasService } from './incidencias.service';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
@@ -22,6 +23,7 @@ import {
   DeleteIncidenciaDoc,
   FindAllIncidenciasDoc,
   FindOneIncidenciaDoc,
+  GetIncidenciaImageDoc,
   IncidenciasApiTags,
   UpdateIncidenciaDoc,
 } from './docs/incidencias.swagger';
@@ -42,12 +44,14 @@ export class IncidenciasController {
   @CreateIncidenciaDoc()
   create(
     @Body() createIncidenciaDto: CreateIncidenciaDto,
-    @GetUser('tenantId') tenantId: string,
+    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('id') userId: string,
     @UploadedFiles() images: Express.Multer.File[],
   ) {
     return this.incidenciasService.create(
       createIncidenciaDto,
       tenantId,
+      userId,
       images,
     );
   }
@@ -55,7 +59,7 @@ export class IncidenciasController {
   @Get()
   @Auth(ValidPermission.viewIncidents)
   @FindAllIncidenciasDoc()
-  findAll(@GetUser('tenantId') tenantId: string) {
+  findAll(@GetUser('enterpriseId') tenantId: string) {
     return this.incidenciasService.findAll(tenantId);
   }
 
@@ -64,18 +68,19 @@ export class IncidenciasController {
   @FindOneIncidenciaDoc()
   findOne(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser('tenantId') tenantId: string,
+    @GetUser('enterpriseId') tenantId: string,
   ) {
     return this.incidenciasService.findOne(id, tenantId);
   }
 
+  
   @Patch(':id')
   @Auth(ValidPermission.editIncidents)
   @UpdateIncidenciaDoc()
   update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() updateIncidenciaDto: UpdateIncidenciaDto,
-    @GetUser('tenantId') tenantId: string,
+    @GetUser('enterpriseId') tenantId: string,
   ) {
     return this.incidenciasService.update(
       id,
@@ -89,8 +94,23 @@ export class IncidenciasController {
   @DeleteIncidenciaDoc()
   remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser('tenantId') tenantId: string,
+    @GetUser('enterpriseId') tenantId: string,
   ) {
     return this.incidenciasService.remove(id, tenantId);
+  }
+
+  @Get(':incidenciaId/images/:imageId')
+  @Auth(ValidPermission.viewIncidents)
+  @GetIncidenciaImageDoc()
+  async getImage(
+    @Param('incidenciaId', new ParseUUIDPipe({ version: '4' })) incidenciaId: string,
+    @Param('imageId', new ParseUUIDPipe({ version: '4' })) imageId: string,
+    @GetUser('enterpriseId') tenantId: string,
+    @Res() res: Response,
+  ) {
+    const file = await this.incidenciasService.getImage(imageId, incidenciaId, tenantId);
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+    res.send(file.data);
   }
 }

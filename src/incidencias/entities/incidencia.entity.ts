@@ -43,6 +43,13 @@ export class Incidencia {
   @Column({ nullable: false })
   tenantId: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  createdByUserId: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdByUserId' })
+  createdBy?: User;
+
   // Empleado asignado (User)
   @Column({ type: 'uuid', nullable: true })
   assignedEmployeeId?: string;

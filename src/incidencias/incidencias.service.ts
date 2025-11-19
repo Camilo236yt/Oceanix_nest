@@ -40,10 +40,15 @@ export class IncidenciasService {
   async create(
     createIncidenciaDto: CreateIncidenciaDto,
     tenantId?: string,
+    createdByUserId?: string,
     images?: Express.Multer.File[],
   ) {
     if (!tenantId) {
       throw new BadRequestException('tenantId es requerido para crear incidencias');
+    }
+
+    if (!createdByUserId) {
+      throw new BadRequestException('userId es requerido para crear incidencias');
     }
 
     if (images && images.length > 5) {
@@ -56,34 +61,56 @@ export class IncidenciasService {
       const incidencia = this.incidenciaRepository.create({
         tenantId,
         status: IncidenciaStatus.PENDING,
+        createdByUserId,
         ...createIncidenciaDto,
       });
 
       savedIncidencia = await this.incidenciaRepository.save(incidencia);
+      const incidenciaRecord = await this.incidenciaRepository.findOne({
+        where: { id: savedIncidencia.id },
+        relations: ['images'],
+      });
 
-      const incidenciaRecord = savedIncidencia;
+      if (!incidenciaRecord) {
+        throw new InternalServerErrorException('No se pudo recuperar la incidencia creada');
+      }
 
       // Subir imágenes a MinIO y guardar URLs
       if (images && images.length) {
-        const uploadedUrls: string[] = [];
+        const uploadedFiles: { url: string; key: string; mimeType: string; originalName: string }[] = [];
         for (const file of images) {
           this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
           this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
 
           const path = `incidencias/${tenantId}/${incidenciaRecord.id}`;
-          const { url } = await this.storageService.uploadFile(
+          const { url, key } = await this.storageService.uploadFile(
             file,
             STORAGE_BUCKETS.TICKETS,
             path,
           );
-          uploadedUrls.push(url);
+          uploadedFiles.push({
+            url,
+            key,
+            mimeType: file.mimetype,
+            originalName: file.originalname,
+          });
         }
 
-        if (uploadedUrls.length) {
-          const imageEntities = uploadedUrls.map((url) =>
-            this.incidentImageRepository.create({ url, incidencia: incidenciaRecord })
+        if (uploadedFiles.length) {
+          const imageEntities = uploadedFiles.map((fileMeta) =>
+            this.incidentImageRepository.create({
+              url: fileMeta.url,
+              key: fileMeta.key,
+              mimeType: fileMeta.mimeType,
+              originalName: fileMeta.originalName,
+              incidencia: incidenciaRecord,
+            })
           );
           await this.incidentImageRepository.save(imageEntities);
+
+          incidenciaRecord.images = await this.incidentImageRepository.find({
+            where: { incidencia: { id: incidenciaRecord.id } },
+          });
         }
       }
 
@@ -94,7 +121,7 @@ export class IncidenciasService {
         // Silenciar errores de asignación para no bloquear la creación
       }
 
-      return savedIncidencia;
+      return incidenciaRecord;
     } catch (error) {
       if (savedIncidencia?.id) {
         await this.incidenciaRepository.delete(savedIncidencia.id);
@@ -106,6 +133,32 @@ export class IncidenciasService {
 
       throw new InternalServerErrorException(`Error al crear la incidencia: ${error.message}`);
     }
+  }
+
+  async getImage(imageId: string, incidenciaId: string, tenantId: string) {
+    const incidentImage = await this.incidentImageRepository.findOne({
+      where: { id: imageId },
+      relations: ['incidencia'],
+    });
+
+    if (
+      !incidentImage ||
+      incidentImage.incidencia?.id !== incidenciaId ||
+      incidentImage.incidencia?.tenantId !== tenantId
+    ) {
+      throw new NotFoundException('Imagen no encontrada para esta incidencia');
+    }
+
+    const data = await this.storageService.getFile(
+      STORAGE_BUCKETS.TICKETS,
+      incidentImage.key,
+    );
+
+    return {
+      data,
+      mimeType: incidentImage.mimeType,
+      originalName: incidentImage.originalName,
+    };
   }
 
   /**
