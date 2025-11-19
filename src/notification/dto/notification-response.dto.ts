@@ -1,26 +1,26 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsObject, IsUrl } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { NotificationType, NotificationPriority } from '../enums';
 
 /**
- * DTO para crear una nueva notificación
- * Usado internamente por otros módulos al llamar NotificationService
+ * DTO de respuesta para una notificación
  */
-export class CreateNotificationDto {
+export class NotificationResponseDto {
+  @ApiProperty({
+    description: 'ID de la notificación',
+    example: 'uuid',
+  })
+  id: string;
+
   @ApiProperty({
     description: 'Título de la notificación',
     example: 'Nuevo ticket asignado',
   })
-  @IsString()
-  @IsNotEmpty()
   title: string;
 
   @ApiProperty({
     description: 'Mensaje o cuerpo de la notificación',
     example: 'Te han asignado el ticket #1234',
   })
-  @IsString()
-  @IsNotEmpty()
   message: string;
 
   @ApiProperty({
@@ -28,41 +28,54 @@ export class CreateNotificationDto {
     enum: NotificationType,
     example: NotificationType.TICKET_ASSIGNED,
   })
-  @IsEnum(NotificationType)
-  @IsNotEmpty()
   type: NotificationType;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Prioridad de la notificación',
     enum: NotificationPriority,
     example: NotificationPriority.NORMAL,
-    default: NotificationPriority.NORMAL,
   })
-  @IsEnum(NotificationPriority)
-  @IsOptional()
-  priority?: NotificationPriority;
+  priority: NotificationPriority;
+
+  @ApiProperty({
+    description: 'Indica si la notificación ha sido leída',
+    example: false,
+  })
+  isRead: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Fecha y hora en que se leyó la notificación',
+    example: '2025-11-19T18:00:00Z',
+  })
+  readAt: Date | null;
 
   @ApiPropertyOptional({
     description: 'Metadata adicional de la notificación',
     example: { ticketId: 'uuid', ticketNumber: 1234 },
   })
-  @IsObject()
-  @IsOptional()
-  metadata?: Record<string, any>;
+  metadata: Record<string, any> | null;
 
   @ApiPropertyOptional({
     description: 'URL de acción (donde redirigir al hacer clic)',
     example: '/tickets/uuid',
   })
-  @IsString()
-  @IsOptional()
-  actionUrl?: string;
+  actionUrl: string | null;
 
   @ApiPropertyOptional({
     description: 'URL de la imagen/icono de la notificación',
     example: 'https://example.com/icon.png',
   })
-  @IsUrl()
-  @IsOptional()
-  imageUrl?: string;
+  imageUrl: string | null;
+
+  @ApiProperty({
+    description: 'Fecha de creación de la notificación',
+    example: '2025-11-19T18:00:00Z',
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    description: 'Fecha de última actualización',
+    example: '2025-11-19T18:00:00Z',
+  })
+  updatedAt: Date;
 }

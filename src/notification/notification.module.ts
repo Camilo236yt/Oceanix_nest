@@ -1,9 +1,39 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
 import { NotificationService } from './notification.service';
 import { NotificationController } from './notification.controller';
+import { Notification } from './entities/notification.entity';
+import { User } from '../users/entities/user.entity';
+import { UserPreferencesModule } from '../user-preferences/user-preferences.module';
+import { NotificationProviderPreference } from '../user-preferences/entities';
+
+// Providers
+import { EmailNotificationProvider } from './providers/email/email-notification.provider';
+import { WebSocketNotificationProvider } from './providers/websocket/websocket-notification.provider';
+import { TelegramNotificationProvider } from './providers/telegram/telegram-notification.provider';
+import { WhatsAppNotificationProvider } from './providers/whatsapp/whatsapp-notification.provider';
+import { NotificationProviderFactory } from './providers/provider.factory';
+
+// Gateway
+import { NotificationGateway } from './gateways/notification.gateway';
 
 @Module({
+  imports: [
+    TypeOrmModule.forFeature([Notification, User, NotificationProviderPreference]),
+    UserPreferencesModule, // Importar módulo de preferencias
+    JwtModule, // Para verificar tokens en WebSocket
+  ],
   controllers: [NotificationController],
-  providers: [NotificationService],
+  providers: [
+    NotificationService,
+    NotificationGateway,
+    NotificationProviderFactory,
+    EmailNotificationProvider,
+    WebSocketNotificationProvider,
+    TelegramNotificationProvider,
+    WhatsAppNotificationProvider,
+  ],
+  exports: [NotificationService], // Exportar para que otros módulos puedan usarlo
 })
 export class NotificationModule {}
