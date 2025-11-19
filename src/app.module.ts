@@ -21,6 +21,7 @@ import { HttpExceptionFilter } from './common/filters';
 import { ResponseInterceptor, CacheInterceptor } from './common/interceptors';
 import { SeedModule } from './seed/seed.module';
 import { ReportsModule } from './reports/reports.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -52,7 +53,8 @@ import { ReportsModule } from './reports/reports.module';
      StorageModule,
      LocationModule,
      SeedModule,
-     ReportsModule
+     ReportsModule,
+     DashboardModule
   ],
   controllers: [],
   providers: [
