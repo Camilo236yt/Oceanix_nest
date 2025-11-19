@@ -32,12 +32,6 @@ export class ReportsController {
     description: 'Fecha de fin en formato ISO (YYYY-MM-DD)',
     example: '2025-11-30'
   })
-  @ApiQuery({
-    name: 'enterpriseId',
-    required: false,
-    type: String,
-    description: 'ID de la empresa (opcional, usa la empresa del usuario autenticado por defecto)'
-  })
   @ApiResponse({
     status: 200,
     description: 'Reporte generado exitosamente',
@@ -90,10 +84,8 @@ export class ReportsController {
     @Query() getReportDto: GetReportDto,
     @GetUser() user: User,
   ) {
-    const enterpriseId = getReportDto.enterpriseId || user.enterpriseId;
-
     return await this.reportsService.generateReport(
-      enterpriseId,
+      user.enterpriseId,
       getReportDto.startDate,
       getReportDto.endDate,
     );

@@ -1,5 +1,4 @@
-import { IsDateString, IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class GetReportDto {
@@ -18,13 +17,4 @@ export class GetReportDto {
   })
   @IsDateString()
   endDate: string;
-
-  @ApiProperty({
-    description: 'ID de la empresa (opcional, usa la empresa del usuario autenticado por defecto)',
-    example: 'uuid-empresa-123',
-    required: false
-  })
-  @IsOptional()
-  @Type(() => String)
-  enterpriseId?: string;
 }
