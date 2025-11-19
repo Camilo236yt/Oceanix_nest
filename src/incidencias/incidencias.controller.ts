@@ -42,12 +42,12 @@ export class IncidenciasController {
   @CreateIncidenciaDoc()
   create(
     @Body() createIncidenciaDto: CreateIncidenciaDto,
-    @GetUser() currentUser: User,
+    @GetUser('tenantId') tenantId: string,
     @UploadedFiles() images: Express.Multer.File[],
   ) {
     return this.incidenciasService.create(
       createIncidenciaDto,
-      currentUser.enterpriseId,
+      tenantId,
       images,
     );
   }
@@ -55,8 +55,8 @@ export class IncidenciasController {
   @Get()
   @Auth(ValidPermission.viewIncidents)
   @FindAllIncidenciasDoc()
-  findAll(@GetUser() currentUser: User) {
-    return this.incidenciasService.findAll(currentUser.enterpriseId);
+  findAll(@GetUser('tenantId') tenantId: string) {
+    return this.incidenciasService.findAll(tenantId);
   }
 
   @Get(':id')
@@ -64,9 +64,9 @@ export class IncidenciasController {
   @FindOneIncidenciaDoc()
   findOne(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser() currentUser: User,
+    @GetUser('tenantId') tenantId: string,
   ) {
-    return this.incidenciasService.findOne(id, currentUser.enterpriseId);
+    return this.incidenciasService.findOne(id, tenantId);
   }
 
   @Patch(':id')
@@ -75,12 +75,12 @@ export class IncidenciasController {
   update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() updateIncidenciaDto: UpdateIncidenciaDto,
-    @GetUser() currentUser: User,
+    @GetUser('tenantId') tenantId: string,
   ) {
     return this.incidenciasService.update(
       id,
       updateIncidenciaDto,
-      currentUser.enterpriseId,
+      tenantId,
     );
   }
 
@@ -89,9 +89,8 @@ export class IncidenciasController {
   @DeleteIncidenciaDoc()
   remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser() currentUser: User,
+    @GetUser('tenantId') tenantId: string,
   ) {
-    return this.incidenciasService.remove(id, currentUser.enterpriseId);
+    return this.incidenciasService.remove(id, tenantId);
   }
 }
-

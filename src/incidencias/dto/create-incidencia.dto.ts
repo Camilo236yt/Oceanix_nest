@@ -11,4 +11,7 @@ export class CreateIncidenciaDto {
 
   @IsEnum(TipoIncidencia)
   tipo: TipoIncidencia;
+
+  @IsString()
+  ProducReferenceId: string;
 }

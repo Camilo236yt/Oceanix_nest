@@ -2,7 +2,6 @@ import { BadRequestException, ConflictException, Injectable, InternalServerError
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
-import { randomUUID } from 'crypto';
 
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
@@ -36,15 +35,15 @@ export class IncidenciasService {
   }
 
   /**
-   * Crea una incidencia con soporte para imágenes (máximo 5) y aislamiento por enterpriseId.
+   * Crea una incidencia con soporte para imágenes (máximo 5) y aislamiento por tenantId.
    */
   async create(
     createIncidenciaDto: CreateIncidenciaDto,
-    enterpriseId?: string,
+    tenantId?: string,
     images?: Express.Multer.File[],
   ) {
-    if (!enterpriseId) {
-      throw new BadRequestException('enterpriseId es requerido para crear incidencias');
+    if (!tenantId) {
+      throw new BadRequestException('tenantId es requerido para crear incidencias');
     }
 
     if (images && images.length > 5) {
@@ -55,9 +54,8 @@ export class IncidenciasService {
 
     try {
       const incidencia = this.incidenciaRepository.create({
-        tenantId: enterpriseId,
+        tenantId,
         status: IncidenciaStatus.PENDING,
-        ProducReferenceId: `INC-${randomUUID()}`,
         ...createIncidenciaDto,
       });
 
@@ -72,7 +70,7 @@ export class IncidenciasService {
           this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
           this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
 
-          const path = `incidencias/${enterpriseId}/${incidenciaRecord.id}`;
+          const path = `incidencias/${tenantId}/${incidenciaRecord.id}`;
           const { url } = await this.storageService.uploadFile(
             file,
             STORAGE_BUCKETS.TICKETS,
@@ -91,7 +89,7 @@ export class IncidenciasService {
 
       // Asignación automática (no bloqueante)
       try {
-        await (this.employeeAssignmentService as any)?.assignAutomatically?.(incidenciaRecord, enterpriseId);
+        await (this.employeeAssignmentService as any)?.assignAutomatically?.(incidenciaRecord, tenantId);
       } catch {
         // Silenciar errores de asignación para no bloquear la creación
       }

@@ -34,6 +34,11 @@ export const CreateIncidenciaDoc = () =>
             type: 'string',
             example: 'Se detectó fuga en el baño principal',
           },
+          ProducReferenceId: {
+            type: 'string',
+            example: 'INC-123456789',
+            description: 'Identificador de la incidencia (debe ser único por empresa)',
+          },
           tipo: {
             type: 'string',
             enum: Object.values(TipoIncidencia),
@@ -44,7 +49,7 @@ export const CreateIncidenciaDoc = () =>
             items: { type: 'string', format: 'binary' },
           },
         },
-        required: ['name', 'description', 'tipo'],
+        required: ['name', 'description', 'tipo', 'ProducReferenceId'],
       },
     }),
     ApiResponse({
@@ -196,4 +201,3 @@ export const DeleteIncidenciaDoc = () =>
       description: 'El usuario no tiene permisos para eliminar incidencias',
     }),
   );
-

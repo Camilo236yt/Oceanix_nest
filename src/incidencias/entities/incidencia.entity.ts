@@ -37,24 +37,11 @@ export class Incidencia {
   @Column({ nullable: false })
   status: string;
 
-  @Column({ nullable: true })
-  photoUrl?: string;
-
   @Column({ unique: true })
   ProducReferenceId: string;
 
-  // Mantener tenantId por compatibilidad (se recomienda migrar a enterpriseId)
-  @Column({ nullable: true })
+  @Column({ nullable: false })
   tenantId: string;
-
-  // Clave foránea a Enterprise (nuevo campo)
-  @Column({ type: 'uuid', nullable: true })
-  @Index()
-  enterpriseId: string;
-
-  @ManyToOne(() => Enterprise, { nullable: true })
-  @JoinColumn({ name: 'enterpriseId' })
-  enterprise?: Enterprise;
 
   // Empleado asignado (User)
   @Column({ type: 'uuid', nullable: true })
