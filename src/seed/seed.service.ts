@@ -7,8 +7,29 @@ import { Role } from 'src/roles/entities/role.entity';
 import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { User, UserType } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
-import { ValidPermission } from 'src/auth/interfaces';
+import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
+import { incidenciaStatus, TipoIncidencia } from 'src/incidencias/dto/enum/status-incidencias.enum';
+import { EnterpriseConfig } from 'src/enterprise-config/entities/enterprise-config.entity';
+import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-document.entity';
+import { NotificationProviderPreference } from 'src/user-preferences/entities/notification-provider-preference.entity';
+import { ProviderType } from 'src/user-preferences/enums/provider-type.enum';
 import * as bcrypt from 'bcrypt';
+
+// Importar datos desde archivos separados
+import {
+  PERMISSIONS_DATA,
+  ENTERPRISES_DATA,
+  ROLES_DATA,
+  USERS_DATA,
+  SUPER_ADMIN_DATA,
+  DEFAULT_USER_PASSWORD,
+  INCIDENCIAS_CONFIG,
+  DATE_RANGE,
+  RESOLUTION_DAYS,
+  getStatusDistribution,
+  ENTERPRISE_CONFIGS_DATA,
+  ENTERPRISE_DOCUMENTS_DATA,
+} from './data';
 
 /**
  * Servicio para poblar la base de datos con datos iniciales
@@ -30,6 +51,14 @@ export class SeedService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
+    @InjectRepository(Incidencia)
+    private readonly incidenciaRepository: Repository<Incidencia>,
+    @InjectRepository(EnterpriseConfig)
+    private readonly enterpriseConfigRepository: Repository<EnterpriseConfig>,
+    @InjectRepository(EnterpriseDocument)
+    private readonly enterpriseDocumentRepository: Repository<EnterpriseDocument>,
+    @InjectRepository(NotificationProviderPreference)
+    private readonly notificationProviderPreferenceRepository: Repository<NotificationProviderPreference>,
   ) {}
 
   /**
@@ -50,6 +79,13 @@ export class SeedService {
     // Crear empresas con roles y usuarios
     await this.seedEnterprises(permissions);
 
+    // Crear incidencias de prueba para cada empresa
+    await this.seedIncidencias();
+
+    // Crear configuraciones y documentos de empresas
+    await this.seedEnterpriseConfigs();
+    await this.seedEnterpriseDocuments();
+
     this.logger.log('Database seeding completed!');
   }
 
@@ -61,27 +97,43 @@ export class SeedService {
     this.logger.log('🧹 Cleaning database...');
 
     try {
-      // 1. Eliminar relaciones user-role
+      // 1. Eliminar documentos de empresas (dependen de enterprises)
+      this.logger.log('Deleting enterprise documents...');
+      await this.enterpriseDocumentRepository.query('DELETE FROM enterprise_documents');
+
+      // 2. Eliminar configuraciones de empresas (dependen de enterprises)
+      this.logger.log('Deleting enterprise configs...');
+      await this.enterpriseConfigRepository.query('DELETE FROM enterprise_config');
+
+      // 3. Eliminar incidencias (no tienen foreign keys que las referencien)
+      this.logger.log('Deleting incidencias...');
+      await this.incidenciaRepository.query('DELETE FROM incidencias');
+
+      // 4. Eliminar preferencias de notificación (dependen de users)
+      this.logger.log('Deleting notification provider preferences...');
+      await this.notificationProviderPreferenceRepository.query('DELETE FROM notification_provider_preferences');
+
+      // 5. Eliminar relaciones user-role
       this.logger.log('Deleting user-role relationships...');
       await this.userRoleRepository.query('DELETE FROM user_roles');
 
-      // 2. Eliminar usuarios (excepto SUPER_ADMIN si existe)
+      // 6. Eliminar usuarios (excepto SUPER_ADMIN si existe)
       this.logger.log('Deleting users...');
       await this.userRepository.query('DELETE FROM users WHERE "userType" != \'SUPER_ADMIN\'');
 
-      // 3. Eliminar relaciones role-permission
+      // 7. Eliminar relaciones role-permission
       this.logger.log('Deleting role-permission relationships...');
       await this.rolePermissionRepository.query('DELETE FROM role_permission');
 
-      // 4. Eliminar roles
+      // 8. Eliminar roles
       this.logger.log('Deleting roles...');
       await this.roleRepository.query('DELETE FROM roles');
 
-      // 5. Eliminar permisos
+      // 9. Eliminar permisos
       this.logger.log('Deleting permissions...');
       await this.permissionRepository.query('DELETE FROM permissions');
 
-      // 6. Eliminar empresas
+      // 10. Eliminar empresas
       this.logger.log('Deleting enterprises...');
       await this.enterpriseRepository.query('DELETE FROM enterprises');
 
@@ -109,14 +161,14 @@ export class SeedService {
       return;
     }
 
-    const hashedPassword = await bcrypt.hash('SuperAdmin123!', 10);
+    const hashedPassword = await bcrypt.hash(SUPER_ADMIN_DATA.password, 10);
 
     const superAdmin = this.userRepository.create({
-      name: 'Super',
-      lastName: 'Admin',
-      email: 'superadmin@oceanix.space',
+      name: SUPER_ADMIN_DATA.name,
+      lastName: SUPER_ADMIN_DATA.lastName,
+      email: SUPER_ADMIN_DATA.email,
       password: hashedPassword,
-      phoneNumber: '+1000000000',
+      phoneNumber: SUPER_ADMIN_DATA.phoneNumber,
       enterpriseId: undefined as unknown as string, // Sin empresa - acceso global (null en BD)
       isActive: true,
       isEmailVerified: true,
@@ -144,327 +196,8 @@ export class SeedService {
       return permissionsMap;
     }
 
-    // Definir la estructura jerárquica de permisos
-    const permissionsData = [
-      // Dashboard (sin parent)
-      {
-        name: ValidPermission.readDashboard,
-        title: 'Ver Dashboard',
-        description: 'Permite acceder al dashboard principal del sistema',
-      },
-      {
-        name: ValidPermission.viewReports,
-        title: 'Ver Reportes',
-        description: 'Permite visualizar reportes y estadísticas',
-      },
-      {
-        name: ValidPermission.exportReports,
-        title: 'Exportar Reportes',
-        description: 'Permite exportar reportes a diferentes formatos',
-      },
-
-      // Gestión de Incidencias (con parent manageIncidents)
-      {
-        name: ValidPermission.manageIncidents,
-        title: 'Gestionar Incidencias',
-        description: 'Permiso principal para la gestión completa de incidencias',
-      },
-      {
-        name: ValidPermission.createIncidents,
-        title: 'Crear Incidencias',
-        description: 'Permite crear nuevas incidencias',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.viewIncidents,
-        title: 'Ver Todas las Incidencias',
-        description: 'Permite ver todas las incidencias del sistema',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.viewOwnIncidents,
-        title: 'Ver Incidencias Propias',
-        description: 'Permite ver solo las incidencias creadas por el usuario',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.editIncidents,
-        title: 'Editar Incidencias',
-        description: 'Permite editar cualquier incidencia',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.editOwnIncidents,
-        title: 'Editar Incidencias Propias',
-        description: 'Permite editar solo las incidencias creadas por el usuario',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.deleteIncidents,
-        title: 'Eliminar Incidencias',
-        description: 'Permite eliminar incidencias',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.assignIncidents,
-        title: 'Asignar Incidencias',
-        description: 'Permite asignar incidencias a otros usuarios',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.closeIncidents,
-        title: 'Cerrar Incidencias',
-        description: 'Permite marcar incidencias como cerradas',
-        parent: ValidPermission.manageIncidents,
-      },
-      {
-        name: ValidPermission.reopenIncidents,
-        title: 'Reabrir Incidencias',
-        description: 'Permite reabrir incidencias cerradas',
-        parent: ValidPermission.manageIncidents,
-      },
-
-      // Categorías de Incidencias
-      {
-        name: ValidPermission.manageCategories,
-        title: 'Gestionar Categorías',
-        description: 'Permiso principal para gestión de categorías',
-      },
-      {
-        name: ValidPermission.createCategories,
-        title: 'Crear Categorías',
-        description: 'Permite crear nuevas categorías',
-        parent: ValidPermission.manageCategories,
-      },
-      {
-        name: ValidPermission.editCategories,
-        title: 'Editar Categorías',
-        description: 'Permite editar categorías existentes',
-        parent: ValidPermission.manageCategories,
-      },
-      {
-        name: ValidPermission.deleteCategories,
-        title: 'Eliminar Categorías',
-        description: 'Permite eliminar categorías',
-        parent: ValidPermission.manageCategories,
-      },
-
-      // Prioridades de Incidencias
-      {
-        name: ValidPermission.managePriorities,
-        title: 'Gestionar Prioridades',
-        description: 'Permiso principal para gestión de prioridades',
-      },
-      {
-        name: ValidPermission.createPriorities,
-        title: 'Crear Prioridades',
-        description: 'Permite crear nuevas prioridades',
-        parent: ValidPermission.managePriorities,
-      },
-      {
-        name: ValidPermission.editPriorities,
-        title: 'Editar Prioridades',
-        description: 'Permite editar prioridades existentes',
-        parent: ValidPermission.managePriorities,
-      },
-      {
-        name: ValidPermission.deletePriorities,
-        title: 'Eliminar Prioridades',
-        description: 'Permite eliminar prioridades',
-        parent: ValidPermission.managePriorities,
-      },
-
-      // Estados de Incidencias
-      {
-        name: ValidPermission.manageStatuses,
-        title: 'Gestionar Estados',
-        description: 'Permiso principal para gestión de estados',
-      },
-      {
-        name: ValidPermission.createStatuses,
-        title: 'Crear Estados',
-        description: 'Permite crear nuevos estados',
-        parent: ValidPermission.manageStatuses,
-      },
-      {
-        name: ValidPermission.editStatuses,
-        title: 'Editar Estados',
-        description: 'Permite editar estados existentes',
-        parent: ValidPermission.manageStatuses,
-      },
-      {
-        name: ValidPermission.deleteStatuses,
-        title: 'Eliminar Estados',
-        description: 'Permite eliminar estados',
-        parent: ValidPermission.manageStatuses,
-      },
-
-      // Comentarios
-      {
-        name: ValidPermission.manageComments,
-        title: 'Gestionar Comentarios',
-        description: 'Permiso principal para gestión de comentarios',
-      },
-      {
-        name: ValidPermission.createComments,
-        title: 'Crear Comentarios',
-        description: 'Permite crear comentarios en incidencias',
-        parent: ValidPermission.manageComments,
-      },
-      {
-        name: ValidPermission.editComments,
-        title: 'Editar Comentarios',
-        description: 'Permite editar cualquier comentario',
-        parent: ValidPermission.manageComments,
-      },
-      {
-        name: ValidPermission.editOwnComments,
-        title: 'Editar Comentarios Propios',
-        description: 'Permite editar solo los comentarios propios',
-        parent: ValidPermission.manageComments,
-      },
-      {
-        name: ValidPermission.deleteComments,
-        title: 'Eliminar Comentarios',
-        description: 'Permite eliminar cualquier comentario',
-        parent: ValidPermission.manageComments,
-      },
-      {
-        name: ValidPermission.deleteOwnComments,
-        title: 'Eliminar Comentarios Propios',
-        description: 'Permite eliminar solo los comentarios propios',
-        parent: ValidPermission.manageComments,
-      },
-
-      // Archivos/Adjuntos
-      {
-        name: ValidPermission.manageFiles,
-        title: 'Gestionar Archivos',
-        description: 'Permiso principal para gestión de archivos',
-      },
-      {
-        name: ValidPermission.uploadFiles,
-        title: 'Subir Archivos',
-        description: 'Permite subir archivos adjuntos',
-        parent: ValidPermission.manageFiles,
-      },
-      {
-        name: ValidPermission.downloadFiles,
-        title: 'Descargar Archivos',
-        description: 'Permite descargar archivos adjuntos',
-        parent: ValidPermission.manageFiles,
-      },
-      {
-        name: ValidPermission.deleteFiles,
-        title: 'Eliminar Archivos',
-        description: 'Permite eliminar archivos adjuntos',
-        parent: ValidPermission.manageFiles,
-      },
-
-      // Gestión de Usuarios/Empleados
-      {
-        name: ValidPermission.manageUsers,
-        title: 'Gestionar Usuarios',
-        description: 'Permiso principal para gestión de usuarios',
-      },
-      {
-        name: ValidPermission.createUsers,
-        title: 'Crear Usuarios',
-        description: 'Permite crear nuevos usuarios',
-        parent: ValidPermission.manageUsers,
-      },
-      {
-        name: ValidPermission.viewUsers,
-        title: 'Ver Usuarios',
-        description: 'Permite ver lista de usuarios',
-        parent: ValidPermission.manageUsers,
-      },
-      {
-        name: ValidPermission.editUsers,
-        title: 'Editar Usuarios',
-        description: 'Permite editar información de usuarios',
-        parent: ValidPermission.manageUsers,
-      },
-      {
-        name: ValidPermission.deleteUsers,
-        title: 'Eliminar Usuarios',
-        description: 'Permite eliminar usuarios',
-        parent: ValidPermission.manageUsers,
-      },
-
-      // Roles y Permisos
-      {
-        name: ValidPermission.manageRoles,
-        title: 'Gestionar Roles',
-        description: 'Permiso principal para gestión de roles',
-      },
-      {
-        name: ValidPermission.getRoles,
-        title: 'Ver Roles',
-        description: 'Permite ver lista de roles',
-        parent: ValidPermission.manageRoles,
-      },
-      {
-        name: ValidPermission.createRoles,
-        title: 'Crear Roles',
-        description: 'Permite crear nuevos roles',
-        parent: ValidPermission.manageRoles,
-      },
-      {
-        name: ValidPermission.editRoles,
-        title: 'Editar Roles',
-        description: 'Permite editar roles existentes',
-        parent: ValidPermission.manageRoles,
-      },
-      {
-        name: ValidPermission.deleteRoles,
-        title: 'Eliminar Roles',
-        description: 'Permite eliminar roles',
-        parent: ValidPermission.manageRoles,
-      },
-      {
-        name: ValidPermission.managePermissions,
-        title: 'Gestionar Permisos',
-        description: 'Permite administrar permisos del sistema',
-      },
-
-      // Notificaciones
-      {
-        name: ValidPermission.manageNotifications,
-        title: 'Gestionar Notificaciones',
-        description: 'Permiso principal para gestión de notificaciones',
-      },
-      {
-        name: ValidPermission.sendNotifications,
-        title: 'Enviar Notificaciones',
-        description: 'Permite enviar notificaciones a usuarios',
-        parent: ValidPermission.manageNotifications,
-      },
-
-      // Email
-      {
-        name: ValidPermission.manageEmailQueue,
-        title: 'Gestionar Cola de Emails',
-        description: 'Permite administrar la cola de emails',
-      },
-      {
-        name: ValidPermission.manageEmailVerification,
-        title: 'Gestionar Verificación de Email',
-        description: 'Permite administrar la verificación de emails',
-      },
-
-      // Administración del Sistema
-      {
-        name: ValidPermission.manageRedis,
-        title: 'Gestionar Redis',
-        description: 'Permite administrar caché Redis',
-      },
-      {
-        name: ValidPermission.manageSystem,
-        title: 'Gestionar Sistema',
-        description: 'Permite administrar configuración del sistema',
-      },
-    ];
+    // Usar datos importados desde archivo
+    const permissionsData = PERMISSIONS_DATA;
 
     // Crear permisos en dos fases para manejar las relaciones parent
     const createdPermissions = new Map<string, Permission>();
@@ -531,28 +264,8 @@ export class SeedService {
       return;
     }
 
-    const enterprisesData = [
-      {
-        name: 'TechCorp Solutions',
-        subdomain: 'techcorp',
-        email: 'contact@techcorp.com',
-        phone: '+1234567890',
-      },
-      {
-        name: 'Global Services Inc',
-        subdomain: 'globalservices',
-        email: 'info@globalservices.com',
-        phone: '+1234567891',
-      },
-      {
-        name: 'Innovation Labs',
-        subdomain: 'innovationlabs',
-        email: 'hello@innovationlabs.com',
-        phone: '+1234567892',
-      },
-    ];
-
-    for (const enterpriseData of enterprisesData) {
+    // Usar datos importados desde archivo
+    for (const enterpriseData of ENTERPRISES_DATA) {
       // Crear empresa
       const enterprise = this.enterpriseRepository.create({
         ...enterpriseData,
@@ -561,16 +274,16 @@ export class SeedService {
       const savedEnterprise = await this.enterpriseRepository.save(enterprise);
       this.logger.log(`Created enterprise: ${savedEnterprise.name}`);
 
-      // Crear 4 roles para esta empresa
+      // Crear 5 roles para esta empresa
       await this.seedRolesForEnterprise(savedEnterprise, permissions);
 
-      // Crear 4 usuarios para esta empresa
+      // Crear 5 usuarios para esta empresa
       await this.seedUsersForEnterprise(savedEnterprise);
     }
   }
 
   /**
-   * Crea 4 roles para una empresa específica
+   * Crea 5 roles para una empresa específica usando datos del archivo
    */
   async seedRolesForEnterprise(
     enterprise: Enterprise,
@@ -578,143 +291,59 @@ export class SeedService {
   ): Promise<void> {
     this.logger.log(`Creating roles for enterprise: ${enterprise.name}`);
 
-    // Rol 1: Super Admin (TODOS los permisos)
-    const superAdminRole = this.roleRepository.create({
-      name: `Administrador ${enterprise.subdomain}`,
-      description: 'Administrator with full access to all system features',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isSystemRole: false,
-    });
-    const savedSuperAdminRole = await this.roleRepository.save(superAdminRole);
+    // Usar datos importados desde archivo
+    for (const roleData of ROLES_DATA) {
+      // Reemplazar {subdomain} en el template del nombre
+      const roleName = roleData.nameTemplate.replace('{subdomain}', enterprise.subdomain);
 
-    // Asignar TODOS los permisos
-    let superAdminPermCount = 0;
-    for (const permission of permissions.values()) {
-      const rolePermission = this.rolePermissionRepository.create({
-        role: savedSuperAdminRole,
-        permission: permission,
+      // Crear rol
+      const role = this.roleRepository.create({
+        name: roleName,
+        description: roleData.description,
+        enterpriseId: enterprise.id,
+        isActive: true,
+        isSystemRole: false,
       });
-      await this.rolePermissionRepository.save(rolePermission);
-      superAdminPermCount++;
-    }
-    this.logger.log(
-      `Created role: ${savedSuperAdminRole.name} with ${superAdminPermCount} permissions (ALL PERMISSIONS)`,
-    );
+      const savedRole = await this.roleRepository.save(role);
 
-    // Rol 2: Administrador de Incidencias
-    const incidentAdminRole = this.roleRepository.create({
-      name: `Gestor de Incidencias ${enterprise.subdomain}`,
-      description: 'Puede gestionar todas las incidencias del sistema',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isSystemRole: false,
-    });
-    const savedIncidentAdminRole =
-      await this.roleRepository.save(incidentAdminRole);
+      // Asignar permisos
+      let permCount = 0;
 
-    // Asignar permisos de incidencias
-    const incidentPermissions = [
-      ValidPermission.manageIncidents,
-      ValidPermission.createIncidents,
-      ValidPermission.viewIncidents,
-      ValidPermission.editIncidents,
-      ValidPermission.deleteIncidents,
-      ValidPermission.assignIncidents,
-      ValidPermission.closeIncidents,
-      ValidPermission.reopenIncidents,
-      ValidPermission.readDashboard,
-    ];
-
-    for (const permName of incidentPermissions) {
-      const permission = permissions.get(permName);
-      if (permission) {
-        const rolePermission = this.rolePermissionRepository.create({
-          role: savedIncidentAdminRole,
-          permission: permission,
-        });
-        await this.rolePermissionRepository.save(rolePermission);
+      // Si no hay permisos específicos, asignar TODOS (rol Super Admin)
+      if (roleData.permissions.length === 0) {
+        for (const permission of permissions.values()) {
+          const rolePermission = this.rolePermissionRepository.create({
+            role: savedRole,
+            permission: permission,
+          });
+          await this.rolePermissionRepository.save(rolePermission);
+          permCount++;
+        }
+        this.logger.log(
+          `Created role: ${savedRole.name} with ${permCount} permissions (ALL PERMISSIONS)`,
+        );
+      } else {
+        // Asignar permisos específicos del rol
+        for (const permName of roleData.permissions) {
+          const permission = permissions.get(permName);
+          if (permission) {
+            const rolePermission = this.rolePermissionRepository.create({
+              role: savedRole,
+              permission: permission,
+            });
+            await this.rolePermissionRepository.save(rolePermission);
+            permCount++;
+          }
+        }
+        this.logger.log(
+          `Created role: ${savedRole.name} with ${permCount} permissions`,
+        );
       }
     }
-    this.logger.log(
-      `Created role: ${savedIncidentAdminRole.name} with ${incidentPermissions.length} permissions`,
-    );
-
-    // Rol 3: Administrador de Usuarios
-    const userAdminRole = this.roleRepository.create({
-      name: `Gestor de Usuarios ${enterprise.subdomain}`,
-      description: 'Puede gestionar usuarios y roles del sistema',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isSystemRole: false,
-    });
-    const savedUserAdminRole = await this.roleRepository.save(userAdminRole);
-
-    // Asignar permisos de usuarios y roles
-    const userPermissions = [
-      ValidPermission.manageUsers,
-      ValidPermission.createUsers,
-      ValidPermission.viewUsers,
-      ValidPermission.editUsers,
-      ValidPermission.deleteUsers,
-      ValidPermission.manageRoles,
-      ValidPermission.getRoles,
-      ValidPermission.createRoles,
-      ValidPermission.editRoles,
-      ValidPermission.deleteRoles,
-      ValidPermission.readDashboard,
-    ];
-
-    for (const permName of userPermissions) {
-      const permission = permissions.get(permName);
-      if (permission) {
-        const rolePermission = this.rolePermissionRepository.create({
-          role: savedUserAdminRole,
-          permission: permission,
-        });
-        await this.rolePermissionRepository.save(rolePermission);
-      }
-    }
-    this.logger.log(
-      `Created role: ${savedUserAdminRole.name} with ${userPermissions.length} permissions`,
-    );
-
-    // Rol 4: Visualizador de Incidencias
-    const viewerRole = this.roleRepository.create({
-      name: `Observador ${enterprise.subdomain}`,
-      description: 'Solo puede ver incidencias propias',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isSystemRole: false,
-    });
-    const savedViewerRole = await this.roleRepository.save(viewerRole);
-
-    // Asignar permisos de solo lectura
-    const viewerPermissions = [
-      ValidPermission.viewOwnIncidents,
-      ValidPermission.createComments,
-      ValidPermission.editOwnComments,
-      ValidPermission.deleteOwnComments,
-      ValidPermission.readDashboard,
-    ];
-
-    for (const permName of viewerPermissions) {
-      const permission = permissions.get(permName);
-      if (permission) {
-        const rolePermission = this.rolePermissionRepository.create({
-          role: savedViewerRole,
-          permission: permission,
-        });
-        await this.rolePermissionRepository.save(rolePermission);
-      }
-    }
-    this.logger.log(
-      `Created role: ${savedViewerRole.name} with ${viewerPermissions.length} permissions`,
-    );
   }
 
   /**
-   * Crea 4 usuarios para una empresa específica
+   * Crea 5 usuarios para una empresa específica usando datos del archivo
    */
   async seedUsersForEnterprise(enterprise: Enterprise): Promise<void> {
     this.logger.log(`Creating users for enterprise: ${enterprise.name}`);
@@ -725,116 +354,276 @@ export class SeedService {
       order: { createdAt: 'ASC' },
     });
 
-    if (roles.length !== 4) {
+    if (roles.length !== USERS_DATA.length) {
       this.logger.error(
-        `Expected 4 roles for enterprise ${enterprise.name}, found ${roles.length}`,
+        `Expected ${USERS_DATA.length} roles for enterprise ${enterprise.name}, found ${roles.length}`,
       );
       return;
     }
 
-    const [superAdminRole, incidentAdminRole, userAdminRole, viewerRole] = roles;
+    // Hashear la contraseña común para todos los usuarios (usar dato del archivo)
+    const hashedPassword = await bcrypt.hash(DEFAULT_USER_PASSWORD, 10);
 
-    // Hashear la contraseña común para todos los usuarios
-    const hashedPassword = await bcrypt.hash('Password123!', 10);
+    // Usar datos importados desde archivo
+    for (const userData of USERS_DATA) {
+      // Crear usuario
+      const user = this.userRepository.create({
+        name: userData.name,
+        lastName: userData.lastName,
+        email: `${userData.emailPrefix}@${enterprise.subdomain}.com`,
+        password: hashedPassword,
+        phoneNumber: userData.phoneNumber,
+        enterpriseId: enterprise.id,
+        isActive: true,
+        isEmailVerified: true,
+        userType: UserType.EMPLOYEE,
+      });
+      const savedUser = await this.userRepository.save(user);
 
-    // Usuario 1: Super Admin (TODOS los permisos)
-    const superAdmin = this.userRepository.create({
-      name: 'Admin',
-      lastName: 'Super',
-      email: `admin.super@${enterprise.subdomain}.com`,
-      password: hashedPassword,
-      phoneNumber: '+1234567799',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isEmailVerified: true,
-      userType: UserType.EMPLOYEE,
-    });
-    const savedSuperAdmin = await this.userRepository.save(superAdmin);
+      // Asignar rol correspondiente al usuario
+      const role = roles[userData.roleIndex];
+      const userRole = this.userRoleRepository.create({
+        userId: savedUser.id,
+        roleId: role.id,
+        enterpriseId: enterprise.id,
+      });
+      await this.userRoleRepository.save(userRole);
 
-    // Asignar rol Super Admin
-    const superAdminUserRole = this.userRoleRepository.create({
-      userId: savedSuperAdmin.id,
-      roleId: superAdminRole.id,
-      enterpriseId: enterprise.id,
-    });
-    await this.userRoleRepository.save(superAdminUserRole);
-    this.logger.log(
-      `Created user: ${savedSuperAdmin.email} with role: ${superAdminRole.name} (ALL PERMISSIONS)`,
+      // Inicializar providers de notificación por defecto (EMAIL y WEBSOCKET habilitados)
+      await this.initializeDefaultNotificationProviders(savedUser.id);
+
+      this.logger.log(
+        `Created user: ${savedUser.email} with role: ${role.name}`,
+      );
+    }
+  }
+
+  /**
+   * Inicializa los providers de notificación por defecto para un usuario
+   * Por defecto, EMAIL y WEBSOCKET están habilitados
+   */
+  private async initializeDefaultNotificationProviders(userId: string): Promise<void> {
+    try {
+      // Crear EMAIL provider (habilitado por defecto)
+      const emailProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.EMAIL,
+        isEnabled: true,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(emailProvider);
+
+      // Crear WEBSOCKET provider (habilitado por defecto)
+      const websocketProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.WEBSOCKET,
+        isEnabled: true,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(websocketProvider);
+
+      // Crear TELEGRAM provider (deshabilitado por defecto)
+      const telegramProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.TELEGRAM,
+        isEnabled: false,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(telegramProvider);
+
+      // Crear WHATSAPP provider (deshabilitado por defecto)
+      const whatsappProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.WHATSAPP,
+        isEnabled: false,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(whatsappProvider);
+
+      this.logger.debug(`Initialized notification providers for user ${userId}`);
+    } catch (error) {
+      this.logger.error(`Error initializing notification providers for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Crea incidencias de prueba para todas las empresas
+   */
+  async seedIncidencias(): Promise<void> {
+    this.logger.log('Seeding incidencias...');
+
+    // Obtener todas las empresas
+    const enterprises = await this.enterpriseRepository.find();
+
+    if (enterprises.length === 0) {
+      this.logger.warn('No enterprises found. Skipping incidencias seed...');
+      return;
+    }
+
+    let totalCreated = 0;
+
+    for (const enterprise of enterprises) {
+      this.logger.log(`Creating incidencias for enterprise: ${enterprise.name}`);
+
+      // Usar configuración importada desde archivo
+      const incidenciasData: Partial<Incidencia>[] = [];
+      for (const config of INCIDENCIAS_CONFIG) {
+        incidenciasData.push(
+          ...this.generateIncidenciasForType(
+            config.tipo,
+            config.count,
+            enterprise.id,
+            config.prefix,
+          ),
+        );
+      }
+
+      // Guardar todas las incidencias
+      for (const incData of incidenciasData) {
+        const incidencia = this.incidenciaRepository.create(incData);
+        await this.incidenciaRepository.save(incidencia);
+        totalCreated++;
+      }
+
+      this.logger.log(
+        `Created ${incidenciasData.length} incidencias for ${enterprise.name}`,
+      );
+    }
+
+    this.logger.log(`✅ Successfully seeded ${totalCreated} incidencias in total`);
+  }
+
+  /**
+   * Genera datos de incidencias para un tipo específico
+   */
+  private generateIncidenciasForType(
+    tipo: TipoIncidencia,
+    count: number,
+    enterpriseId: string,
+    prefix: string,
+  ): Partial<Incidencia>[] {
+    const incidencias: Partial<Incidencia>[] = [];
+
+    // Usar distribución de estados importada desde archivo
+    const statusDistribution = getStatusDistribution(count);
+
+    for (let i = 0; i < count; i++) {
+      const status = statusDistribution[i] || incidenciaStatus.PENDING;
+
+      // Generar fechas realistas usando rangos del archivo
+      const createdDate = this.getRandomDateInRange(
+        DATE_RANGE.start,
+        DATE_RANGE.end,
+      );
+
+      // Si está resuelta, agregar tiempo de resolución usando datos del archivo
+      const updatedDate =
+        status === incidenciaStatus.RESOLVED || status === incidenciaStatus.CLOSED
+          ? this.addDaysToDate(
+              createdDate,
+              Math.floor(Math.random() * (RESOLUTION_DAYS.max - RESOLUTION_DAYS.min + 1)) +
+                RESOLUTION_DAYS.min,
+            )
+          : new Date();
+
+      incidencias.push({
+        tipo,
+        name: `${prefix} #${i + 1} - ${enterpriseId.substring(0, 8)}`,
+        description: `Descripción detallada de ${prefix.toLowerCase()} ${i + 1} para la empresa`,
+        status: status,
+        ProducReferenceId: `PROD-${enterpriseId.substring(0, 4)}-${tipo}-${Date.now()}-${i}`,
+        tenantId: enterpriseId,
+        isActive: true,
+        createdAt: createdDate,
+        updatedAt: updatedDate,
+      });
+    }
+
+    return incidencias;
+  }
+
+  /**
+   * Genera una fecha aleatoria dentro de un rango
+   */
+  private getRandomDateInRange(start: Date, end: Date): Date {
+    return new Date(
+      start.getTime() + Math.random() * (end.getTime() - start.getTime()),
     );
+  }
 
-    // Usuario 2: Admin de Incidencias
-    const incidentAdmin = this.userRepository.create({
-      name: 'Carlos',
-      lastName: 'Rodríguez',
-      email: `carlos.rodriguez@${enterprise.subdomain}.com`,
-      password: hashedPassword,
-      phoneNumber: '+1234567800',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isEmailVerified: true,
-      userType: UserType.EMPLOYEE,
-    });
-    const savedIncidentAdmin = await this.userRepository.save(incidentAdmin);
+  /**
+   * Agrega días a una fecha
+   */
+  private addDaysToDate(date: Date, days: number): Date {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  }
 
-    // Asignar rol
-    const incidentAdminUserRole = this.userRoleRepository.create({
-      userId: savedIncidentAdmin.id,
-      roleId: incidentAdminRole.id,
-      enterpriseId: enterprise.id,
-    });
-    await this.userRoleRepository.save(incidentAdminUserRole);
-    this.logger.log(
-      `Created user: ${savedIncidentAdmin.email} with role: ${incidentAdminRole.name}`,
-    );
+  /**
+   * Crea configuraciones para las empresas
+   */
+  async seedEnterpriseConfigs(): Promise<void> {
+    this.logger.log('Seeding enterprise configs...');
 
-    // Usuario 2: Admin de Usuarios
-    const userAdmin = this.userRepository.create({
-      name: 'María',
-      lastName: 'González',
-      email: `maria.gonzalez@${enterprise.subdomain}.com`,
-      password: hashedPassword,
-      phoneNumber: '+1234567801',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isEmailVerified: true,
-      userType: UserType.EMPLOYEE,
-    });
-    const savedUserAdmin = await this.userRepository.save(userAdmin);
+    const enterprises = await this.enterpriseRepository.find();
 
-    // Asignar rol
-    const userAdminUserRole = this.userRoleRepository.create({
-      userId: savedUserAdmin.id,
-      roleId: userAdminRole.id,
-      enterpriseId: enterprise.id,
-    });
-    await this.userRoleRepository.save(userAdminUserRole);
-    this.logger.log(
-      `Created user: ${savedUserAdmin.email} with role: ${userAdminRole.name}`,
-    );
+    if (enterprises.length === 0) {
+      this.logger.warn('No enterprises found. Skipping configs seed...');
+      return;
+    }
 
-    // Usuario 3: Visualizador
-    const viewer = this.userRepository.create({
-      name: 'Juan',
-      lastName: 'Pérez',
-      email: `juan.perez@${enterprise.subdomain}.com`,
-      password: hashedPassword,
-      phoneNumber: '+1234567802',
-      enterpriseId: enterprise.id,
-      isActive: true,
-      isEmailVerified: true,
-      userType: UserType.EMPLOYEE,
-    });
-    const savedViewer = await this.userRepository.save(viewer);
+    // Usar datos importados desde archivo
+    for (let i = 0; i < ENTERPRISE_CONFIGS_DATA.length && i < enterprises.length; i++) {
+      const configData = ENTERPRISE_CONFIGS_DATA[i];
+      const enterprise = enterprises[i];
 
-    // Asignar rol
-    const viewerUserRole = this.userRoleRepository.create({
-      userId: savedViewer.id,
-      roleId: viewerRole.id,
-      enterpriseId: enterprise.id,
-    });
-    await this.userRoleRepository.save(viewerUserRole);
-    this.logger.log(
-      `Created user: ${savedViewer.email} with role: ${viewerRole.name}`,
-    );
+      const config = this.enterpriseConfigRepository.create({
+        ...configData,
+        enterpriseId: enterprise.id,
+      });
+      await this.enterpriseConfigRepository.save(config);
+
+      this.logger.log(
+        `Created config for enterprise: ${enterprise.name} (Status: ${configData.verificationStatus})`,
+      );
+    }
+
+    this.logger.log('✅ Successfully seeded enterprise configs');
+  }
+
+  /**
+   * Crea documentos de prueba para las empresas
+   */
+  async seedEnterpriseDocuments(): Promise<void> {
+    this.logger.log('Seeding enterprise documents...');
+
+    const enterprises = await this.enterpriseRepository.find();
+
+    if (enterprises.length === 0) {
+      this.logger.warn('No enterprises found. Skipping documents seed...');
+      return;
+    }
+
+    // Usar datos importados desde archivo
+    for (const docData of ENTERPRISE_DOCUMENTS_DATA) {
+      const enterprise = enterprises[docData.enterpriseIndex];
+      if (!enterprise) {
+        this.logger.warn(`Enterprise not found at index ${docData.enterpriseIndex}`);
+        continue;
+      }
+
+      const document = this.enterpriseDocumentRepository.create({
+        ...docData,
+        enterpriseId: enterprise.id,
+      });
+      await this.enterpriseDocumentRepository.save(document);
+
+      this.logger.log(
+        `Created document: ${docData.type} for ${enterprise.name} (Status: ${docData.status})`,
+      );
+    }
+
+    this.logger.log('✅ Successfully seeded enterprise documents');
   }
 }

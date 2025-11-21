@@ -1,16 +1,19 @@
-import { Controller, Post, Body, UseFilters, Res, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseFilters, Res, Req, Get } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RegisterEnterpriseDto, GoogleLoginDto, ActivateAccountDto } from './dto';
 import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code.dto';
-import type { AuthResponseDto } from './interfaces';
+import type { AuthResponseDto, UserProfileResponseDto } from './interfaces';
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
 import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
 import { GetSubdomain } from '../common/decorators';
+import { Auth, GetUser } from './decorator';
+import { User } from '../users/entities/user.entity';
+import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 @AuthApiTags()
 @Throttle({ default: { limit: 200, ttl: 60000 } })
@@ -119,6 +122,25 @@ export class AuthController {
   ): { message: string } {
     CookieHelper.clearAuthCookie(res);
     return { message: 'Logout exitoso' };
+  }
+
+  @Get('me')
+  @Auth()
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get current user profile',
+    description: 'Returns complete user profile including permissions, roles, enterprise info, and configuration. Used by frontend to configure the application for the authenticated user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing authentication token',
+  })
+  async getMe(@GetUser() user: User): Promise<UserProfileResponseDto> {
+    return await this.authService.getUserProfile(user);
   }
 
 }

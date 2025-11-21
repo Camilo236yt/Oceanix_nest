@@ -20,6 +20,10 @@ import { LocationModule } from './location/location.module';
 import { HttpExceptionFilter } from './common/filters';
 import { ResponseInterceptor, CacheInterceptor } from './common/interceptors';
 import { SeedModule } from './seed/seed.module';
+import { ReportsModule } from './reports/reports.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { EnterpriseConfigModule } from './enterprise-config/enterprise-config.module';
+import { UserPreferencesModule } from './user-preferences/user-preferences.module';
 
 @Module({
   imports: [
@@ -50,7 +54,11 @@ import { SeedModule } from './seed/seed.module';
      RedisModule,
      StorageModule,
      LocationModule,
-     SeedModule
+     SeedModule,
+     ReportsModule,
+     DashboardModule,
+     EnterpriseConfigModule,
+     UserPreferencesModule
   ],
   controllers: [],
   providers: [

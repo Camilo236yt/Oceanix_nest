@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, DataSource, FindOptionsWhere } from 'typeorm';
@@ -15,9 +16,15 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { CryptoService } from '../auth/services/crypto.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { USER_MESSAGES } from './constants';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType, NotificationPriority } from '../notification/enums';
+import { Permission } from '../permissions/entities/permission.entity';
+import { RolePermission } from '../roles/entities/role-permission.entity';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -27,6 +34,7 @@ export class UsersService {
     private readonly roleRepository: Repository<Role>,
     private readonly dataSource: DataSource,
     private readonly cryptoService: CryptoService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(createUserDto: CreateUserDto, enterpriseId?: string): Promise<User> {
@@ -108,6 +116,15 @@ export class UsersService {
 
       if (!userWithRoles) {
         throw new NotFoundException(USER_MESSAGES.USER_CREATED_BUT_NOT_RETRIEVED);
+      }
+
+      // Enviar notificaciones a usuarios con permisos de gestión de usuarios
+      // Solo si es un usuario de empresa (no SUPER_ADMIN)
+      if (enterpriseId) {
+        this.sendUserCreationNotifications(userWithRoles, enterpriseId).catch(error => {
+          // No bloquear la respuesta si falla la notificación
+          this.logger.error(`Failed to send user creation notifications:`, error);
+        });
       }
 
       return userWithRoles;
@@ -357,5 +374,99 @@ export class UsersService {
       where: { userId },
       relations: ['role'],
     });
+  }
+
+  /**
+   * Obtiene todos los usuarios de una empresa que tienen un permiso específico
+   * @param permissionName - Nombre del permiso a buscar (ej: 'create_users')
+   * @param enterpriseId - ID de la empresa para aislar los usuarios
+   * @returns Array de IDs de usuarios que tienen el permiso
+   */
+  private async getUsersWithPermission(
+    permissionName: string,
+    enterpriseId: string,
+  ): Promise<string[]> {
+    try {
+      // Query compleja para obtener usuarios que tienen un permiso específico
+      // User -> UserRole -> Role -> RolePermission -> Permission
+      const usersWithPermission = await this.dataSource
+        .createQueryBuilder(User, 'user')
+        .innerJoin('user.roles', 'userRole')
+        .innerJoin('userRole.role', 'role')
+        .innerJoin('role.permissions', 'rolePermission')
+        .innerJoin('rolePermission.permission', 'permission')
+        .where('user.enterpriseId = :enterpriseId', { enterpriseId })
+        .andWhere('user.isActive = :isActive', { isActive: true })
+        .andWhere('permission.name = :permissionName', { permissionName })
+        .andWhere('permission.isActive = :permissionActive', { permissionActive: true })
+        .select(['user.id'])
+        .distinct(true)
+        .getMany();
+
+      return usersWithPermission.map(user => user.id);
+    } catch (error) {
+      this.logger.error(
+        `Error getting users with permission ${permissionName} for enterprise ${enterpriseId}:`,
+        error,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Envía notificaciones a usuarios con permisos de gestión cuando se crea un nuevo usuario
+   * @param createdUser - El usuario que fue creado
+   * @param enterpriseId - ID de la empresa
+   */
+  private async sendUserCreationNotifications(
+    createdUser: User,
+    enterpriseId: string,
+  ): Promise<void> {
+    try {
+      // Obtener usuarios con permisos de crear usuarios
+      const usersWithCreatePermission = await this.getUsersWithPermission('create_users', enterpriseId);
+
+      // Obtener usuarios con permisos de gestionar usuarios (incluye create_users implícitamente)
+      const usersWithManagePermission = await this.getUsersWithPermission('manage_users', enterpriseId);
+
+      // Combinar y eliminar duplicados
+      const uniqueUserIds = [...new Set([...usersWithCreatePermission, ...usersWithManagePermission])];
+
+      // Excluir al usuario recién creado de las notificaciones
+      const usersToNotify = uniqueUserIds.filter(userId => userId !== createdUser.id);
+
+      if (usersToNotify.length === 0) {
+        this.logger.debug('No users with manage_users permission to notify');
+        return;
+      }
+
+      this.logger.log(`Sending user creation notifications to ${usersToNotify.length} users`);
+
+      // Enviar notificación a cada usuario con los permisos
+      const notificationPromises = usersToNotify.map(userId =>
+        this.notificationService.sendToUser(
+          userId,
+          enterpriseId,
+          {
+            title: 'Nuevo usuario creado',
+            message: `Se ha creado un nuevo usuario: ${createdUser.name} ${createdUser.lastName} (${createdUser.email})`,
+            type: NotificationType.USER_CREATED,
+            priority: NotificationPriority.NORMAL,
+            metadata: {
+              userId: createdUser.id,
+              userEmail: createdUser.email,
+              userName: `${createdUser.name} ${createdUser.lastName}`,
+              userType: createdUser.userType,
+            },
+          },
+        ),
+      );
+
+      await Promise.allSettled(notificationPromises);
+      this.logger.log('User creation notifications sent successfully');
+    } catch (error) {
+      this.logger.error('Error sending user creation notifications:', error);
+      // No lanzar error para no interrumpir el flujo principal
+    }
   }
 }

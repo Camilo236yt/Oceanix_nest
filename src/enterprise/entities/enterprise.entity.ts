@@ -1,8 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, OneToOne, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Role } from '../../roles/entities/role.entity';
 import { Address } from '../../location/entities/address.entity';
 import { BusinessIdentificationType } from '../../users/constants';
+import { EnterpriseConfig } from '../../enterprise-config/entities/enterprise-config.entity';
+import { EnterpriseDocument } from '../../enterprise-config/entities/enterprise-document.entity';
 
 @Entity('enterprises')
 @Index('idx_enterprises_name', { synchronize: false })
@@ -57,4 +59,13 @@ export class Enterprise {
 
   @OneToMany(() => Role, (role) => role.enterprise)
   roles: Role[];
+
+  @OneToOne(() => EnterpriseConfig, (config) => config.enterprise, {
+    nullable: true,
+    cascade: true,
+  })
+  config: EnterpriseConfig;
+
+  @OneToMany(() => EnterpriseDocument, (document) => document.enterprise)
+  documents: EnterpriseDocument[];
 }

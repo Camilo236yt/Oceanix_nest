@@ -11,9 +11,10 @@ import { Permission } from 'src/permissions/entities/permission.entity';
 import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
 import { RegisterDto, RegisterEnterpriseDto, LoginDto, GoogleLoginDto } from './dto';
-import { JwtPayload, AuthResponseDto, ActivationTokenPayload, RegisterEnterpriseResponseDto } from './interfaces';
+import { JwtPayload, AuthResponseDto, ActivationTokenPayload, RegisterEnterpriseResponseDto, UserProfileResponseDto } from './interfaces';
 import { CryptoService, AuthValidationService } from './services';
 import { InvalidCredentialsException, EmailAlreadyExistsException, AuthDatabaseException } from './exceptions';
+import { EnterpriseConfigService } from '../enterprise-config/enterprise-config.service';
 
 
 @Injectable()
@@ -36,6 +37,7 @@ export class AuthService {
         private readonly cryptoService: CryptoService,
         private readonly authValidationService: AuthValidationService,
         private readonly configService: ConfigService,
+        private readonly enterpriseConfigService: EnterpriseConfigService,
     ) { }
 
     async register(registerDto: RegisterDto, subdomain: string): Promise<AuthResponseDto> {
@@ -310,6 +312,108 @@ export class AuthService {
             identificationType: registerDto.adminIdentificationType,
             identificationNumber: registerDto.adminIdentificationNumber,
         };
+    }
+
+    /**
+     * Get complete user profile with permissions, roles, enterprise, and config
+     * Used by /auth/me endpoint to provide all configuration data to frontend
+     */
+    async getUserProfile(user: User): Promise<UserProfileResponseDto> {
+        // 1. Get enterprise configuration
+        const enterpriseConfig = await this.enterpriseConfigService.getByEnterpriseId(user.enterpriseId);
+
+        // 2. Aggregate unique permissions from all roles
+        const permissionsSet = new Set<string>();
+        if (user.roles && user.roles.length > 0) {
+            user.roles.forEach(userRole => {
+                if (userRole.role?.permissions) {
+                    userRole.role.permissions.forEach(rolePermission => {
+                        if (rolePermission.permission?.name) {
+                            permissionsSet.add(rolePermission.permission.name);
+                        }
+                    });
+                }
+            });
+        }
+
+        // 3. Format roles
+        const roles = user.roles?.map(userRole => ({
+            id: userRole.role.id,
+            name: userRole.role.name,
+            description: userRole.role.description,
+        })) || [];
+
+        // 4. Generate default logo/favicon/banner if not set
+        const logoUrl = enterpriseConfig.logoUrl || this.generateDefaultLogo(user.enterprise.name);
+        const faviconUrl = enterpriseConfig.faviconUrl || this.generateDefaultFavicon(user.enterprise.name);
+        const bannerUrl = enterpriseConfig.bannerUrl || this.generateDefaultBanner(user.enterprise.name);
+
+        // 5. Build response
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                lastName: user.lastName,
+                phoneNumber: user.phoneNumber,
+                userType: user.userType,
+                isEmailVerified: user.isEmailVerified ?? false,
+                isActive: user.isActive ?? false,
+            },
+            enterprise: {
+                id: user.enterprise.id,
+                name: user.enterprise.name,
+                subdomain: user.enterprise.subdomain,
+                email: user.enterprise.email,
+                phone: user.enterprise.phone,
+            },
+            config: {
+                isVerified: enterpriseConfig.isVerified,
+                verificationStatus: enterpriseConfig.verificationStatus,
+                primaryColor: enterpriseConfig.primaryColor,
+                secondaryColor: enterpriseConfig.secondaryColor,
+                accentColor: enterpriseConfig.accentColor,
+                logoUrl,
+                faviconUrl,
+                bannerUrl,
+                requireCorporateEmail: enterpriseConfig.requireCorporateEmail,
+            },
+            roles,
+            permissions: Array.from(permissionsSet),
+        };
+    }
+
+    /**
+     * Generate default logo URL using Lorem Picsum
+     * Uses enterprise name as seed to ensure consistent image
+     * @param name Enterprise name (used as seed for consistency)
+     * @returns URL to generated logo from Lorem Picsum
+     */
+    private generateDefaultLogo(name: string): string {
+        const seed = encodeURIComponent(name);
+        return `https://picsum.photos/seed/${seed}/200/200`;
+    }
+
+    /**
+     * Generate default favicon URL using Lorem Picsum
+     * Uses enterprise name as seed to ensure consistent image across reloads
+     * @param name Enterprise name (used as seed for consistency)
+     * @returns URL to generated favicon from Lorem Picsum
+     */
+    private generateDefaultFavicon(name: string): string {
+        const seed = encodeURIComponent(name + '-favicon');
+        return `https://picsum.photos/seed/${seed}/64/64`;
+    }
+
+    /**
+     * Generate default banner URL using Lorem Picsum
+     * Uses enterprise name as seed to ensure consistent image
+     * @param name Enterprise name (used as seed for consistency)
+     * @returns URL to generated banner from Lorem Picsum
+     */
+    private generateDefaultBanner(name: string): string {
+        const seed = encodeURIComponent(name + '-banner');
+        return `https://picsum.photos/seed/${seed}/1200/400`;
     }
 
     private handdleErrorsDb(error: any): never {
