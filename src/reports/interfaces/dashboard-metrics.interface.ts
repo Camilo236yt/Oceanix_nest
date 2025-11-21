@@ -1,14 +1,26 @@
-export interface TiempoPromedioMes {
-  mes: string;
-  promedio: number; // en días
+export interface IncidenciasPorTipo {
+  perdidas: number;
+  retrasos: number;
+  danos: number;
+  otros: number;
 }
 
-export interface CumplimientoEmpresa {
-  empresa: string;
-  porcentaje: number;
+export interface EstadoIncidencias {
+  resueltas: {
+    count: number;
+    percentage: number;
+  };
+  pendientes: {
+    count: number;
+    percentage: number;
+  };
+  criticas: {
+    count: number;
+    percentage: number;
+  };
 }
 
 export interface DashboardMetrics {
-  tiempoPromedioRespuesta: TiempoPromedioMes[];
-  porcentajeCumplimientoEmpresa: CumplimientoEmpresa[];
+  incidenciasPorTipo: IncidenciasPorTipo;
+  estadoIncidencias: EstadoIncidencias;
 }

@@ -95,7 +95,7 @@ export class ReportsController {
   @Auth(ValidPermission.viewReports)
   @ApiOperation({
     summary: 'Obtener métricas para dashboard',
-    description: 'Obtiene métricas de tiempo promedio de respuesta por mes y porcentaje de cumplimiento por empresa para gráficas del dashboard.'
+    description: 'Obtiene datos de incidencias por tipo y estado para las gráficas del dashboard (barras y dona).'
   })
   @ApiQuery({
     name: 'startDate',
@@ -116,19 +116,17 @@ export class ReportsController {
     description: 'Métricas obtenidas exitosamente',
     schema: {
       example: {
-        tiempoPromedioRespuesta: [
-          { mes: 'Ene', promedio: 2.8 },
-          { mes: 'Feb', promedio: 2.9 },
-          { mes: 'Mar', promedio: 2.6 },
-          { mes: 'Abr', promedio: 2.7 },
-          { mes: 'May', promedio: 2.1 }
-        ],
-        porcentajeCumplimientoEmpresa: [
-          { empresa: 'Empresa A', porcentaje: 90 },
-          { empresa: 'Empresa B', porcentaje: 95 },
-          { empresa: 'Empresa C', porcentaje: 80 },
-          { empresa: 'Empresa D', porcentaje: 92 }
-        ]
+        incidenciasPorTipo: {
+          perdidas: 15,
+          retrasos: 10,
+          danos: 8,
+          otros: 6
+        },
+        estadoIncidencias: {
+          resueltas: { count: 27, percentage: 69 },
+          pendientes: { count: 9, percentage: 23 },
+          criticas: { count: 3, percentage: 8 }
+        }
       }
     }
   })
