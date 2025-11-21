@@ -63,7 +63,7 @@ export class UsersController {
   }
 
   @Get()
-  @Auth(ValidPermission.manageUsers)
+  @Auth(ValidPermission.viewUsers)
   @FindAllUsersDoc()
   async findAll(@GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
@@ -79,7 +79,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Auth(ValidPermission.manageUsers)
+  @Auth(ValidPermission.viewUsers)
   @FindOneUserDoc()
   async findOne(@Param('id') id: string, @GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation
@@ -169,7 +169,7 @@ export class UsersController {
   }
 
   @Get(':userId/roles')
-  @Auth(ValidPermission.manageUsers)
+  @Auth(ValidPermission.viewUsers)
   @GetUserRolesDoc()
   async getUserRoles(
     @Param('userId') userId: string,
