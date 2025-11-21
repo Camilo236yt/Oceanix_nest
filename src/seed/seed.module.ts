@@ -10,6 +10,7 @@ import { UserRole } from 'src/users/entities/user-role.entity';
 import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
 import { EnterpriseConfig } from 'src/enterprise-config/entities/enterprise-config.entity';
 import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-document.entity';
+import { NotificationProviderPreference } from 'src/user-preferences/entities/notification-provider-preference.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-do
       Incidencia,
       EnterpriseConfig,
       EnterpriseDocument,
+      NotificationProviderPreference,
     ]),
   ],
   providers: [SeedService],

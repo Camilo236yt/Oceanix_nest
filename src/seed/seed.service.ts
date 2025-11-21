@@ -11,6 +11,8 @@ import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
 import { incidenciaStatus, TipoIncidencia } from 'src/incidencias/dto/enum/status-incidencias.enum';
 import { EnterpriseConfig } from 'src/enterprise-config/entities/enterprise-config.entity';
 import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-document.entity';
+import { NotificationProviderPreference } from 'src/user-preferences/entities/notification-provider-preference.entity';
+import { ProviderType } from 'src/user-preferences/enums/provider-type.enum';
 import * as bcrypt from 'bcrypt';
 
 // Importar datos desde archivos separados
@@ -55,6 +57,8 @@ export class SeedService {
     private readonly enterpriseConfigRepository: Repository<EnterpriseConfig>,
     @InjectRepository(EnterpriseDocument)
     private readonly enterpriseDocumentRepository: Repository<EnterpriseDocument>,
+    @InjectRepository(NotificationProviderPreference)
+    private readonly notificationProviderPreferenceRepository: Repository<NotificationProviderPreference>,
   ) {}
 
   /**
@@ -105,27 +109,31 @@ export class SeedService {
       this.logger.log('Deleting incidencias...');
       await this.incidenciaRepository.query('DELETE FROM incidencias');
 
-      // 4. Eliminar relaciones user-role
+      // 4. Eliminar preferencias de notificación (dependen de users)
+      this.logger.log('Deleting notification provider preferences...');
+      await this.notificationProviderPreferenceRepository.query('DELETE FROM notification_provider_preferences');
+
+      // 5. Eliminar relaciones user-role
       this.logger.log('Deleting user-role relationships...');
       await this.userRoleRepository.query('DELETE FROM user_roles');
 
-      // 5. Eliminar usuarios (excepto SUPER_ADMIN si existe)
+      // 6. Eliminar usuarios (excepto SUPER_ADMIN si existe)
       this.logger.log('Deleting users...');
       await this.userRepository.query('DELETE FROM users WHERE "userType" != \'SUPER_ADMIN\'');
 
-      // 6. Eliminar relaciones role-permission
+      // 7. Eliminar relaciones role-permission
       this.logger.log('Deleting role-permission relationships...');
       await this.rolePermissionRepository.query('DELETE FROM role_permission');
 
-      // 7. Eliminar roles
+      // 8. Eliminar roles
       this.logger.log('Deleting roles...');
       await this.roleRepository.query('DELETE FROM roles');
 
-      // 8. Eliminar permisos
+      // 9. Eliminar permisos
       this.logger.log('Deleting permissions...');
       await this.permissionRepository.query('DELETE FROM permissions');
 
-      // 9. Eliminar empresas
+      // 10. Eliminar empresas
       this.logger.log('Deleting enterprises...');
       await this.enterpriseRepository.query('DELETE FROM enterprises');
 
@@ -266,16 +274,16 @@ export class SeedService {
       const savedEnterprise = await this.enterpriseRepository.save(enterprise);
       this.logger.log(`Created enterprise: ${savedEnterprise.name}`);
 
-      // Crear 4 roles para esta empresa
+      // Crear 5 roles para esta empresa
       await this.seedRolesForEnterprise(savedEnterprise, permissions);
 
-      // Crear 4 usuarios para esta empresa
+      // Crear 5 usuarios para esta empresa
       await this.seedUsersForEnterprise(savedEnterprise);
     }
   }
 
   /**
-   * Crea 4 roles para una empresa específica usando datos del archivo
+   * Crea 5 roles para una empresa específica usando datos del archivo
    */
   async seedRolesForEnterprise(
     enterprise: Enterprise,
@@ -335,7 +343,7 @@ export class SeedService {
   }
 
   /**
-   * Crea 4 usuarios para una empresa específica usando datos del archivo
+   * Crea 5 usuarios para una empresa específica usando datos del archivo
    */
   async seedUsersForEnterprise(enterprise: Enterprise): Promise<void> {
     this.logger.log(`Creating users for enterprise: ${enterprise.name}`);
@@ -381,9 +389,60 @@ export class SeedService {
       });
       await this.userRoleRepository.save(userRole);
 
+      // Inicializar providers de notificación por defecto (EMAIL y WEBSOCKET habilitados)
+      await this.initializeDefaultNotificationProviders(savedUser.id);
+
       this.logger.log(
         `Created user: ${savedUser.email} with role: ${role.name}`,
       );
+    }
+  }
+
+  /**
+   * Inicializa los providers de notificación por defecto para un usuario
+   * Por defecto, EMAIL y WEBSOCKET están habilitados
+   */
+  private async initializeDefaultNotificationProviders(userId: string): Promise<void> {
+    try {
+      // Crear EMAIL provider (habilitado por defecto)
+      const emailProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.EMAIL,
+        isEnabled: true,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(emailProvider);
+
+      // Crear WEBSOCKET provider (habilitado por defecto)
+      const websocketProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.WEBSOCKET,
+        isEnabled: true,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(websocketProvider);
+
+      // Crear TELEGRAM provider (deshabilitado por defecto)
+      const telegramProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.TELEGRAM,
+        isEnabled: false,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(telegramProvider);
+
+      // Crear WHATSAPP provider (deshabilitado por defecto)
+      const whatsappProvider = this.notificationProviderPreferenceRepository.create({
+        userId,
+        providerType: ProviderType.WHATSAPP,
+        isEnabled: false,
+        config: null,
+      });
+      await this.notificationProviderPreferenceRepository.save(whatsappProvider);
+
+      this.logger.debug(`Initialized notification providers for user ${userId}`);
+    } catch (error) {
+      this.logger.error(`Error initializing notification providers for user ${userId}:`, error);
     }
   }
 

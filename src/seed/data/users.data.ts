@@ -20,31 +20,40 @@ export const USERS_DATA: UserData[] = [
     roleIndex: 0,
   },
 
-  // Usuario 2: Admin de Incidencias
+  // Usuario 2: Cliente 1
   {
-    name: 'Carlos',
-    lastName: 'Rodríguez',
-    emailPrefix: 'carlos.rodriguez',
+    name: 'Cliente',
+    lastName: 'Uno',
+    emailPrefix: 'cliente1',
     phoneNumber: '+1234567800',
     roleIndex: 1,
   },
 
-  // Usuario 3: Admin de Usuarios
+  // Usuario 3: Cliente 2
   {
-    name: 'María',
-    lastName: 'González',
-    emailPrefix: 'maria.gonzalez',
+    name: 'Cliente',
+    lastName: 'Dos',
+    emailPrefix: 'cliente2',
     phoneNumber: '+1234567801',
     roleIndex: 2,
   },
 
-  // Usuario 4: Visualizador
+  // Usuario 4: Cliente 3
   {
-    name: 'Juan',
-    lastName: 'Pérez',
-    emailPrefix: 'juan.perez',
+    name: 'Cliente',
+    lastName: 'Tres',
+    emailPrefix: 'cliente3',
     phoneNumber: '+1234567802',
     roleIndex: 3,
+  },
+
+  // Usuario 5: Cliente 4 - Solo ver incidencias y usuarios
+  {
+    name: 'Cliente',
+    lastName: 'Cuatro',
+    emailPrefix: 'cliente4',
+    phoneNumber: '+1234567803',
+    roleIndex: 4,
   },
 ];
 

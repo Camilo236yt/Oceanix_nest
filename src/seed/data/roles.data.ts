@@ -68,4 +68,15 @@ export const ROLES_DATA: RoleData[] = [
       ValidPermission.readDashboard,
     ],
   },
+
+  // Rol 5: Visualizador Limitado (Cliente 4)
+  {
+    nameTemplate: 'Visualizador Limitado {subdomain}',
+    description: 'Solo puede ver incidencias y ver usuarios, sin permisos de edición o eliminación',
+    permissions: [
+      ValidPermission.viewIncidents,
+      ValidPermission.viewUsers,
+      ValidPermission.readDashboard,
+    ],
+  },
 ];
