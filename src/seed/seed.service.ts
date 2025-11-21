@@ -8,7 +8,7 @@ import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { User, UserType } from 'src/users/entities/user.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
 import { Incidencia } from 'src/incidencias/entities/incidencia.entity';
-import { incidenciaStatus, TipoIncidencia } from 'src/incidencias/dto/enum/status-incidencias.enum';
+import { IncidenciaStatus, TipoIncidencia } from 'src/incidencias/enums/incidencia.enums';
 import { EnterpriseConfig } from 'src/enterprise-config/entities/enterprise-config.entity';
 import { EnterpriseDocument } from 'src/enterprise-config/entities/enterprise-document.entity';
 import { NotificationProviderPreference } from 'src/user-preferences/entities/notification-provider-preference.entity';
@@ -508,7 +508,7 @@ export class SeedService {
     const statusDistribution = getStatusDistribution(count);
 
     for (let i = 0; i < count; i++) {
-      const status = statusDistribution[i] || incidenciaStatus.PENDING;
+      const status = statusDistribution[i] || IncidenciaStatus.PENDING;
 
       // Generar fechas realistas usando rangos del archivo
       const createdDate = this.getRandomDateInRange(
@@ -518,7 +518,7 @@ export class SeedService {
 
       // Si está resuelta, agregar tiempo de resolución usando datos del archivo
       const updatedDate =
-        status === incidenciaStatus.RESOLVED || status === incidenciaStatus.CLOSED
+        status === IncidenciaStatus.RESOLVED || status === IncidenciaStatus.CLOSED
           ? this.addDaysToDate(
               createdDate,
               Math.floor(Math.random() * (RESOLUTION_DAYS.max - RESOLUTION_DAYS.min + 1)) +

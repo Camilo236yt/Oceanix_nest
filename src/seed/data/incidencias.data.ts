@@ -1,4 +1,4 @@
-import { TipoIncidencia, incidenciaStatus } from '../../incidencias/dto/enum/status-incidencias.enum';
+import { TipoIncidencia, IncidenciaStatus } from '../../incidencias/enums/incidencia.enums';
 
 /**
  * Configuración para generación de incidencias por tipo
@@ -57,12 +57,12 @@ export const INCIDENCIAS_CONFIG: IncidenciaTypeConfig[] = [
  * Distribución de estados para las incidencias
  * Según el dashboard: Resueltas: 65%, Pendientes: 28%, Críticas (IN_PROGRESS): 10%
  */
-export function getStatusDistribution(count: number): incidenciaStatus[] {
+export function getStatusDistribution(count: number): IncidenciaStatus[] {
   return [
-    ...Array(Math.ceil(count * 0.65)).fill(incidenciaStatus.RESOLVED),
-    ...Array(Math.ceil(count * 0.20)).fill(incidenciaStatus.PENDING),
-    ...Array(Math.ceil(count * 0.10)).fill(incidenciaStatus.IN_PROGRESS),
-    ...Array(Math.ceil(count * 0.05)).fill(incidenciaStatus.CLOSED),
+    ...Array(Math.ceil(count * 0.65)).fill(IncidenciaStatus.RESOLVED),
+    ...Array(Math.ceil(count * 0.20)).fill(IncidenciaStatus.PENDING),
+    ...Array(Math.ceil(count * 0.10)).fill(IncidenciaStatus.IN_PROGRESS),
+    ...Array(Math.ceil(count * 0.05)).fill(IncidenciaStatus.CLOSED),
   ];
 }
 

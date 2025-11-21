@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Incidencia } from '../incidencias/entities/incidencia.entity';
 import { DashboardReport } from './interfaces/report-stats.interface';
 import { DashboardMetrics } from './interfaces/dashboard-metrics.interface';
-import { TipoIncidencia } from '../incidencias/dto/enum/status-incidencias.enum';
+import { TipoIncidencia } from '../incidencias/enums/incidencia.enums';
 import { Enterprise } from '../enterprise/entities/enterprise.entity';
 
 @Injectable()

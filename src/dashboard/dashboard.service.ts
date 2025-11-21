@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incidencia } from '../incidencias/entities/incidencia.entity';
 import { DashboardData } from './interfaces/dashboard-data.interface';
-import { TipoIncidencia } from '../incidencias/dto/enum/status-incidencias.enum';
+import { TipoIncidencia } from '../incidencias/enums/incidencia.enums';
 
 @Injectable()
 export class DashboardService {
