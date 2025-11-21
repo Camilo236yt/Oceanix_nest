@@ -8,20 +8,23 @@ import { Incidencia } from './entities/incidencia.entity';
 import { IncidentImage } from './entities/incident-image.entity';
 import { StorageModule } from 'src/storage/storage.module';
 import { EmployeeAssignmentService } from './services/employee-assignment.service';
-
-// Cambios aplicados:
-// - Importado ScheduleModule para futuros cronjobs.
-// - Importado StorageModule para integración con MinIO.
-// - Registrada la entidad IncidentImage en TypeORM.
-// - Agregado EmployeeAssignmentService a providers.
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/entities/user-role.entity';
+import { Role } from '../roles/entities/role.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Incidencia, IncidentImage]), // + IncidentImage
-    StorageModule, // MinIO
-    ScheduleModule.forRoot(), // habilita cronjobs
+    TypeOrmModule.forFeature([
+      Incidencia,
+      IncidentImage,
+      User,
+      UserRole,
+      Role,
+    ]),
+    StorageModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [IncidenciasController],
-  providers: [IncidenciasService, EmployeeAssignmentService], // + EmployeeAssignmentService
+  providers: [IncidenciasService, EmployeeAssignmentService],
 })
 export class IncidenciasModule {}

@@ -23,6 +23,9 @@ export class Role {
     @Column({ type: 'bool', default: false })
     isSystemRole: boolean;
 
+    @Column({ type: 'bool', default: false })
+    canReceiveIncidents: boolean;
+
     @Column({type: 'bool', default: true})
     isActive?:boolean;
 

@@ -1,4 +1,4 @@
-import { IsArray, IsOptional, IsString, IsUUID, MinLength } from "class-validator";
+import { IsArray, IsBoolean, IsOptional, IsString, IsUUID, MinLength } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateRoleDto {
@@ -30,4 +30,14 @@ export class CreateRoleDto {
     @IsArray()
     @IsUUID('all', { each: true })
     permissionIds?: string[];
+
+    @ApiProperty({
+        description: 'Whether users with this role can receive automatic incident assignments. When true, automatically grants viewOwnIncidents and editOwnIncidents permissions.',
+        example: true,
+        required: false,
+        default: false
+    })
+    @IsOptional()
+    @IsBoolean()
+    canReceiveIncidents?: boolean;
 }

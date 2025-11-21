@@ -7,6 +7,7 @@ export interface RoleData {
   nameTemplate: string; // Template con {subdomain} que será reemplazado
   description: string;
   permissions: ValidPermission[];
+  canReceiveIncidents?: boolean; // Si puede recibir asignaciones automáticas de incidencias
 }
 
 /**
@@ -56,17 +57,19 @@ export const ROLES_DATA: RoleData[] = [
     ],
   },
 
-  // Rol 4: Visualizador de Incidencias
+  // Rol 4: Agente de Soporte - Puede recibir y atender incidencias
   {
-    nameTemplate: 'Observador {subdomain}',
-    description: 'Solo puede ver incidencias propias',
+    nameTemplate: 'Agente de Soporte {subdomain}',
+    description: 'Puede recibir asignaciones automáticas y atender incidencias',
     permissions: [
       ValidPermission.viewOwnIncidents,
+      ValidPermission.editOwnIncidents,
       ValidPermission.createComments,
       ValidPermission.editOwnComments,
       ValidPermission.deleteOwnComments,
       ValidPermission.readDashboard,
     ],
+    canReceiveIncidents: true,
   },
 
   // Rol 5: Visualizador Limitado (Cliente 4)

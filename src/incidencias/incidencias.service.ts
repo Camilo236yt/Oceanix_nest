@@ -67,14 +67,18 @@ export class IncidenciasService {
     let savedIncidencia: Incidencia | null = null;
 
     try {
+      // Obtener empleado con menor carga para asignación automática
+      const assignedEmployeeId = await this.employeeAssignmentService.getEmployeeWithLeastWorkload(tenantId);
+
       const incidencia = this.incidenciaRepository.create({
         tenantId,
         status: IncidenciaStatus.PENDING,
         createdByUserId,
+        assignedEmployeeId: assignedEmployeeId ?? undefined, // Asignación automática (puede ser undefined si no hay empleados disponibles)
         ...createIncidenciaDto,
       });
 
-      savedIncidencia = await this.incidenciaRepository.save(incidencia);
+      savedIncidencia = await this.incidenciaRepository.save(incidencia) as Incidencia;
       const incidenciaRecord = await this.incidenciaRepository.findOne({
         where: { id: savedIncidencia.id },
         relations: ['images'],
@@ -129,15 +133,9 @@ export class IncidenciasService {
         }
       }
 
-      // Asignación automática (no bloqueante)
-      try {
-        await (this.employeeAssignmentService as any)?.assignAutomatically?.(incidenciaRecord, tenantId);
-      } catch {
-        // Silenciar errores de asignación para no bloquear la creación
-      }
-
       return {
         ...incidenciaRecord,
+        assignedEmployeeId,
         imageGroupId: incidenciaRecord.id,
       };
     } catch (error) {

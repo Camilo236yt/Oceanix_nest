@@ -12,6 +12,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Permission } from 'src/permissions/entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
 import { ROLE_MESSAGES } from './constants';
+import { ValidPermission } from 'src/auth/interfaces';
+
+// Permisos que se auto-asignan cuando canReceiveIncidents = true
+const RECEIVE_INCIDENTS_PERMISSIONS = [
+  ValidPermission.viewOwnIncidents,
+  ValidPermission.editOwnIncidents,
+];
 
 @Injectable()
 export class RolesService {
@@ -26,7 +33,7 @@ export class RolesService {
 
   async create(createRoleDto: CreateRoleDto, enterpriseId?: string) {
     try {
-      const { permissionIds, ...roleData } = createRoleDto;
+      const { permissionIds, canReceiveIncidents, ...roleData } = createRoleDto;
 
       // Validate uniqueness by enterprise
       const existing = await this.rolesRepository.findOne({
@@ -44,18 +51,28 @@ export class RolesService {
       const role = this.rolesRepository.create({
         ...roleData,
         enterpriseId,
+        canReceiveIncidents: canReceiveIncidents ?? false,
       });
       await this.rolesRepository.save(role);
 
-      // Assign permissions if provided
-      if (permissionIds?.length) {
-        const permissions = await this.permissionRepository.find({
-          where: { id: In(permissionIds) },
-        });
+      // Collect all permission IDs to assign
+      let allPermissionIds = [...(permissionIds || [])];
 
-        if (permissions.length !== permissionIds.length) {
-          throw new BadRequestException(ROLE_MESSAGES.PERMISSIONS_NOT_FOUND);
-        }
+      // Auto-assign permissions if canReceiveIncidents is true
+      if (canReceiveIncidents) {
+        const autoPermissions = await this.permissionRepository.find({
+          where: { name: In(RECEIVE_INCIDENTS_PERMISSIONS) },
+        });
+        const autoPermissionIds = autoPermissions.map(p => p.id);
+        // Merge without duplicates
+        allPermissionIds = [...new Set([...allPermissionIds, ...autoPermissionIds])];
+      }
+
+      // Assign permissions if any
+      if (allPermissionIds.length) {
+        const permissions = await this.permissionRepository.find({
+          where: { id: In(allPermissionIds) },
+        });
 
         const rolePermissions = permissions.map((permission) =>
           this.rolePermissionRepository.create({
@@ -123,24 +140,38 @@ export class RolesService {
       // Use findOne with enterprise isolation
       const role = await this.findOne(id, enterpriseId);
 
-      // Update basic fields if provided
-      this.rolesRepository.merge(role, updateRoleDto);
+      const { permissionIds, canReceiveIncidents, ...basicFields } = updateRoleDto;
+
+      // Update basic fields if provided (including canReceiveIncidents)
+      if (canReceiveIncidents !== undefined) {
+        role.canReceiveIncidents = canReceiveIncidents;
+      }
+      this.rolesRepository.merge(role, basicFields);
       await this.rolesRepository.save(role);
 
-      // If permissions are provided, replace them completely
-      if (updateRoleDto.permissionIds !== undefined) {
+      // If permissions are provided OR canReceiveIncidents changed, update permissions
+      if (permissionIds !== undefined || canReceiveIncidents !== undefined) {
         // Delete current permissions
         await this.rolePermissionRepository.delete({ role: { id: role.id } });
 
-        // Assign new permissions if array is not empty
-        if (updateRoleDto.permissionIds.length > 0) {
-          const permissions = await this.permissionRepository.find({
-            where: { id: In(updateRoleDto.permissionIds) },
-          });
+        // Collect all permission IDs to assign
+        let allPermissionIds = [...(permissionIds || [])];
 
-          if (permissions.length !== updateRoleDto.permissionIds.length) {
-            throw new BadRequestException(ROLE_MESSAGES.PERMISSIONS_NOT_FOUND);
-          }
+        // Auto-assign permissions if canReceiveIncidents is true
+        if (role.canReceiveIncidents) {
+          const autoPermissions = await this.permissionRepository.find({
+            where: { name: In(RECEIVE_INCIDENTS_PERMISSIONS) },
+          });
+          const autoPermissionIds = autoPermissions.map(p => p.id);
+          // Merge without duplicates
+          allPermissionIds = [...new Set([...allPermissionIds, ...autoPermissionIds])];
+        }
+
+        // Assign new permissions if array is not empty
+        if (allPermissionIds.length > 0) {
+          const permissions = await this.permissionRepository.find({
+            where: { id: In(allPermissionIds) },
+          });
 
           const rolePermissions = permissions.map(permission =>
             this.rolePermissionRepository.create({

@@ -303,6 +303,7 @@ export class SeedService {
         enterpriseId: enterprise.id,
         isActive: true,
         isSystemRole: false,
+        canReceiveIncidents: roleData.canReceiveIncidents ?? false,
       });
       const savedRole = await this.roleRepository.save(role);
 
