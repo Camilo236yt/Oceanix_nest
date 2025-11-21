@@ -1,24 +1,30 @@
-import { 
-  Column, 
-  CreateDateColumn, 
-  DeleteDateColumn, 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  UpdateDateColumn 
-} from "typeorm";
-import { TipoIncidencia } from "../dto/enum/status-incidencias.enum"; // ✅ importar nuevo enum
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+import { TipoIncidencia } from '../enums/incidencia.enums';
+import { IncidentImage } from '../entities/incident-image.entity';
+import { Enterprise } from '../../enterprise/entities/enterprise.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('incidencias')
 export class Incidencia {
-
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
- // ✅ Nuevo campo ENUM para el tipo de incidencia
+  // Tipo de incidencia (ENUM)
   @Column({
     type: 'enum',
     enum: TipoIncidencia,
-    default: TipoIncidencia.OTRO, // valor por defecto
+    default: TipoIncidencia.OTRO,
   })
   tipo: TipoIncidencia;
 
@@ -31,17 +37,28 @@ export class Incidencia {
   @Column({ nullable: false })
   status: string;
 
-  @Column({ nullable: true })
-  photoUrl?: string;
-
   @Column({ unique: true })
   ProducReferenceId: string;
 
   @Column({ nullable: false })
   tenantId: string;
 
-  // ✅ Marca lógica para activar/desactivar sin borrar el registro
-  // Ideal para mostrar solo "activas" en la app sin consultar deletedAt
+  @Column({ type: 'uuid', nullable: true })
+  createdByUserId: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'createdByUserId' })
+  createdBy?: User;
+
+  // Empleado asignado (User)
+  @Column({ type: 'uuid', nullable: true })
+  assignedEmployeeId?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'assignedEmployeeId' })
+  assignedEmployee?: User;
+
+  // Marca lógica para activar/desactivar sin borrar el registro
   @Column({ default: true })
   isActive: boolean;
 
@@ -51,11 +68,13 @@ export class Incidencia {
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
-  // ✅ Soft delete nativo de TypeORM
+  // Soft delete nativo de TypeORM
   @DeleteDateColumn()
   deletedAt?: Date;
+
+  // Imágenes asociadas a la incidencia
+  @OneToMany(() => IncidentImage, (image) => image.incidencia, { cascade: true })
+  images?: IncidentImage[];
 }
 
-//TODO: SOFT DELETE COLUMNA IsActive ✅
-// validar todas las propiedades y restricciones necesarias✅
 
