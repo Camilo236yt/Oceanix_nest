@@ -213,3 +213,16 @@ export const LogoutDoc = () =>
       },
     }),
   );
+
+export const CheckSessionDoc = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Check session validity',
+      description: 'Lightweight endpoint to check if the current session/token is valid. Returns 200 if valid, 401 if invalid or expired.'
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Session is valid',
+    }),
+    ApiResponse(ErrorResponses.Unauthorized('Invalid or expired session token')),
+  );

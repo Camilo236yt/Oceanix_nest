@@ -8,7 +8,7 @@ import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code
 import type { AuthResponseDto, UserProfileResponseDto } from './interfaces';
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
-import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc } from './docs';
+import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc, CheckSessionDoc } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
 import { GetSubdomain } from '../common/decorators';
 import { Auth, GetUser } from './decorator';
@@ -122,6 +122,14 @@ export class AuthController {
   ): { message: string } {
     CookieHelper.clearAuthCookie(res);
     return { message: 'Logout exitoso' };
+  }
+
+  @CheckSessionDoc()
+  @Get('check')
+  @Auth()
+  @ApiBearerAuth()
+  checkSession() {
+    return;
   }
 
   @Get('me')
