@@ -10,48 +10,55 @@ export interface IncidenciaTypeConfig {
 }
 
 /**
- * Distribución de incidencias por tipo
- * Basado en los datos del dashboard de reportes
+ * Distribución de incidencias por tipo - Empresa 1 (TechCorp - más incidencias)
  */
-export const INCIDENCIAS_CONFIG: IncidenciaTypeConfig[] = [
-  // Pérdidas (45 total distribuidas) - 15 por empresa
-  {
-    tipo: TipoIncidencia.POR_PERDIDA,
-    count: 15,
-    prefix: 'Pérdida',
-  },
-
-  // Daños (27 total distribuidas) - 9 por empresa
-  {
-    tipo: TipoIncidencia.POR_DANO,
-    count: 9,
-    prefix: 'Daño',
-  },
-
-  // Retrasos (30 total - agrupando tipos técnicos/operativos) - 10 por empresa
-  {
-    tipo: TipoIncidencia.POR_ERROR_HUMANO,
-    count: 5,
-    prefix: 'Error Humano',
-  },
-  {
-    tipo: TipoIncidencia.POR_MANTENIMIENTO,
-    count: 3,
-    prefix: 'Mantenimiento',
-  },
-  {
-    tipo: TipoIncidencia.POR_FALLA_TECNICA,
-    count: 2,
-    prefix: 'Falla Técnica',
-  },
-
-  // Otros (18 total distribuidas) - 6 por empresa
-  {
-    tipo: TipoIncidencia.OTRO,
-    count: 6,
-    prefix: 'Otros',
-  },
+export const INCIDENCIAS_CONFIG_ENTERPRISE_1: IncidenciaTypeConfig[] = [
+  { tipo: TipoIncidencia.POR_PERDIDA, count: 18, prefix: 'Pérdida' },
+  { tipo: TipoIncidencia.POR_DANO, count: 12, prefix: 'Daño' },
+  { tipo: TipoIncidencia.POR_ERROR_HUMANO, count: 7, prefix: 'Error Humano' },
+  { tipo: TipoIncidencia.POR_MANTENIMIENTO, count: 4, prefix: 'Mantenimiento' },
+  { tipo: TipoIncidencia.POR_FALLA_TECNICA, count: 3, prefix: 'Falla Técnica' },
+  { tipo: TipoIncidencia.OTRO, count: 8, prefix: 'Otros' },
 ];
+
+/**
+ * Distribución de incidencias por tipo - Empresa 2 (LogiTrans - cantidad media)
+ */
+export const INCIDENCIAS_CONFIG_ENTERPRISE_2: IncidenciaTypeConfig[] = [
+  { tipo: TipoIncidencia.POR_PERDIDA, count: 10, prefix: 'Pérdida' },
+  { tipo: TipoIncidencia.POR_DANO, count: 8, prefix: 'Daño' },
+  { tipo: TipoIncidencia.POR_ERROR_HUMANO, count: 4, prefix: 'Error Humano' },
+  { tipo: TipoIncidencia.POR_MANTENIMIENTO, count: 3, prefix: 'Mantenimiento' },
+  { tipo: TipoIncidencia.POR_FALLA_TECNICA, count: 2, prefix: 'Falla Técnica' },
+  { tipo: TipoIncidencia.OTRO, count: 5, prefix: 'Otros' },
+];
+
+/**
+ * Distribución de incidencias por tipo - Empresa 3 (ServiExpress - menos incidencias)
+ */
+export const INCIDENCIAS_CONFIG_ENTERPRISE_3: IncidenciaTypeConfig[] = [
+  { tipo: TipoIncidencia.POR_PERDIDA, count: 6, prefix: 'Pérdida' },
+  { tipo: TipoIncidencia.POR_DANO, count: 4, prefix: 'Daño' },
+  { tipo: TipoIncidencia.POR_ERROR_HUMANO, count: 2, prefix: 'Error Humano' },
+  { tipo: TipoIncidencia.POR_MANTENIMIENTO, count: 2, prefix: 'Mantenimiento' },
+  { tipo: TipoIncidencia.POR_FALLA_TECNICA, count: 1, prefix: 'Falla Técnica' },
+  { tipo: TipoIncidencia.OTRO, count: 3, prefix: 'Otros' },
+];
+
+/**
+ * Array de configuraciones por empresa (índice 0, 1, 2)
+ */
+export const INCIDENCIAS_CONFIG_BY_ENTERPRISE: IncidenciaTypeConfig[][] = [
+  INCIDENCIAS_CONFIG_ENTERPRISE_1,
+  INCIDENCIAS_CONFIG_ENTERPRISE_2,
+  INCIDENCIAS_CONFIG_ENTERPRISE_3,
+];
+
+/**
+ * Configuración por defecto (para mantener compatibilidad)
+ * @deprecated Use INCIDENCIAS_CONFIG_BY_ENTERPRISE instead
+ */
+export const INCIDENCIAS_CONFIG: IncidenciaTypeConfig[] = INCIDENCIAS_CONFIG_ENTERPRISE_1;
 
 /**
  * Distribución de estados para las incidencias

@@ -23,7 +23,7 @@ import {
   USERS_DATA,
   SUPER_ADMIN_DATA,
   DEFAULT_USER_PASSWORD,
-  INCIDENCIAS_CONFIG,
+  INCIDENCIAS_CONFIG_BY_ENTERPRISE,
   DATE_RANGE,
   RESOLUTION_DAYS,
   getStatusDistribution,
@@ -449,12 +449,15 @@ export class SeedService {
 
   /**
    * Crea incidencias de prueba para todas las empresas
+   * Cada empresa tiene una cantidad diferente de incidencias
    */
   async seedIncidencias(): Promise<void> {
     this.logger.log('Seeding incidencias...');
 
     // Obtener todas las empresas
-    const enterprises = await this.enterpriseRepository.find();
+    const enterprises = await this.enterpriseRepository.find({
+      order: { createdAt: 'ASC' },
+    });
 
     if (enterprises.length === 0) {
       this.logger.warn('No enterprises found. Skipping incidencias seed...');
@@ -463,12 +466,17 @@ export class SeedService {
 
     let totalCreated = 0;
 
-    for (const enterprise of enterprises) {
+    for (let i = 0; i < enterprises.length; i++) {
+      const enterprise = enterprises[i];
       this.logger.log(`Creating incidencias for enterprise: ${enterprise.name}`);
 
-      // Usar configuración importada desde archivo
+      // Usar configuración específica por empresa (índice)
+      // Si hay más empresas que configuraciones, usar la última configuración
+      const configIndex = Math.min(i, INCIDENCIAS_CONFIG_BY_ENTERPRISE.length - 1);
+      const enterpriseConfig = INCIDENCIAS_CONFIG_BY_ENTERPRISE[configIndex];
+
       const incidenciasData: Partial<Incidencia>[] = [];
-      for (const config of INCIDENCIAS_CONFIG) {
+      for (const config of enterpriseConfig) {
         incidenciasData.push(
           ...this.generateIncidenciasForType(
             config.tipo,
