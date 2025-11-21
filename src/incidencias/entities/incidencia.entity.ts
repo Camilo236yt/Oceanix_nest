@@ -11,6 +11,7 @@ import {
   Index,
 } from 'typeorm';
 import { TipoIncidencia } from '../enums/incidencia.enums';
+import { AlertLevel } from '../enums/alert-level.enum';
 import { IncidentImage } from '../entities/incident-image.entity';
 import { Enterprise } from '../../enterprise/entities/enterprise.entity';
 import { User } from '../../users/entities/user.entity';
@@ -61,6 +62,15 @@ export class Incidencia {
   // Marca lógica para activar/desactivar sin borrar el registro
   @Column({ default: true })
   isActive: boolean;
+
+  // Nivel de alerta basado en días sin atender (semáforo)
+  @Column({
+    type: 'enum',
+    enum: AlertLevel,
+    default: AlertLevel.GREEN,
+  })
+  @Index()
+  alertLevel: AlertLevel;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

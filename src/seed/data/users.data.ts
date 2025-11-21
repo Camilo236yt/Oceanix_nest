@@ -16,7 +16,7 @@ export const USERS_DATA: UserData[] = [
     name: 'Admin',
     lastName: 'Super',
     emailPrefix: 'admin.super',
-    phoneNumber: '+1234567799',
+    phoneNumber: '+573026736193',
     roleIndex: 0,
   },
 
@@ -25,7 +25,7 @@ export const USERS_DATA: UserData[] = [
     name: 'Cliente',
     lastName: 'Uno',
     emailPrefix: 'cliente1',
-    phoneNumber: '+1234567800',
+    phoneNumber: '+573026736193',
     roleIndex: 1,
   },
 
@@ -34,7 +34,7 @@ export const USERS_DATA: UserData[] = [
     name: 'Cliente',
     lastName: 'Dos',
     emailPrefix: 'cliente2',
-    phoneNumber: '+1234567801',
+    phoneNumber: '+573026736193',
     roleIndex: 2,
   },
 
@@ -43,7 +43,7 @@ export const USERS_DATA: UserData[] = [
     name: 'Cliente',
     lastName: 'Tres',
     emailPrefix: 'cliente3',
-    phoneNumber: '+1234567802',
+    phoneNumber: '+573026736193',
     roleIndex: 3,
   },
 
@@ -52,7 +52,7 @@ export const USERS_DATA: UserData[] = [
     name: 'Cliente',
     lastName: 'Cuatro',
     emailPrefix: 'cliente4',
-    phoneNumber: '+1234567803',
+    phoneNumber: '+573026736193',
     roleIndex: 4,
   },
 ];
@@ -64,7 +64,7 @@ export const SUPER_ADMIN_DATA = {
   name: 'Super',
   lastName: 'Admin',
   email: 'superadmin@oceanix.space',
-  phoneNumber: '+1000000000',
+  phoneNumber: '+573026736193',
   password: 'SuperAdmin123!',
 };
 

@@ -8,9 +8,11 @@ import { Incidencia } from './entities/incidencia.entity';
 import { IncidentImage } from './entities/incident-image.entity';
 import { StorageModule } from 'src/storage/storage.module';
 import { EmployeeAssignmentService } from './services/employee-assignment.service';
+import { IncidenciaMonitorService } from './services/incidencia-monitor.service';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.entity';
 import { Role } from '../roles/entities/role.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -23,8 +25,9 @@ import { Role } from '../roles/entities/role.entity';
     ]),
     StorageModule,
     ScheduleModule.forRoot(),
+    NotificationModule,
   ],
   controllers: [IncidenciasController],
-  providers: [IncidenciasService, EmployeeAssignmentService],
+  providers: [IncidenciasService, EmployeeAssignmentService, IncidenciaMonitorService],
 })
 export class IncidenciasModule {}

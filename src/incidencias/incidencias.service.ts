@@ -11,6 +11,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZES, STORAGE_BUCKETS } from 'src/storage/config/storage.config';
 import { EmployeeAssignmentService } from './services/employee-assignment.service';
 import { IncidenciaStatus } from './enums/incidencia.enums';
+import { INCIDENCIA_CONFIG, INCIDENCIA_MESSAGES } from './constants';
 
 @Injectable()
 export class IncidenciasService {
@@ -53,15 +54,15 @@ export class IncidenciasService {
     images?: Express.Multer.File[],
   ) {
     if (!tenantId) {
-      throw new BadRequestException('tenantId es requerido para crear incidencias');
+      throw new BadRequestException(INCIDENCIA_MESSAGES.TENANT_REQUIRED);
     }
 
     if (!createdByUserId) {
-      throw new BadRequestException('userId es requerido para crear incidencias');
+      throw new BadRequestException(INCIDENCIA_MESSAGES.USER_REQUIRED);
     }
 
-    if (images && images.length > 5) {
-      throw new BadRequestException('Máximo 5 imágenes permitidas');
+    if (images && images.length > INCIDENCIA_CONFIG.MAX_IMAGES) {
+      throw new BadRequestException(INCIDENCIA_MESSAGES.MAX_IMAGES_EXCEEDED);
     }
 
     let savedIncidencia: Incidencia | null = null;
@@ -95,7 +96,7 @@ export class IncidenciasService {
           this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
           this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
 
-          const path = `incidencias/${tenantId}/${incidenciaRecord.id}`;
+          const path = `${INCIDENCIA_CONFIG.STORAGE_PATH}/${tenantId}/${incidenciaRecord.id}`;
           const { url, key } = await this.storageService.uploadFile(
             file,
             STORAGE_BUCKETS.TICKETS,
@@ -162,7 +163,7 @@ export class IncidenciasService {
       incidentImage.incidencia?.id !== incidenciaId ||
       incidentImage.incidencia?.tenantId !== tenantId
     ) {
-      throw new NotFoundException('Imagen no encontrada para esta incidencia');
+      throw new NotFoundException(INCIDENCIA_MESSAGES.IMAGE_NOT_FOUND);
     }
 
     const data = await this.storageService.getFile(
@@ -184,7 +185,7 @@ export class IncidenciasService {
     });
 
     if (!incidentImage || incidentImage.incidencia?.tenantId !== tenantId) {
-      throw new NotFoundException('Imagen no encontrada para este tenant');
+      throw new NotFoundException(INCIDENCIA_MESSAGES.IMAGE_NOT_FOUND_TENANT);
     }
 
     const data = await this.storageService.getFile(
@@ -217,7 +218,7 @@ export class IncidenciasService {
     });
 
     if (!incidencia) {
-      throw new NotFoundException(`Incidencia ${id} no encontrada`);
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
     }
 
     return incidencia;
@@ -252,10 +253,10 @@ export class IncidenciasService {
     const result = await this.incidenciaRepository.softDelete(incidencia.id);
 
     if (!result.affected) {
-      throw new NotFoundException(`Incidencia ${id} no encontrada`);
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
     }
 
-    return { message: `Incidencia ${id} desactivada` };
+    return { message: INCIDENCIA_MESSAGES.DELETED_SUCCESSFULLY };
   }
 
   /**
@@ -265,7 +266,7 @@ export class IncidenciasService {
     const incidencia = await this.findOne(id, tenantId);
 
     await this.incidenciaRepository.restore(incidencia.id);
-    return { message: `Incidencia ${id} reactivada` };
+    return { message: INCIDENCIA_MESSAGES.RESTORED_SUCCESSFULLY };
   }
 
   async listImages(incidenciaId: string, tenantId: string) {
@@ -274,7 +275,7 @@ export class IncidenciasService {
     });
 
     if (!incidencia) {
-      throw new NotFoundException('Incidencia no encontrada');
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
     }
 
     const images = await this.incidentImageRepository.find({
