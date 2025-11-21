@@ -541,7 +541,7 @@ export class SeedService {
         description: `Descripción detallada de ${prefix.toLowerCase()} ${i + 1} para la empresa`,
         status: status,
         ProducReferenceId: `PROD-${enterpriseId.substring(0, 4)}-${tipo}-${Date.now()}-${i}`,
-        tenantId: enterpriseId,
+        enterpriseId: enterpriseId,
         isActive: true,
         createdAt: createdDate,
         updatedAt: updatedDate,

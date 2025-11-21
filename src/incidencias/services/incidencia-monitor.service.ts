@@ -95,7 +95,7 @@ export class IncidenciaMonitorService {
     try {
       await this.notificationService.sendToUser(
         incidencia.assignedEmployeeId,
-        incidencia.tenantId,
+        incidencia.enterpriseId,
         {
           title,
           message: `La incidencia "${incidencia.name}" lleva ${daysSinceUpdate} días sin actualización.`,

@@ -21,7 +21,7 @@ export class ReportsService {
     // Query base para empresa
     const queryBuilder = this.incidenciaRepository
       .createQueryBuilder('incidencia')
-      .where('incidencia.tenantId = :enterpriseId', { enterpriseId })
+      .where('incidencia.enterpriseId = :enterpriseId', { enterpriseId })
       .andWhere('incidencia.isActive = :isActive', { isActive: true });
 
     // Filtrar por fechas solo si se proporcionan
@@ -191,7 +191,7 @@ export class ReportsService {
     // Query base para empresa
     const queryBuilder = this.incidenciaRepository
       .createQueryBuilder('incidencia')
-      .where('incidencia.tenantId = :enterpriseId', { enterpriseId })
+      .where('incidencia.enterpriseId = :enterpriseId', { enterpriseId })
       .andWhere('incidencia.isActive = :isActive', { isActive: true });
 
     // Filtrar por fechas solo si se proporcionan

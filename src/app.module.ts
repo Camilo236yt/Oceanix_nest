@@ -3,7 +3,6 @@ import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { IncidenciasModule } from './incidencias/incidencias.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { ClientsModule } from './clients/clients.module';
 import { EnterpriseModule } from './enterprise/enterprise.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -45,7 +44,6 @@ import { UserPreferencesModule } from './user-preferences/user-preferences.modul
      IncidenciasModule,
      AuthModule,
      UsersModule,
-     ClientsModule,
      EnterpriseModule,
      RolesModule,
      PermissionsModule,

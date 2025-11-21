@@ -28,7 +28,7 @@ export class DashboardService {
     // Obtener todas las incidencias del período
     const queryBuilder = this.incidenciaRepository
       .createQueryBuilder('inc')
-      .where('inc.tenantId = :enterpriseId', { enterpriseId })
+      .where('inc.enterpriseId = :enterpriseId', { enterpriseId })
       .andWhere('inc.isActive = :isActive', { isActive: true });
 
     // Solo aplicar filtro de fechas si se proporcionan
@@ -76,7 +76,7 @@ export class DashboardService {
 
       const incidenciasPrevias = await this.incidenciaRepository
         .createQueryBuilder('inc')
-        .where('inc.tenantId = :enterpriseId', { enterpriseId })
+        .where('inc.enterpriseId = :enterpriseId', { enterpriseId })
         .andWhere('inc.createdAt BETWEEN :start AND :end', {
           start: previousStart,
           end: previousEnd,
@@ -91,7 +91,7 @@ export class DashboardService {
 
       const resueltasPrevias = await this.incidenciaRepository
         .createQueryBuilder('inc')
-        .where('inc.tenantId = :enterpriseId', { enterpriseId })
+        .where('inc.enterpriseId = :enterpriseId', { enterpriseId })
         .andWhere('inc.createdAt BETWEEN :start AND :end', {
           start: previousStart,
           end: previousEnd,

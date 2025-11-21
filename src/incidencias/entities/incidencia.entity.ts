@@ -16,6 +16,8 @@ import { IncidentImage } from '../entities/incident-image.entity';
 import { Enterprise } from '../../enterprise/entities/enterprise.entity';
 import { User } from '../../users/entities/user.entity';
 
+@Index('idx_incidencias_enterprise', ['enterpriseId'])
+
 @Entity('incidencias')
 export class Incidencia {
   @PrimaryGeneratedColumn('uuid')
@@ -41,8 +43,12 @@ export class Incidencia {
   @Column({ unique: true })
   ProducReferenceId: string;
 
-  @Column({ nullable: false })
-  tenantId: string;
+  @Column({ type: 'uuid', nullable: false })
+  enterpriseId: string;
+
+  @ManyToOne(() => Enterprise, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'enterpriseId' })
+  enterprise: Enterprise;
 
   @Column({ type: 'uuid', nullable: true })
   createdByUserId: string;

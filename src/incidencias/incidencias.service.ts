@@ -45,15 +45,15 @@ export class IncidenciasService {
   }
 
   /**
-   * Crea una incidencia con soporte para imágenes (máximo 5) y aislamiento por tenantId.
+   * Crea una incidencia con soporte para imágenes (máximo 5) y aislamiento por enterpriseId.
    */
   async create(
     createIncidenciaDto: CreateIncidenciaDto,
-    tenantId?: string,
+    enterpriseId?: string,
     createdByUserId?: string,
     images?: Express.Multer.File[],
   ) {
-    if (!tenantId) {
+    if (!enterpriseId) {
       throw new BadRequestException(INCIDENCIA_MESSAGES.TENANT_REQUIRED);
     }
 
@@ -69,10 +69,10 @@ export class IncidenciasService {
 
     try {
       // Obtener empleado con menor carga para asignación automática
-      const assignedEmployeeId = await this.employeeAssignmentService.getEmployeeWithLeastWorkload(tenantId);
+      const assignedEmployeeId = await this.employeeAssignmentService.getEmployeeWithLeastWorkload(enterpriseId);
 
       const incidencia = this.incidenciaRepository.create({
-        tenantId,
+        enterpriseId,
         status: IncidenciaStatus.PENDING,
         createdByUserId,
         assignedEmployeeId: assignedEmployeeId ?? undefined, // Asignación automática (puede ser undefined si no hay empleados disponibles)
@@ -96,7 +96,7 @@ export class IncidenciasService {
           this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
           this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
 
-          const path = `${INCIDENCIA_CONFIG.STORAGE_PATH}/${tenantId}/${incidenciaRecord.id}`;
+          const path = `${INCIDENCIA_CONFIG.STORAGE_PATH}/${enterpriseId}/${incidenciaRecord.id}`;
           const { url, key } = await this.storageService.uploadFile(
             file,
             STORAGE_BUCKETS.TICKETS,
@@ -152,7 +152,7 @@ export class IncidenciasService {
     }
   }
 
-  async getImage(imageId: string, incidenciaId: string, tenantId: string) {
+  async getImage(imageId: string, incidenciaId: string, enterpriseId: string) {
     const incidentImage = await this.incidentImageRepository.findOne({
       where: { id: imageId },
       relations: ['incidencia'],
@@ -161,7 +161,7 @@ export class IncidenciasService {
     if (
       !incidentImage ||
       incidentImage.incidencia?.id !== incidenciaId ||
-      incidentImage.incidencia?.tenantId !== tenantId
+      incidentImage.incidencia?.enterpriseId !== enterpriseId
     ) {
       throw new NotFoundException(INCIDENCIA_MESSAGES.IMAGE_NOT_FOUND);
     }
@@ -178,13 +178,13 @@ export class IncidenciasService {
     };
   }
 
-  async getImageById(imageId: string, tenantId: string) {
+  async getImageById(imageId: string, enterpriseId: string) {
     const incidentImage = await this.incidentImageRepository.findOne({
       where: { id: imageId },
       relations: ['incidencia'],
     });
 
-    if (!incidentImage || incidentImage.incidencia?.tenantId !== tenantId) {
+    if (!incidentImage || incidentImage.incidencia?.enterpriseId !== enterpriseId) {
       throw new NotFoundException(INCIDENCIA_MESSAGES.IMAGE_NOT_FOUND_TENANT);
     }
 
@@ -203,18 +203,18 @@ export class IncidenciasService {
   /**
    * Filtra incidencias por empresa (tenant)
    */
-  async findAll(tenantId: string) {
+  async findAll(enterpriseId: string) {
     return await this.incidenciaRepository.find({
-      where: { tenantId },
+      where: { enterpriseId },
     });
   }
 
   /**
-   * Obtiene una incidencia específica, filtrando también por tenantId
+   * Obtiene una incidencia específica, filtrando también por enterpriseId
    */
-  async findOne(id: string, tenantId: string) {
+  async findOne(id: string, enterpriseId: string) {
     const incidencia = await this.incidenciaRepository.findOne({
-      where: { id, tenantId },
+      where: { id, enterpriseId },
     });
 
     if (!incidencia) {
@@ -231,9 +231,9 @@ export class IncidenciasService {
   async update(
     id: string,
     updateIncidenciaDto: UpdateIncidenciaDto,
-    tenantId: string,
+    enterpriseId: string,
   ) {
-    const incidencia = await this.findOne(id, tenantId);
+    const incidencia = await this.findOne(id, enterpriseId);
 
     Object.assign(incidencia, updateIncidenciaDto);
 
@@ -245,10 +245,10 @@ export class IncidenciasService {
   }
 
   /**
-   * Soft delete con validación por empresa (tenantId)
+   * Soft delete con validación por empresa (enterpriseId)
    */
-  async remove(id: string, tenantId: string) {
-    const incidencia = await this.findOne(id, tenantId);
+  async remove(id: string, enterpriseId: string) {
+    const incidencia = await this.findOne(id, enterpriseId);
 
     const result = await this.incidenciaRepository.softDelete(incidencia.id);
 
@@ -262,16 +262,16 @@ export class IncidenciasService {
   /**
    * Restaura incidencia (soft delete invertido)
    */
-  async restore(id: string, tenantId: string) {
-    const incidencia = await this.findOne(id, tenantId);
+  async restore(id: string, enterpriseId: string) {
+    const incidencia = await this.findOne(id, enterpriseId);
 
     await this.incidenciaRepository.restore(incidencia.id);
     return { message: INCIDENCIA_MESSAGES.RESTORED_SUCCESSFULLY };
   }
 
-  async listImages(incidenciaId: string, tenantId: string) {
+  async listImages(incidenciaId: string, enterpriseId: string) {
     const incidencia = await this.incidenciaRepository.findOne({
-      where: { id: incidenciaId, tenantId },
+      where: { id: incidenciaId, enterpriseId },
     });
 
     if (!incidencia) {
@@ -292,9 +292,9 @@ export class IncidenciasService {
   /**
    * Obtiene todas las incidencias creadas por un cliente específico
    */
-  async findAllByClient(tenantId: string, clientUserId: string) {
+  async findAllByClient(enterpriseId: string, clientUserId: string) {
     return await this.incidenciaRepository.find({
-      where: { tenantId, createdByUserId: clientUserId },
+      where: { enterpriseId, createdByUserId: clientUserId },
       order: { createdAt: 'DESC' },
     });
   }
@@ -302,9 +302,9 @@ export class IncidenciasService {
   /**
    * Obtiene una incidencia específica creada por el cliente
    */
-  async findOneByClient(id: string, tenantId: string, clientUserId: string) {
+  async findOneByClient(id: string, enterpriseId: string, clientUserId: string) {
     const incidencia = await this.incidenciaRepository.findOne({
-      where: { id, tenantId, createdByUserId: clientUserId },
+      where: { id, enterpriseId, createdByUserId: clientUserId },
     });
 
     if (!incidencia) {

@@ -24,15 +24,15 @@ export class EmployeeAssignmentService {
 
   /**
    * Get the employee with the least workload for automatic assignment
-   * @param tenantId Enterprise ID
+   * @param enterpriseId Enterprise ID
    * @returns User ID of the employee with least active incidencias, or null if none available
    */
-  async getEmployeeWithLeastWorkload(tenantId: string): Promise<string | null> {
+  async getEmployeeWithLeastWorkload(enterpriseId: string): Promise<string | null> {
     // 1. Get employees with roles that can receive incidents
-    const employees = await this.getEmployeesCanReceiveIncidents(tenantId);
+    const employees = await this.getEmployeesCanReceiveIncidents(enterpriseId);
 
     if (employees.length === 0) {
-      this.logger.warn(`No employees with canReceiveIncidents role found for tenant ${tenantId}`);
+      this.logger.warn(`No employees with canReceiveIncidents role found for tenant ${enterpriseId}`);
       return null;
     }
 
@@ -59,11 +59,11 @@ export class EmployeeAssignmentService {
   /**
    * Get all employees in a tenant that have a role with canReceiveIncidents = true
    */
-  private async getEmployeesCanReceiveIncidents(tenantId: string): Promise<User[]> {
+  private async getEmployeesCanReceiveIncidents(enterpriseId: string): Promise<User[]> {
     // 1. Find all roles in this tenant that can receive incidents
     const roles = await this.roleRepository.find({
       where: {
-        enterpriseId: tenantId,
+        enterpriseId: enterpriseId,
         canReceiveIncidents: true,
         isActive: true,
       },
@@ -79,7 +79,7 @@ export class EmployeeAssignmentService {
     const userRoles = await this.userRoleRepository.find({
       where: {
         roleId: In(roleIds),
-        enterpriseId: tenantId,
+        enterpriseId: enterpriseId,
       },
     });
 
@@ -94,7 +94,7 @@ export class EmployeeAssignmentService {
       where: {
         id: In(userIds),
         isActive: true,
-        enterpriseId: tenantId,
+        enterpriseId: enterpriseId,
       },
       select: ['id', 'email', 'name', 'lastName'],
     });

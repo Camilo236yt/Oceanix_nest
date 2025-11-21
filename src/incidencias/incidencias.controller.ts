@@ -47,13 +47,13 @@ export class IncidenciasController {
   @CreateIncidenciaDoc()
   create(
     @Body() createIncidenciaDto: CreateIncidenciaDto,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @GetUser('id') userId: string,
     @UploadedFiles() images: Express.Multer.File[],
   ) {
     return this.incidenciasService.create(
       createIncidenciaDto,
-      tenantId,
+      enterpriseId,
       userId,
       images,
     );
@@ -62,8 +62,8 @@ export class IncidenciasController {
   @Get()
   @Auth(ValidPermission.viewIncidents)
   @FindAllIncidenciasDoc()
-  findAll(@GetUser('enterpriseId') tenantId: string) {
-    return this.incidenciasService.findAll(tenantId);
+  findAll(@GetUser('enterpriseId') enterpriseId: string) {
+    return this.incidenciasService.findAll(enterpriseId);
   }
 
   
@@ -72,9 +72,9 @@ export class IncidenciasController {
   @FindOneIncidenciaDoc()
   findOne(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
   ) {
-    return this.incidenciasService.findOne(id, tenantId);
+    return this.incidenciasService.findOne(id, enterpriseId);
   }
 
   
@@ -84,12 +84,12 @@ export class IncidenciasController {
   update(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() updateIncidenciaDto: UpdateIncidenciaDto,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
   ) {
     return this.incidenciasService.update(
       id,
       updateIncidenciaDto,
-      tenantId,
+      enterpriseId,
     );
   }
 
@@ -98,9 +98,9 @@ export class IncidenciasController {
   @DeleteIncidenciaDoc()
   remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
   ) {
-    return this.incidenciasService.remove(id, tenantId);
+    return this.incidenciasService.remove(id, enterpriseId);
   }
 
   @Get(':incidenciaId/images')
@@ -108,9 +108,9 @@ export class IncidenciasController {
   @GetIncidenciaImagesDoc()
   async listImages(
     @Param('incidenciaId', new ParseUUIDPipe({ version: '4' })) incidenciaId: string,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
   ) {
-    return this.incidenciasService.listImages(incidenciaId, tenantId);
+    return this.incidenciasService.listImages(incidenciaId, enterpriseId);
   }
 
   @Get(':incidenciaId/images/:imageId')
@@ -119,10 +119,10 @@ export class IncidenciasController {
   async getImage(
     @Param('incidenciaId', new ParseUUIDPipe({ version: '4' })) incidenciaId: string,
     @Param('imageId', new ParseUUIDPipe({ version: '4' })) imageId: string,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @Res() res: Response,
   ) {
-    const file = await this.incidenciasService.getImage(imageId, incidenciaId, tenantId);
+    const file = await this.incidenciasService.getImage(imageId, incidenciaId, enterpriseId);
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
     res.send(file.data);
@@ -133,10 +133,10 @@ export class IncidenciasController {
   @GetImageByIdDoc()
   async getImageById(
     @Param('imageId', new ParseUUIDPipe({ version: '4' })) imageId: string,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @Res() res: Response,
   ) {
-    const file = await this.incidenciasService.getImageById(imageId, tenantId);
+    const file = await this.incidenciasService.getImageById(imageId, enterpriseId);
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
     res.send(file.data);
@@ -157,13 +157,13 @@ export class IncidenciasController {
   @ApiResponse({ status: 403, description: 'Solo para clientes' })
   createAsClient(
     @Body() createIncidenciaDto: CreateIncidenciaDto,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @GetUser('id') userId: string,
     @UploadedFiles() images: Express.Multer.File[],
   ) {
     return this.incidenciasService.create(
       createIncidenciaDto,
-      tenantId,
+      enterpriseId,
       userId,
       images,
     );
@@ -178,10 +178,10 @@ export class IncidenciasController {
   @ApiResponse({ status: 200, description: 'Lista de incidencias del cliente' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   findMyIncidencias(
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @GetUser('id') userId: string,
   ) {
-    return this.incidenciasService.findAllByClient(tenantId, userId);
+    return this.incidenciasService.findAllByClient(enterpriseId, userId);
   }
 
   @Get('client/me/:id')
@@ -195,9 +195,9 @@ export class IncidenciasController {
   @ApiResponse({ status: 401, description: 'No autorizado' })
   findOneMyIncidencia(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @GetUser('id') userId: string,
   ) {
-    return this.incidenciasService.findOneByClient(id, tenantId, userId);
+    return this.incidenciasService.findOneByClient(id, enterpriseId, userId);
   }
 }

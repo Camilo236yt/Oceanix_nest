@@ -18,7 +18,7 @@ export const INCIDENCIA_MESSAGES = {
 
   // Errores
   NOT_FOUND: 'Incidencia no encontrada',
-  TENANT_REQUIRED: 'tenantId es requerido para crear incidencias',
+  TENANT_REQUIRED: 'enterpriseId es requerido para crear incidencias',
   USER_REQUIRED: 'userId es requerido para crear incidencias',
   MAX_IMAGES_EXCEEDED: 'Máximo 5 imágenes permitidas',
   IMAGE_NOT_FOUND: 'Imagen no encontrada para esta incidencia',
