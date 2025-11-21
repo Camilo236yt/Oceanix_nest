@@ -100,6 +100,31 @@ export class AuthController {
     return responseWithoutToken;
   }
 
+  @Post('google/client')
+  @ApiOperation({
+    summary: 'Login de clientes con Google',
+    description: 'Permite a los clientes autenticarse con Google OAuth. Si el cliente no existe, se crea automáticamente. El subdomain se obtiene de la URL para asociar al cliente con la empresa correcta.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Login exitoso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token de Google inválido o subdomain incorrecto',
+  })
+  async googleLoginClient(
+    @Body() googleLoginDto: GoogleLoginDto,
+    @GetSubdomain() subdomain: string,
+    @Res({ passthrough: true }) res: Response
+  ): Promise<Omit<AuthResponseDto, 'token'>> {
+    const result = await this.authService.googleLoginClient(googleLoginDto, subdomain);
+    CookieHelper.setAuthCookie(res, result.token);
+
+    const { token, ...responseWithoutToken } = result;
+    return responseWithoutToken;
+  }
+
   @VerifyEmailDoc()
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post('verify-email')

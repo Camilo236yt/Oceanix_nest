@@ -15,22 +15,31 @@ export class ReportsService {
 
   async generateReport(
     enterpriseId: string,
-    startDate: string,
-    endDate: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<DashboardReport> {
-    // Convertir strings a Date objects
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999); // Incluir todo el último día
-
-    // Query base para el rango de fechas y empresa
+    // Query base para empresa
     const queryBuilder = this.incidenciaRepository
       .createQueryBuilder('incidencia')
       .where('incidencia.tenantId = :enterpriseId', { enterpriseId })
-      .andWhere('incidencia.createdAt BETWEEN :start AND :end', { start, end })
       .andWhere('incidencia.isActive = :isActive', { isActive: true });
 
-    // Obtener todas las incidencias del período
+    // Filtrar por fechas solo si se proporcionan
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('incidencia.createdAt BETWEEN :start AND :end', { start, end });
+    } else if (startDate) {
+      const start = new Date(startDate);
+      queryBuilder.andWhere('incidencia.createdAt >= :start', { start });
+    } else if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('incidencia.createdAt <= :end', { end });
+    }
+
+    // Obtener todas las incidencias
     const incidencias = await queryBuilder.getMany();
 
     const total = incidencias.length;
@@ -107,17 +116,28 @@ export class ReportsService {
     const tendenciaMensual = '+12% vs mes anterior';
 
     // Formatear período
-    const periodoStart = start.toLocaleDateString('es-ES', {
-      month: 'long',
-      year: 'numeric',
-    });
-    const periodoEnd = end.toLocaleDateString('es-ES', {
-      month: 'long',
-      year: 'numeric',
-    });
-    const periodo = periodoStart === periodoEnd
-      ? periodoStart
-      : `${periodoStart} - ${periodoEnd}`;
+    let periodo = 'Todo el tiempo';
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const periodoStart = start.toLocaleDateString('es-ES', {
+        month: 'long',
+        year: 'numeric',
+      });
+      const periodoEnd = end.toLocaleDateString('es-ES', {
+        month: 'long',
+        year: 'numeric',
+      });
+      periodo = periodoStart === periodoEnd
+        ? periodoStart
+        : `${periodoStart} - ${periodoEnd}`;
+    } else if (startDate) {
+      const start = new Date(startDate);
+      periodo = `Desde ${start.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
+    } else if (endDate) {
+      const end = new Date(endDate);
+      periodo = `Hasta ${end.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
+    }
 
     // Construir respuesta
     const report: DashboardReport = {
@@ -165,20 +185,31 @@ export class ReportsService {
 
   async getDashboardMetrics(
     enterpriseId: string,
-    startDate: string,
-    endDate: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<DashboardMetrics> {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    // Query base para el rango de fechas y empresa
-    const incidencias = await this.incidenciaRepository
+    // Query base para empresa
+    const queryBuilder = this.incidenciaRepository
       .createQueryBuilder('incidencia')
       .where('incidencia.tenantId = :enterpriseId', { enterpriseId })
-      .andWhere('incidencia.createdAt BETWEEN :start AND :end', { start, end })
-      .andWhere('incidencia.isActive = :isActive', { isActive: true })
-      .getMany();
+      .andWhere('incidencia.isActive = :isActive', { isActive: true });
+
+    // Filtrar por fechas solo si se proporcionan
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('incidencia.createdAt BETWEEN :start AND :end', { start, end });
+    } else if (startDate) {
+      const start = new Date(startDate);
+      queryBuilder.andWhere('incidencia.createdAt >= :start', { start });
+    } else if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('incidencia.createdAt <= :end', { end });
+    }
+
+    const incidencias = await queryBuilder.getMany();
 
     const total = incidencias.length;
 

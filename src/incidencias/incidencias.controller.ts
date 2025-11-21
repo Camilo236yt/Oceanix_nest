@@ -29,9 +29,10 @@ import {
   IncidenciasApiTags,
   UpdateIncidenciaDoc,
 } from './docs/incidencias.swagger';
-import { Auth, GetUser } from 'src/auth/decorator';
+import { Auth, ClientAuth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces/valid-permission';
 import { User } from 'src/users/entities/user.entity';
+import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 @IncidenciasApiTags()
 @Controller('incidencias')
@@ -139,5 +140,64 @@ export class IncidenciasController {
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
     res.send(file.data);
+  }
+
+  // ==================== ENDPOINTS PARA CLIENTES ====================
+
+  @Post('client')
+  @ClientAuth()
+  @Throttle({ default: { limit: 5, ttl: 60 } })
+  @UseInterceptors(FilesInterceptor('images', 5))
+  @ApiOperation({
+    summary: 'Crear incidencia como cliente',
+    description: 'Permite a los clientes crear una nueva incidencia. Solo requiere autenticación como cliente, no permisos específicos.',
+  })
+  @ApiResponse({ status: 201, description: 'Incidencia creada exitosamente' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo para clientes' })
+  createAsClient(
+    @Body() createIncidenciaDto: CreateIncidenciaDto,
+    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('id') userId: string,
+    @UploadedFiles() images: Express.Multer.File[],
+  ) {
+    return this.incidenciasService.create(
+      createIncidenciaDto,
+      tenantId,
+      userId,
+      images,
+    );
+  }
+
+  @Get('client/me')
+  @ClientAuth()
+  @ApiOperation({
+    summary: 'Obtener mis incidencias',
+    description: 'Retorna todas las incidencias creadas por el cliente autenticado.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de incidencias del cliente' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  findMyIncidencias(
+    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('id') userId: string,
+  ) {
+    return this.incidenciasService.findAllByClient(tenantId, userId);
+  }
+
+  @Get('client/me/:id')
+  @ClientAuth()
+  @ApiOperation({
+    summary: 'Obtener detalle de mi incidencia',
+    description: 'Retorna el detalle de una incidencia específica creada por el cliente.',
+  })
+  @ApiResponse({ status: 200, description: 'Detalle de la incidencia' })
+  @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  findOneMyIncidencia(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('enterpriseId') tenantId: string,
+    @GetUser('id') userId: string,
+  ) {
+    return this.incidenciasService.findOneByClient(id, tenantId, userId);
   }
 }

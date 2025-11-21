@@ -20,16 +20,16 @@ export class ReportsController {
   })
   @ApiQuery({
     name: 'startDate',
-    required: true,
+    required: false,
     type: String,
-    description: 'Fecha de inicio en formato ISO (YYYY-MM-DD)',
+    description: 'Fecha de inicio en formato ISO (YYYY-MM-DD). Si no se envía, retorna desde el inicio.',
     example: '2025-01-01'
   })
   @ApiQuery({
     name: 'endDate',
-    required: true,
+    required: false,
     type: String,
-    description: 'Fecha de fin en formato ISO (YYYY-MM-DD)',
+    description: 'Fecha de fin en formato ISO (YYYY-MM-DD). Si no se envía, retorna hasta hoy.',
     example: '2025-11-30'
   })
   @ApiResponse({
@@ -99,16 +99,16 @@ export class ReportsController {
   })
   @ApiQuery({
     name: 'startDate',
-    required: true,
+    required: false,
     type: String,
-    description: 'Fecha de inicio en formato ISO (YYYY-MM-DD)',
+    description: 'Fecha de inicio en formato ISO (YYYY-MM-DD). Si no se envía, retorna desde el inicio.',
     example: '2025-01-01'
   })
   @ApiQuery({
     name: 'endDate',
-    required: true,
+    required: false,
     type: String,
-    description: 'Fecha de fin en formato ISO (YYYY-MM-DD)',
+    description: 'Fecha de fin en formato ISO (YYYY-MM-DD). Si no se envía, retorna hasta hoy.',
     example: '2025-11-30'
   })
   @ApiResponse({

@@ -1,8 +1,9 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { OAuth2Client } from 'google-auth-library';
 
 import { User, UserType } from 'src/users/entities/user.entity';
 import { Enterprise } from 'src/enterprise/entities/enterprise.entity';
@@ -20,6 +21,7 @@ import { EnterpriseConfigService } from '../enterprise-config/enterprise-config.
 @Injectable()
 export class AuthService {
     private readonly logger = new Logger(AuthService.name);
+    private readonly googleClient: OAuth2Client;
 
     constructor(
         @InjectRepository(User)
@@ -38,7 +40,11 @@ export class AuthService {
         private readonly authValidationService: AuthValidationService,
         private readonly configService: ConfigService,
         private readonly enterpriseConfigService: EnterpriseConfigService,
-    ) { }
+    ) {
+        this.googleClient = new OAuth2Client(
+            this.configService.get('GOOGLE_CLIENT_ID'),
+        );
+    }
 
     async register(registerDto: RegisterDto, subdomain: string): Promise<AuthResponseDto> {
         const { email, password, confirmPassword } = registerDto;
@@ -169,9 +175,107 @@ export class AuthService {
         };
     }
 
-    async googleLogin(googleLoginDto: GoogleLoginDto): Promise<AuthResponseDto> {
-        // TODO: Implementar login con Google
-        throw new InternalServerErrorException('Google login not implemented yet');
+    async googleLogin(_googleLoginDto: GoogleLoginDto): Promise<AuthResponseDto> {
+        // Este endpoint es para empleados, usar /auth/google/client para clientes
+        throw new BadRequestException('Use /auth/google/client para login de clientes con Google');
+    }
+
+    /**
+     * Login/Register de clientes con Google OAuth
+     * Si el usuario no existe, lo crea como CLIENT
+     * Si ya existe, verifica que sea del mismo enterprise
+     */
+    async googleLoginClient(googleLoginDto: GoogleLoginDto, subdomain: string): Promise<AuthResponseDto> {
+        try {
+            // 1. Validar subdomain y obtener empresa
+            this.authValidationService.validateSubdomain(subdomain);
+            const enterprise = await this.authValidationService.validateAndGetEnterprise(subdomain);
+
+            // 2. Verificar token de Google
+            const googlePayload = await this.verifyGoogleToken(googleLoginDto.idToken);
+
+            if (!googlePayload.email) {
+                throw new BadRequestException('No se pudo obtener el email de Google');
+            }
+
+            // 3. Buscar usuario existente
+            let user = await this.userRepositoy.findOne({
+                where: {
+                    email: googlePayload.email,
+                    enterpriseId: enterprise.id,
+                },
+                select: { id: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
+            });
+
+            // 4. Si no existe, crear nuevo usuario CLIENT
+            if (!user) {
+                const newUser = this.userRepositoy.create({
+                    email: googlePayload.email,
+                    name: googlePayload.given_name || googlePayload.name?.split(' ')[0] || 'Cliente',
+                    lastName: googlePayload.family_name || googlePayload.name?.split(' ').slice(1).join(' ') || '',
+                    phoneNumber: '',
+                    password: await this.cryptoService.hashPassword(this.generateRandomPassword()),
+                    userType: UserType.CLIENT,
+                    enterpriseId: enterprise.id,
+                    isEmailVerified: googlePayload.email_verified || false,
+                    isActive: true,
+                });
+                user = await this.userRepositoy.save(newUser);
+                this.logger.log(`New client registered via Google: ${user.email} for enterprise ${enterprise.subdomain}`);
+            }
+
+            // 5. Verificar que sea tipo CLIENT
+            if (user.userType !== UserType.CLIENT) {
+                throw new BadRequestException('Este email ya está registrado como empleado. Use el login normal.');
+            }
+
+            // 6. Retornar respuesta con token
+            return {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                lastName: user.lastName,
+                userType: user.userType,
+                token: this.generateTokenJwt({ id: user.id }),
+                message: 'Login exitoso con Google',
+            };
+        } catch (error) {
+            if (error instanceof BadRequestException || error instanceof InvalidCredentialsException) {
+                throw error;
+            }
+            this.logger.error(`Google login error: ${error.message}`);
+            throw new BadRequestException('Error al autenticar con Google');
+        }
+    }
+
+    /**
+     * Verifica el idToken de Google y retorna el payload
+     */
+    private async verifyGoogleToken(idToken: string) {
+        try {
+            const ticket = await this.googleClient.verifyIdToken({
+                idToken,
+                audience: this.configService.get('GOOGLE_CLIENT_ID'),
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload) {
+                throw new BadRequestException('Token de Google inválido');
+            }
+
+            return payload;
+        } catch (error) {
+            this.logger.error(`Google token verification failed: ${error.message}`);
+            throw new BadRequestException('Token de Google inválido o expirado');
+        }
+    }
+
+    /**
+     * Genera una contraseña aleatoria para usuarios de Google
+     * (No la usarán, pero es requerida por el schema)
+     */
+    private generateRandomPassword(): string {
+        return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
     }
 
     async registerEnterprise(registerDto: RegisterEnterpriseDto): Promise<RegisterEnterpriseResponseDto> {

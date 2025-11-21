@@ -288,5 +288,30 @@ export class IncidenciasService {
       images,
     };
   }
+
+  /**
+   * Obtiene todas las incidencias creadas por un cliente específico
+   */
+  async findAllByClient(tenantId: string, clientUserId: string) {
+    return await this.incidenciaRepository.find({
+      where: { tenantId, createdByUserId: clientUserId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Obtiene una incidencia específica creada por el cliente
+   */
+  async findOneByClient(id: string, tenantId: string, clientUserId: string) {
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id, tenantId, createdByUserId: clientUserId },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
+    }
+
+    return incidencia;
+  }
 }
 
