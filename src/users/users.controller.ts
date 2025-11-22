@@ -1,4 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException } from '@nestjs/common';
+import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
 
 import { Auth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces/valid-permission';
@@ -64,8 +66,23 @@ export class UsersController {
 
   @Get()
   @Auth(ValidPermission.viewUsers)
+  @ApiPaginationQuery({
+    sortableColumns: ['createdAt', 'name', 'lastName', 'email', 'userType'],
+    searchableColumns: ['name', 'lastName', 'email'],
+    defaultSortBy: [['name', 'ASC']],
+  })
   @FindAllUsersDoc()
-  async findAll(@GetUser() currentUser: User) {
+  async findAll(
+    @Paginate() query: PaginateQuery,
+    @GetUser() currentUser: User,
+  ) {
+    // SUPER_ADMIN can see all users, others only their enterprise
+    return this.usersService.findAllPaginated(query, currentUser.enterpriseId);
+  }
+
+  @Get('legacy')
+  @Auth(ValidPermission.viewUsers)
+  async findAllLegacy(@GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation (SUPER_ADMIN will have undefined, can see all)
     const result = await this.usersService.findAll(
       { page: 1, limit: 100 },

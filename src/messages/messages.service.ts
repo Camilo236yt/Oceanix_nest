@@ -111,9 +111,20 @@ export class MessagesService {
   }
 
   /**
-   * Obtiene todos los mensajes de una incidencia
+   * Obtiene mensajes de una incidencia con paginación optimizada para chat
+   * Carga los últimos N mensajes, con soporte para scroll infinito hacia arriba
+   *
+   * @param incidenciaId - ID de la incidencia
+   * @param enterpriseId - ID de la empresa (seguridad multi-tenant)
+   * @param limit - Cantidad de mensajes a cargar (default: 50)
+   * @param before - ID del mensaje más antiguo cargado (para cargar mensajes anteriores)
    */
-  async findAllByIncidencia(incidenciaId: string, enterpriseId: string) {
+  async findAllByIncidencia(
+    incidenciaId: string,
+    enterpriseId: string,
+    limit: number = 50,
+    before?: string,
+  ) {
     // Verificar que la incidencia pertenece a la empresa
     const incidencia = await this.incidenciaRepository.findOne({
       where: { id: incidenciaId, enterpriseId },
@@ -123,29 +134,75 @@ export class MessagesService {
       throw new NotFoundException('Incidencia no encontrada');
     }
 
-    return await this.messageRepository.find({
+    // Construir query base
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.sender', 'sender')
+      .where('message.incidenciaId = :incidenciaId', { incidenciaId })
+      .select([
+        'message',
+        'sender.id',
+        'sender.name',
+        'sender.lastName',
+        'sender.email',
+        'sender.userType',
+      ])
+      .orderBy('message.createdAt', 'DESC')
+      .take(limit + 1); // +1 para detectar si hay más mensajes
+
+    // Si hay cursor "before", cargar mensajes anteriores a ese mensaje
+    if (before) {
+      const beforeMessage = await this.messageRepository.findOne({
+        where: { id: before },
+      });
+
+      if (beforeMessage) {
+        queryBuilder.andWhere('message.createdAt < :beforeDate', {
+          beforeDate: beforeMessage.createdAt,
+        });
+      }
+    }
+
+    const messages = await queryBuilder.getMany();
+
+    // Detectar si hay más mensajes
+    const hasMore = messages.length > limit;
+    if (hasMore) {
+      messages.pop(); // Remover el mensaje extra
+    }
+
+    // Invertir orden para mostrar cronológicamente (más antiguo arriba)
+    const orderedMessages = messages.reverse();
+
+    // Obtener total count
+    const totalCount = await this.messageRepository.count({
       where: { incidenciaId },
-      relations: ['sender'],
-      select: {
-        sender: {
-          id: true,
-          name: true,
-          lastName: true,
-          email: true,
-          userType: true,
-        },
-      },
-      order: { createdAt: 'ASC' },
     });
+
+    return {
+      messages: orderedMessages,
+      totalCount,
+      hasMore,
+      oldestMessageId: orderedMessages.length > 0 ? orderedMessages[0].id : null,
+      newestMessageId: orderedMessages.length > 0 ? orderedMessages[orderedMessages.length - 1].id : null,
+    };
   }
 
   /**
-   * Obtiene mensajes de una incidencia para el cliente (solo si es su incidencia)
+   * Obtiene mensajes de una incidencia para el cliente (solo si es su incidencia) con paginación
+   *
+   * @param incidenciaId - ID de la incidencia
+   * @param clientUserId - ID del cliente (debe ser el creador de la incidencia)
+   * @param enterpriseId - ID de la empresa
+   * @param limit - Cantidad de mensajes a cargar (default: 50)
+   * @param before - ID del mensaje más antiguo cargado (para cargar mensajes anteriores)
    */
   async findAllByIncidenciaForClient(
     incidenciaId: string,
     clientUserId: string,
     enterpriseId: string,
+    limit: number = 50,
+    before?: string,
   ) {
     const incidencia = await this.incidenciaRepository.findOne({
       where: {
@@ -159,18 +216,56 @@ export class MessagesService {
       throw new ForbiddenException('No tienes acceso a esta incidencia');
     }
 
-    return await this.messageRepository.find({
+    // Construir query base
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.sender', 'sender')
+      .where('message.incidenciaId = :incidenciaId', { incidenciaId })
+      .select([
+        'message',
+        'sender.id',
+        'sender.name',
+        'sender.lastName',
+        'sender.userType',
+      ])
+      .orderBy('message.createdAt', 'DESC')
+      .take(limit + 1); // +1 para detectar si hay más mensajes
+
+    // Si hay cursor "before", cargar mensajes anteriores a ese mensaje
+    if (before) {
+      const beforeMessage = await this.messageRepository.findOne({
+        where: { id: before },
+      });
+
+      if (beforeMessage) {
+        queryBuilder.andWhere('message.createdAt < :beforeDate', {
+          beforeDate: beforeMessage.createdAt,
+        });
+      }
+    }
+
+    const messages = await queryBuilder.getMany();
+
+    // Detectar si hay más mensajes
+    const hasMore = messages.length > limit;
+    if (hasMore) {
+      messages.pop(); // Remover el mensaje extra
+    }
+
+    // Invertir orden para mostrar cronológicamente (más antiguo arriba)
+    const orderedMessages = messages.reverse();
+
+    // Obtener total count
+    const totalCount = await this.messageRepository.count({
       where: { incidenciaId },
-      relations: ['sender'],
-      select: {
-        sender: {
-          id: true,
-          name: true,
-          lastName: true,
-          userType: true,
-        },
-      },
-      order: { createdAt: 'ASC' },
     });
+
+    return {
+      messages: orderedMessages,
+      totalCount,
+      hasMore,
+      oldestMessageId: orderedMessages.length > 0 ? orderedMessages[0].id : null,
+      newestMessageId: orderedMessages.length > 0 ? orderedMessages[orderedMessages.length - 1].id : null,
+    };
   }
 }

@@ -7,12 +7,16 @@ import {
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { In, Repository, IsNull } from 'typeorm';
+import { paginate, Paginated, FilterOperator } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { Role } from './entities/role.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Permission } from 'src/permissions/entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
 import { ROLE_MESSAGES } from './constants';
 import { ValidPermission } from 'src/auth/interfaces';
+import { createPaginationConfig } from '../common/helpers/pagination.config';
 
 // Permisos que se auto-asignan cuando canReceiveIncidents = true
 const RECEIVE_INCIDENTS_PERMISSIONS = [
@@ -107,6 +111,34 @@ export class RolesService {
 
     console.log('[RolesService.findAll] Roles found:', roles.length);
     return roles;
+  }
+
+  /**
+   * Lista roles con paginación, filtros y búsqueda
+   */
+  async findAllPaginated(
+    query: PaginateQuery,
+    enterpriseId?: string,
+  ): Promise<Paginated<Role>> {
+    const where = enterpriseId
+      ? { enterpriseId }
+      : { enterpriseId: IsNull() };
+
+    const config = createPaginationConfig<Role>({
+      sortableColumns: ['createdAt', 'name', 'isActive'],
+      searchableColumns: ['name', 'description'],
+      filterableColumns: {
+        isActive: [FilterOperator.EQ],
+        isSystemRole: [FilterOperator.EQ],
+        canReceiveIncidents: [FilterOperator.EQ],
+        createdAt: [FilterOperator.GTE, FilterOperator.LTE, FilterOperator.BTW],
+      },
+      defaultSortBy: [['name', 'ASC']],
+      where,
+      relations: ['permissions', 'permissions.permission'],
+    });
+
+    return paginate(query, this.rolesRepository, config);
   }
 
   async findOne(id: string, enterpriseId?: string, validateActive = true) {

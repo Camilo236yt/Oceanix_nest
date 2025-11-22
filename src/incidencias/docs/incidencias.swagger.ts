@@ -170,18 +170,69 @@ export const UpdateIncidenciaDoc = () =>
     ApiCookieAuth('authToken'),
     ApiOperation({
       summary: 'Actualizar incidencia',
-      description:
-        'Actualiza los campos permitidos de una incidencia de la empresa actual.',
+      description: `Actualiza ÚNICAMENTE los campos permitidos de una incidencia.
+
+      **Campos Editables:**
+      - **status**: Cambiar el estado de la incidencia (PENDING, IN_PROGRESS, RESOLVED, CANCELLED)
+      - **assignedEmployeeId**: Reasignar la incidencia a otro empleado
+
+      **Restricciones:**
+      - NO se puede editar: name, description, tipo, ProducReferenceId (información original de la incidencia)
+      - Solo se puede editar incidencias de la empresa del usuario autenticado
+      - Todos los campos son opcionales en la actualización`,
     }),
     ApiParam({
       name: 'id',
       description: 'UUID de la incidencia',
       example: '0a996172-9b0f-45f6-879f-51e9f08de111',
     }),
-    ApiBody({ type: UpdateIncidenciaDto }),
+    ApiBody({
+      type: UpdateIncidenciaDto,
+      examples: {
+        updateStatus: {
+          summary: 'Cambiar estado',
+          description: 'Actualizar solo el estado de la incidencia',
+          value: {
+            status: 'IN_PROGRESS',
+          },
+        },
+        reassignEmployee: {
+          summary: 'Reasignar empleado',
+          description: 'Cambiar el empleado asignado a la incidencia',
+          value: {
+            assignedEmployeeId: '550e8400-e29b-41d4-a716-446655440000',
+          },
+        },
+        updateBoth: {
+          summary: 'Actualizar estado y empleado',
+          description: 'Cambiar ambos campos simultáneamente',
+          value: {
+            status: 'RESOLVED',
+            assignedEmployeeId: '550e8400-e29b-41d4-a716-446655440000',
+          },
+        },
+      },
+    }),
     ApiResponse({
       status: 200,
-      description: 'Incidencia actualizada',
+      description: 'Incidencia actualizada exitosamente',
+      schema: {
+        example: {
+          id: '0a996172-9b0f-45f6-879f-51e9f08de111',
+          name: 'Fuga en piso 3',
+          description: 'Se detectó fuga en el baño principal',
+          tipo: 'por_dano',
+          status: 'IN_PROGRESS',
+          assignedEmployeeId: '550e8400-e29b-41d4-a716-446655440000',
+          ProducReferenceId: 'INC-123456789',
+          createdAt: '2025-11-18T09:21:15.988Z',
+          updatedAt: '2025-11-22T14:30:00.000Z',
+        },
+      },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'Validación fallida - valores inválidos para status o assignedEmployeeId',
     }),
     ApiResponse({
       status: 404,

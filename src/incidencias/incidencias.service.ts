@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, InternalServerError
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
+import { paginate, Paginated, PaginateQuery, FilterOperator } from 'nestjs-paginate';
 
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
@@ -12,6 +13,7 @@ import { ALLOWED_FILE_TYPES, MAX_FILE_SIZES, STORAGE_BUCKETS } from 'src/storage
 import { EmployeeAssignmentService } from './services/employee-assignment.service';
 import { IncidenciaStatus } from './enums/incidencia.enums';
 import { INCIDENCIA_CONFIG, INCIDENCIA_MESSAGES } from './constants';
+import { createPaginationConfig } from '../common/helpers/pagination.config';
 
 @Injectable()
 export class IncidenciasService {
@@ -207,6 +209,80 @@ export class IncidenciasService {
     return await this.incidenciaRepository.find({
       where: { enterpriseId },
     });
+  }
+
+  /**
+   * Lista incidencias con paginación, filtros, búsqueda y ordenamiento
+   * Utiliza nestjs-paginate para proporcionar una API de paginación completa
+   *
+   * @param query - Parámetros de paginación y filtros desde query params
+   * @param enterpriseId - ID de la empresa para aislamiento multi-tenant
+   * @returns Objeto paginado con data, meta y links
+   *
+   * @example
+   * GET /incidencias?page=1&limit=10&filter.status=$eq:PENDING&sortBy=createdAt:DESC&search=fuga
+   */
+  async findAllPaginated(
+    query: PaginateQuery,
+    enterpriseId: string,
+  ): Promise<Paginated<Incidencia>> {
+    const config = createPaginationConfig<Incidencia>({
+      // Columnas por las que se puede ordenar
+      sortableColumns: [
+        'createdAt',
+        'updatedAt',
+        'status',
+        'tipo',
+        'alertLevel',
+        'name',
+      ],
+
+      // Columnas en las que se puede buscar (texto completo)
+      searchableColumns: ['name', 'description', 'ProducReferenceId'],
+
+      // Columnas filtrables con operadores permitidos
+      filterableColumns: {
+        status: [FilterOperator.EQ, FilterOperator.IN],
+        tipo: [FilterOperator.EQ, FilterOperator.IN],
+        alertLevel: [FilterOperator.EQ, FilterOperator.IN],
+        assignedEmployeeId: [FilterOperator.EQ, FilterOperator.NULL],
+        createdAt: [FilterOperator.GTE, FilterOperator.LTE, FilterOperator.BTW],
+        updatedAt: [FilterOperator.GTE, FilterOperator.LTE],
+        isActive: [FilterOperator.EQ],
+      },
+
+      // Ordenamiento por defecto
+      defaultSortBy: [['createdAt', 'DESC']],
+
+      // Filtro fijo para multi-tenancy (siempre se aplica)
+      where: {
+        enterpriseId,
+        isActive: true,
+      },
+
+      // Relaciones a cargar (opcional)
+      relations: ['assignedEmployee', 'createdBy'],
+
+      // Seleccionar solo campos específicos del empleado asignado
+      select: [
+        'id',
+        'name',
+        'description',
+        'status',
+        'tipo',
+        'alertLevel',
+        'ProducReferenceId',
+        'enterpriseId',
+        'assignedEmployeeId',
+        'createdByUserId',
+        'createdAt',
+        'updatedAt',
+        'canClientUploadImages',
+        'imagesUploadAllowedUntil',
+      ],
+    });
+
+    return paginate(query, this.incidenciaRepository, config);
   }
 
   /**

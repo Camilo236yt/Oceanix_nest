@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Res,
   UploadedFiles,
   UseInterceptors,
@@ -14,6 +15,8 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import type { Express, Response } from 'express';
+import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
 
 import { IncidenciasService } from './incidencias.service';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
@@ -68,9 +71,83 @@ export class IncidenciasController {
 
   @Get()
   @Auth(ValidPermission.viewIncidents)
-  @FindAllIncidenciasDoc()
-  findAll(@GetUser('enterpriseId') enterpriseId: string) {
-    return this.incidenciasService.findAll(enterpriseId);
+  @ApiPaginationQuery({
+    sortableColumns: ['createdAt', 'updatedAt', 'status', 'tipo', 'alertLevel', 'name'],
+    searchableColumns: ['name', 'description', 'ProducReferenceId'],
+    defaultSortBy: [['createdAt', 'DESC']],
+    maxLimit: 100,
+    defaultLimit: 10,
+  })
+  @ApiOperation({
+    summary: 'Listar incidencias con paginación y filtros',
+    description: `Retorna todas las incidencias de la empresa del usuario autenticado con soporte para:
+
+    **Paginación:**
+    - page: Número de página (default: 1)
+    - limit: Registros por página (default: 10, max: 100)
+
+    **Ordenamiento:**
+    - sortBy: Columnas por las que ordenar (createdAt, status, tipo, alertLevel, name)
+    - Ejemplo: sortBy=createdAt:DESC o sortBy=status:ASC,createdAt:DESC
+
+    **Búsqueda:**
+    - search: Busca en name, description y ProducReferenceId
+    - Ejemplo: search=fuga
+
+    **Filtros disponibles:**
+    - filter.status: $eq, $in, $not (PENDING, IN_PROGRESS, RESOLVED, CLOSED)
+    - filter.tipo: $eq, $in (por_dano, por_perdida, etc.)
+    - filter.alertLevel: $eq, $in (GREEN, YELLOW, ORANGE, RED)
+    - filter.assignedEmployeeId: $eq, $null (filtrar por empleado o sin asignar)
+    - filter.createdAt: $gte, $lte, $btw (rangos de fecha)
+
+    **Ejemplos de queries:**
+    - ?page=1&limit=10
+    - ?filter.status=$eq:PENDING
+    - ?filter.status=$in:PENDING,IN_PROGRESS
+    - ?filter.alertLevel=$eq:RED
+    - ?filter.assignedEmployeeId=$null (incidencias sin asignar)
+    - ?search=fuga&filter.status=$eq:PENDING&sortBy=createdAt:DESC`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de incidencias',
+    schema: {
+      example: {
+        data: [
+          {
+            id: 'uuid',
+            name: 'Fuga en piso 3',
+            status: 'PENDING',
+            tipo: 'por_dano',
+            alertLevel: 'RED',
+            createdAt: '2025-01-15T10:00:00.000Z',
+          },
+        ],
+        meta: {
+          itemsPerPage: 10,
+          totalItems: 45,
+          currentPage: 1,
+          totalPages: 5,
+          sortBy: [['createdAt', 'DESC']],
+          searchBy: ['name', 'description', 'ProducReferenceId'],
+          filter: { status: '$eq:PENDING' },
+        },
+        links: {
+          first: '?limit=10&page=1',
+          previous: '',
+          current: '?limit=10&page=1',
+          next: '?limit=10&page=2',
+          last: '?limit=10&page=5',
+        },
+      },
+    },
+  })
+  findAll(
+    @Paginate() query: PaginateQuery,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    return this.incidenciasService.findAllPaginated(query, enterpriseId);
   }
 
   
@@ -214,16 +291,54 @@ export class IncidenciasController {
   @Auth(ValidPermission.viewIncidents)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Obtener mensajes de una incidencia',
-    description: 'Obtiene el historial de mensajes del chat de una incidencia',
+    summary: 'Obtener mensajes de una incidencia con paginación',
+    description: `Obtiene el historial de mensajes del chat de una incidencia con paginación optimizada para chats.
+
+    **Funcionamiento:**
+    - Sin parámetros: Carga los últimos 50 mensajes
+    - Con limit: Carga los últimos N mensajes
+    - Con before: Carga mensajes más antiguos que el ID especificado (scroll infinito)
+
+    **Ejemplos:**
+    - ?limit=30 → Últimos 30 mensajes
+    - ?limit=50&before=msgId → 50 mensajes anteriores al mensaje especificado`,
   })
-  @ApiResponse({ status: 200, description: 'Lista de mensajes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mensajes obtenidos exitosamente',
+    schema: {
+      example: {
+        messages: [
+          {
+            id: 'uuid',
+            content: 'Hola, ¿cómo puedo ayudarte?',
+            senderType: 'EMPLOYEE',
+            messageType: 'TEXT',
+            createdAt: '2025-11-19T10:00:00Z',
+            sender: {
+              id: 'uuid',
+              name: 'Juan',
+              lastName: 'Pérez',
+              email: 'juan@example.com',
+            },
+          },
+        ],
+        totalCount: 245,
+        hasMore: true,
+        oldestMessageId: 'uuid-oldest',
+        newestMessageId: 'uuid-newest',
+      },
+    },
+  })
   @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
   getMessages(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @GetUser('enterpriseId') enterpriseId: string,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
   ) {
-    return this.messagesService.findAllByIncidencia(id, enterpriseId);
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    return this.messagesService.findAllByIncidencia(id, enterpriseId, parsedLimit, before);
   }
 
   @Post(':id/messages')
@@ -277,17 +392,55 @@ export class IncidenciasController {
   @Get('client/me/:id/messages')
   @ClientAuth()
   @ApiOperation({
-    summary: 'Obtener mensajes de mi incidencia',
-    description: 'Obtiene el historial de mensajes del chat de una incidencia creada por el cliente',
+    summary: 'Obtener mensajes de mi incidencia con paginación',
+    description: `Obtiene el historial de mensajes del chat de una incidencia creada por el cliente con paginación.
+
+    **Funcionamiento:**
+    - Sin parámetros: Carga los últimos 50 mensajes
+    - Con limit: Carga los últimos N mensajes
+    - Con before: Carga mensajes más antiguos que el ID especificado (scroll infinito)
+
+    **Ejemplos:**
+    - ?limit=30 → Últimos 30 mensajes
+    - ?limit=50&before=msgId → 50 mensajes anteriores al mensaje especificado`,
   })
-  @ApiResponse({ status: 200, description: 'Lista de mensajes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mensajes obtenidos exitosamente',
+    schema: {
+      example: {
+        messages: [
+          {
+            id: 'uuid',
+            content: 'Mensaje del empleado',
+            senderType: 'EMPLOYEE',
+            messageType: 'TEXT',
+            createdAt: '2025-11-19T10:00:00Z',
+            sender: {
+              id: 'uuid',
+              name: 'Soporte',
+              lastName: 'Técnico',
+              userType: 'EMPLOYEE',
+            },
+          },
+        ],
+        totalCount: 120,
+        hasMore: true,
+        oldestMessageId: 'uuid-oldest',
+        newestMessageId: 'uuid-newest',
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'No tienes acceso a esta incidencia' })
   getMessagesAsClient(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @GetUser('enterpriseId') enterpriseId: string,
     @GetUser('id') userId: string,
+    @Query('limit') limit?: string,
+    @Query('before') before?: string,
   ) {
-    return this.messagesService.findAllByIncidenciaForClient(id, userId, enterpriseId);
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    return this.messagesService.findAllByIncidenciaForClient(id, userId, enterpriseId, parsedLimit, before);
   }
 
   @Post('client/me/:id/messages')

@@ -1,5 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Logger } from '@nestjs/common';
 import { ApiCookieAuth } from '@nestjs/swagger';
+import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
 
 import { Auth, GetUser } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces';
@@ -39,10 +41,26 @@ export class RolesController {
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)
   @Get()
+  @ApiPaginationQuery({
+    sortableColumns: ['createdAt', 'name', 'isActive'],
+    searchableColumns: ['name', 'description'],
+    defaultSortBy: [['name', 'ASC']],
+  })
   @FindAllRolesDoc()
-  async findAll(@GetUser() currentUser: User) {
+  async findAll(
+    @Paginate() query: PaginateQuery,
+    @GetUser() currentUser: User,
+  ) {
     this.logger.log(`[findAll] User: ${currentUser.email}, EnterpriseId: ${currentUser.enterpriseId}, UserType: ${currentUser.userType}`);
-    return await this.rolesService.findAll(currentUser.enterpriseId ?? undefined);
+
+    // Si no hay parámetros de paginación/filtros, devolver todos los registros
+    const hasQueryParams = query.page || query.limit || query.filter || query.search || query.sortBy;
+
+    if (!hasQueryParams) {
+      return await this.rolesService.findAll(currentUser.enterpriseId ?? undefined);
+    }
+
+    return await this.rolesService.findAllPaginated(query, currentUser.enterpriseId ?? undefined);
   }
 
   @Auth(ValidPermission.manageRoles, ValidPermission.getRoles)

@@ -1,5 +1,8 @@
 import { Controller, Get, Patch, Param, Delete, Body, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { ClientsService } from './clients.service';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { Auth, GetUser } from '../auth/decorator';
@@ -13,14 +16,30 @@ export class ClientsController {
   @Get()
   @Auth(ValidPermission.viewUsers)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Listar clientes',
-    description: 'Obtiene todos los clientes activos de la empresa',
+  @ApiPaginationQuery({
+    sortableColumns: ['createdAt', 'name', 'lastName', 'email'],
+    searchableColumns: ['name', 'lastName', 'email'],
+    defaultSortBy: [['createdAt', 'DESC']],
   })
-  @ApiResponse({ status: 200, description: 'Lista de clientes' })
+  @ApiOperation({
+    summary: 'Listar clientes con paginación',
+    description: `Obtiene todos los clientes activos de la empresa con soporte para:
+
+    **Paginación:** page, limit
+    **Búsqueda:** search (busca en nombre, apellido, email)
+    **Filtros:**
+    - filter.isActive: $eq
+    - filter.isEmailVerified: $eq
+    - filter.createdAt: $gte, $lte, $btw
+    **Ordenamiento:** sortBy (createdAt, name, lastName, email)`,
+  })
+  @ApiResponse({ status: 200, description: 'Lista paginada de clientes' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  findAll(@GetUser('enterpriseId') enterpriseId: string) {
-    return this.clientsService.findAll(enterpriseId);
+  findAll(
+    @Paginate() query: PaginateQuery,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    return this.clientsService.findAllPaginated(query, enterpriseId);
   }
 
   @Get('stats')

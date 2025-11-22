@@ -56,20 +56,47 @@ export const CreateRoleDoc = () =>
 export const FindAllRolesDoc = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Get all roles',
-      description: `Retrieves all roles for the authenticated user's enterprise with their associated permissions.
+      summary: 'Get roles (all or paginated)',
+      description: `Retrieves roles for the authenticated user's enterprise with their associated permissions.
+
+      **Behavior:**
+      - **Without query params:** Returns ALL roles (for dropdowns/selectors)
+      - **With query params:** Returns paginated/filtered results (for lists/tables)
+
+      **Pagination & Filters:**
+      - page, limit: Control pagination
+      - search: Search in name, description
+      - filter.isActive, filter.isSystemRole, filter.canReceiveIncidents: Filter by fields
+      - sortBy: Sort results
 
       **Enterprise Isolation:**
       - Regular users can only see roles from their own enterprise
       - SUPER_ADMIN users can see all roles from all enterprises
-      - Results include permission details for each role`
+      - Results include permission details for each role
+
+      **Examples:**
+      - GET /roles → Returns all roles (array)
+      - GET /roles?page=1&limit=10 → Returns paginated results
+      - GET /roles?filter.canReceiveIncidents=$eq:true → Returns only roles that can receive incidents`
     }),
     ApiResponse({
       status: 200,
-      description: 'List of roles retrieved successfully',
+      description: 'List of roles retrieved successfully (array or paginated object)',
       schema: {
-        type: 'array',
-        items: SuccessRoleWithPermissionsResponse.schema,
+        oneOf: [
+          {
+            type: 'array',
+            items: SuccessRoleWithPermissionsResponse.schema,
+          },
+          {
+            type: 'object',
+            properties: {
+              data: { type: 'array', items: SuccessRoleWithPermissionsResponse.schema },
+              meta: { type: 'object' },
+              links: { type: 'object' },
+            },
+          },
+        ],
       },
     }),
     ApiResponse(ErrorResponses.Unauthorized('Invalid or missing authentication token')),

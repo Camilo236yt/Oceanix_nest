@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { paginate, Paginated, FilterOperator } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import { Permission } from './entities/permission.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { createPaginationConfig } from '../common/helpers/pagination.config';
 
 @Injectable()
 export class PermissionsService {
@@ -42,6 +46,25 @@ export class PermissionsService {
         name: 'ASC',
       },
     });
+  }
+
+  /**
+   * Lista permisos con paginación, filtros y búsqueda
+   */
+  async findAllPaginated(query: PaginateQuery): Promise<Paginated<Permission>> {
+    const config = createPaginationConfig<Permission>({
+      sortableColumns: ['name', 'title', 'resource', 'createdAt'],
+      searchableColumns: ['name', 'title', 'description'],
+      filterableColumns: {
+        resource: [FilterOperator.EQ, FilterOperator.IN],
+        isActive: [FilterOperator.EQ],
+        createdAt: [FilterOperator.GTE, FilterOperator.LTE, FilterOperator.BTW],
+      },
+      defaultSortBy: [['name', 'ASC']],
+      where: { isActive: true },
+    });
+
+    return paginate(query, this.permissionRepository, config);
   }
 
   async findOne(id: string) {

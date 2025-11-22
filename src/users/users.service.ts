@@ -7,6 +7,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, DataSource, FindOptionsWhere } from 'typeorm';
+import { paginate, Paginated, FilterOperator } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.entity';
 import { Role } from '../roles/entities/role.entity';
@@ -20,6 +23,7 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType, NotificationPriority } from '../notification/enums';
 import { Permission } from '../permissions/entities/permission.entity';
 import { RolePermission } from '../roles/entities/role-permission.entity';
+import { createPaginationConfig } from '../common/helpers/pagination.config';
 
 @Injectable()
 export class UsersService {
@@ -158,6 +162,31 @@ export class UsersService {
       page,
       lastPage: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * Lista usuarios con paginación, filtros y búsqueda
+   */
+  async findAllPaginated(
+    query: PaginateQuery,
+    enterpriseId?: string,
+  ): Promise<Paginated<User>> {
+    const config = createPaginationConfig<User>({
+      sortableColumns: ['createdAt', 'name', 'lastName', 'email', 'userType'],
+      searchableColumns: ['name', 'lastName', 'email'],
+      filterableColumns: {
+        userType: [FilterOperator.EQ, FilterOperator.IN],
+        isActive: [FilterOperator.EQ],
+        createdAt: [FilterOperator.GTE, FilterOperator.LTE, FilterOperator.BTW],
+      },
+      defaultSortBy: [['name', 'ASC']],
+      where: {
+        isActive: true,
+        ...(enterpriseId && { enterpriseId }),
+      },
+    });
+
+    return paginate(query, this.userRepository, config);
   }
 
   async findOne(id: string, validateActive = true, enterpriseId?: string): Promise<User> {

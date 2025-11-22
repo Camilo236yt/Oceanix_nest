@@ -1,5 +1,8 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { PermissionsService } from './permissions.service';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
@@ -34,22 +37,44 @@ export class PermissionsController {
   @Get()
   @Auth(ValidPermission.managePermissions)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Obtener todos los permisos' })
-  @ApiResponse({ status: 200, description: 'Lista de permisos' })
+  @ApiPaginationQuery({
+    sortableColumns: ['name', 'title', 'resource', 'createdAt'],
+    searchableColumns: ['name', 'title', 'description'],
+    defaultSortBy: [['name', 'ASC']],
+  })
+  @ApiOperation({
+    summary: 'Obtener permisos con paginación y filtros',
+    description: `Lista todos los permisos del sistema con soporte para:
+
+    **Sin parámetros:** Devuelve TODOS los permisos (para selectors/dropdowns)
+    **Con parámetros:** Devuelve permisos paginados
+
+    **Paginación:** page, limit
+    **Búsqueda:** search (busca en name, title, description)
+    **Filtros:**
+    - filter.resource: $eq, $in (incidents, users, roles, etc.)
+    - filter.isActive: $eq
+    - filter.createdAt: $gte, $lte, $btw
+    **Ordenamiento:** sortBy (name, title, resource, createdAt)
+
+    **Ejemplos:**
+    - Sin params: devuelve todos los permisos
+    - ?filter.resource=$eq:incidents (permisos de incidencias)
+    - ?filter.resource=$in:incidents,users
+    - ?search=view (buscar "view" en nombre/título)`,
+  })
+  @ApiResponse({ status: 200, description: 'Lista de permisos (paginada o completa)' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 403, description: 'Permisos insuficientes' })
-  async findAll() {
-    const cacheKey = this.redisService.generateKey('permissions', 'all');
-    
-    const cachedPermissions = await this.redisService.get(cacheKey);
-    if (cachedPermissions) {
-      return cachedPermissions;
+  async findAll(@Paginate() query: PaginateQuery) {
+    // Si no hay parámetros de paginación/filtros, devolver todos los registros
+    const hasQueryParams = query.page || query.limit || query.filter || query.search || query.sortBy;
+
+    if (!hasQueryParams) {
+      return this.permissionsService.findAll();
     }
 
-    const permissions = await this.permissionsService.findAll();
-    await this.redisService.set(cacheKey, permissions, 600); // Cache por 10 minutos
-    
-    return permissions;
+    return this.permissionsService.findAllPaginated(query);
   }
 
   @Get(':id')

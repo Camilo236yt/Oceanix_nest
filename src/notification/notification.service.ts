@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { paginate, Paginated, FilterOperator } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { Notification } from './entities/notification.entity';
 import { CreateNotificationDto, NotificationResponseDto } from './dto';
 import { UserPreferencesService } from '../user-preferences/user-preferences.service';
 import { NotificationProviderFactory } from './providers/provider.factory';
 import { NotificationPayload } from './interfaces';
 import { NotificationPriority } from './enums';
+import { createPaginationConfig } from '../common/helpers/pagination.config';
 
 @Injectable()
 export class NotificationService {
@@ -115,6 +119,29 @@ export class NotificationService {
       total,
       unread,
     };
+  }
+
+  /**
+   * Lista notificaciones con paginación, filtros y búsqueda
+   */
+  async findAllPaginated(
+    query: PaginateQuery,
+    userId: string,
+  ): Promise<Paginated<Notification>> {
+    const config = createPaginationConfig<Notification>({
+      sortableColumns: ['createdAt', 'priority', 'isRead'],
+      searchableColumns: ['title', 'message'],
+      filterableColumns: {
+        isRead: [FilterOperator.EQ],
+        type: [FilterOperator.EQ, FilterOperator.IN],
+        priority: [FilterOperator.EQ, FilterOperator.IN],
+        createdAt: [FilterOperator.GTE, FilterOperator.LTE, FilterOperator.BTW],
+      },
+      defaultSortBy: [['createdAt', 'DESC']],
+      where: { userId },
+    });
+
+    return paginate(query, this.notificationRepository, config);
   }
 
   /**

@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { paginate, Paginated, FilterOperator } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { User, UserType } from '../users/entities/user.entity';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { createPaginationConfig } from '../common/helpers/pagination.config';
 
 @Injectable()
 export class ClientsService {
@@ -24,6 +28,33 @@ export class ClientsService {
       select: ['id', 'email', 'name', 'lastName', 'phoneNumber', 'isEmailVerified', 'createdAt'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Lista clientes con paginación, filtros y búsqueda
+   */
+  async findAllPaginated(
+    query: PaginateQuery,
+    enterpriseId: string,
+  ): Promise<Paginated<User>> {
+    const config = createPaginationConfig<User>({
+      sortableColumns: ['createdAt', 'name', 'lastName', 'email'],
+      searchableColumns: ['name', 'lastName', 'email'],
+      filterableColumns: {
+        isActive: [FilterOperator.EQ],
+        isEmailVerified: [FilterOperator.EQ],
+        createdAt: [FilterOperator.GTE, FilterOperator.LTE, FilterOperator.BTW],
+      },
+      defaultSortBy: [['createdAt', 'DESC']],
+      where: {
+        enterpriseId,
+        userType: UserType.CLIENT,
+        isActive: true,
+      },
+      select: ['id', 'email', 'name', 'lastName', 'phoneNumber', 'isEmailVerified', 'createdAt', 'updatedAt'],
+    });
+
+    return paginate(query, this.userRepository, config);
   }
 
   /**

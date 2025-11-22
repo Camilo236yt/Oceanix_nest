@@ -1,5 +1,8 @@
 import { Controller, Get, Patch, Delete, Param, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
+import type { PaginateQuery } from 'nestjs-paginate';
+
 import { NotificationService } from './notification.service';
 import { NotificationResponseDto } from './dto';
 import { Auth, GetUser } from '../auth/decorator';
@@ -13,23 +16,30 @@ export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
+  @ApiPaginationQuery({
+    sortableColumns: ['createdAt', 'priority', 'isRead'],
+    searchableColumns: ['title', 'message'],
+    defaultSortBy: [['createdAt', 'DESC']],
+    defaultLimit: 20,
+  })
   @ApiOperation({
-    summary: 'Get all notifications for authenticated user',
-    description: 'Returns paginated list of notifications with unread count',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page',
-    example: 20,
+    summary: 'Get notifications with pagination and filters',
+    description: `Returns paginated list of notifications for the authenticated user.
+
+    **Paginación:** page, limit (default: 20)
+    **Búsqueda:** search (busca en title y message)
+    **Filtros:**
+    - filter.isRead: $eq (true/false para leídas/no leídas)
+    - filter.type: $eq, $in (TICKET_ASSIGNED, TICKET_REMINDER, etc.)
+    - filter.priority: $eq, $in (LOW, NORMAL, HIGH, URGENT)
+    - filter.createdAt: $gte, $lte, $btw (rangos de fecha)
+    **Ordenamiento:** sortBy (createdAt, priority, isRead)
+
+    **Ejemplos:**
+    - ?filter.isRead=$eq:false (solo no leídas)
+    - ?filter.priority=$in:HIGH,URGENT (urgentes)
+    - ?filter.type=$eq:TICKET_ASSIGNED&filter.isRead=$eq:false
+    - ?search=ticket&sortBy=createdAt:DESC`,
   })
   @ApiResponse({
     status: 200,
@@ -45,28 +55,31 @@ export class NotificationController {
             priority: 'NORMAL',
             isRead: false,
             readAt: null,
-            metadata: { ticketId: 'uuid', ticketNumber: 1234 },
+            metadata: { ticketId: 'uuid' },
             actionUrl: '/tickets/uuid',
-            imageUrl: null,
             createdAt: '2025-11-19T18:00:00Z',
-            updatedAt: '2025-11-19T18:00:00Z',
           },
         ],
-        total: 25,
-        unread: 5,
+        meta: {
+          itemsPerPage: 20,
+          totalItems: 45,
+          currentPage: 1,
+          totalPages: 3,
+        },
+        links: {
+          first: '?page=1',
+          next: '?page=2',
+          last: '?page=3',
+        },
       },
     },
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(
+    @Paginate() query: PaginateQuery,
     @GetUser() user: User,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-  ): Promise<{ data: NotificationResponseDto[]; total: number; unread: number }> {
-    return this.notificationService.findAllByUser(user.id, page, limit);
+  ) {
+    return this.notificationService.findAllPaginated(query, user.id);
   }
 
   @Get('unread-count')
