@@ -1,4 +1,5 @@
 import { User } from '../entities/user.entity';
+import { UserRole } from '../entities/user-role.entity';
 
 export class SafeUserResponseDto {
   id: string;
@@ -6,10 +7,13 @@ export class SafeUserResponseDto {
   lastName: string;
   email: string;
   phoneNumber: string;
+  userType: string;
+  enterpriseId: string;
   isActive: boolean;
   isEmailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
+  roles?: UserRole[]; // ✅ Agregado para incluir roles
 }
 
 export function sanitizeUserForCache(user: User): SafeUserResponseDto {

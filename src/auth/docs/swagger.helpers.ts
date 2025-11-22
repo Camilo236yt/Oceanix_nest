@@ -115,7 +115,11 @@ export const AuthExamples = {
   },
 
   GoogleLogin: {
-    token: 'ya29.a0AfH6SMBx...',
+    idToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjE4MmU0NTBhM...',
+  },
+
+  GoogleLoginClient: {
+    idToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjE4MmU0NTBhM...',
   },
 
   VerifyEmail: {

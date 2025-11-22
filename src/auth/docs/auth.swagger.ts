@@ -130,6 +130,121 @@ export const GoogleLoginDoc = () =>
     ApiResponse(ErrorResponses.Unauthorized('Google authentication failed')),
   );
 
+export const GoogleLoginClientDoc = () =>
+  applyDecorators(
+    ApiOperation({
+      summary: 'Login de clientes con Google OAuth',
+      description: `Permite a los CLIENTES autenticarse usando Google OAuth. Este endpoint:
+
+      **Características:**
+      - ✅ Crea automáticamente el cliente si no existe
+      - ✅ Valida que el email no esté registrado como empleado
+      - ✅ Asocia el cliente con la empresa según el subdomain
+      - ✅ Retorna token JWT en cookie httpOnly
+
+      **IMPORTANTE - Subdomain:**
+      - El subdomain se extrae automáticamente del header Host
+      - Ejemplo: Si accedes desde \`acme.forif.co\`, el cliente se asocia a la empresa "acme"
+      - Para desarrollo local: usar \`acme.localhost:3000\` o configurar /etc/hosts
+
+      **Integración Frontend - Paso a paso:**
+
+      1. **Instalar Google OAuth:**
+      \`\`\`bash
+      npm install @react-oauth/google
+      \`\`\`
+
+      2. **Configurar Google Provider:**
+      \`\`\`jsx
+      import { GoogleOAuthProvider } from '@react-oauth/google';
+
+      <GoogleOAuthProvider clientId="TU_GOOGLE_CLIENT_ID">
+        <App />
+      </GoogleOAuthProvider>
+      \`\`\`
+
+      3. **Implementar botón de login:**
+      \`\`\`jsx
+      import { GoogleLogin } from '@react-oauth/google';
+
+      <GoogleLogin
+        onSuccess={(credentialResponse) => {
+          // credentialResponse.credential contiene el idToken
+          fetch('/auth/google/client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // ⚠️ IMPORTANTE para cookies
+            body: JSON.stringify({
+              idToken: credentialResponse.credential
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            // Login exitoso - cookie seteada automáticamente
+            console.log('Usuario:', data.user);
+            // Redirigir al dashboard
+          });
+        }}
+        onError={() => console.log('Login Failed')}
+      />
+      \`\`\`
+
+      4. **Alternativa - Flujo manual:**
+      \`\`\`jsx
+      import { useGoogleLogin } from '@react-oauth/google';
+
+      const login = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+          // Obtener el ID Token desde el tokenResponse
+          const res = await fetch('/auth/google/client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              idToken: tokenResponse.credential
+            })
+          });
+          const data = await res.json();
+        },
+      });
+      \`\`\``
+    }),
+    ApiBody({
+      type: GoogleLoginDto,
+      examples: {
+        example1: {
+          summary: 'Google ID Token',
+          description: 'Token JWT obtenido desde Google Sign-In. El frontend debe enviarlo en el campo idToken.',
+          value: AuthExamples.GoogleLoginClient,
+        },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Login exitoso - Cliente autenticado o creado',
+      schema: {
+        type: 'object',
+        properties: {
+          user: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000' },
+              email: { type: 'string', format: 'email', example: 'cliente@gmail.com' },
+              name: { type: 'string', example: 'María' },
+              lastName: { type: 'string', example: 'García' },
+              userType: { type: 'string', example: 'CLIENT' },
+              isActive: { type: 'boolean', example: true },
+              isEmailVerified: { type: 'boolean', example: true },
+            },
+          },
+          message: { type: 'string', example: 'Login exitoso' },
+        },
+      },
+    }),
+    ApiResponse(ErrorResponses.BadRequest('Token de Google inválido, subdomain incorrecto, o email ya registrado como empleado')),
+    ApiResponse(ErrorResponses.NotFound('Empresa no encontrada para el subdomain especificado')),
+  );
+
 export const VerifyEmailDoc = () =>
   applyDecorators(
     ApiOperation({

@@ -253,6 +253,10 @@ export class AuthService {
      */
     private async verifyGoogleToken(idToken: string) {
         try {
+            this.logger.debug('🔍 Verifying Google token...');
+            this.logger.debug(`📋 Token length: ${idToken?.length || 0}`);
+            this.logger.debug(`🔑 Using CLIENT_ID: ${this.configService.get('GOOGLE_CLIENT_ID')}`);
+
             const ticket = await this.googleClient.verifyIdToken({
                 idToken,
                 audience: this.configService.get('GOOGLE_CLIENT_ID'),
@@ -260,12 +264,15 @@ export class AuthService {
 
             const payload = ticket.getPayload();
             if (!payload) {
+                this.logger.error('❌ Token verification returned no payload');
                 throw new BadRequestException('Token de Google inválido');
             }
 
+            this.logger.log(`✅ Google token verified successfully for: ${payload.email}`);
             return payload;
         } catch (error) {
-            this.logger.error(`Google token verification failed: ${error.message}`);
+            this.logger.error(`❌ Google token verification failed: ${error.message}`);
+            this.logger.error(`📝 Error details: ${JSON.stringify(error)}`);
             throw new BadRequestException('Token de Google inválido o expirado');
         }
     }

@@ -202,7 +202,8 @@ export class UsersService {
     }
 
     const user = await this.userRepository.findOne({
-      where
+      where,
+      relations: ['roles', 'roles.role', 'roles.role.permissions', 'roles.role.permissions.permission'],
     });
 
     if (!user) {

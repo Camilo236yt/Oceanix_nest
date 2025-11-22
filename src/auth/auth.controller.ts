@@ -8,7 +8,7 @@ import { VerifyEmailCodeDto } from 'src/email-verification/dto/verify-email-code
 import type { AuthResponseDto, UserProfileResponseDto } from './interfaces';
 import { CustomBadRequestFilter } from './filters/custom-bad-request.filter';
 import { CookieHelper } from './utils/cookie.helper';
-import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc, CheckSessionDoc } from './docs';
+import { AuthApiTags, RegisterDoc, LoginDoc, LoginDevDoc, GoogleLoginDoc, GoogleLoginClientDoc, VerifyEmailDoc, ResendVerificationDoc, LogoutDoc, CheckSessionDoc } from './docs';
 import { RegisterEnterpriseDoc } from '../enterprise/docs';
 import { GetSubdomain } from '../common/decorators';
 import { Auth, GetUser } from './decorator';
@@ -100,19 +100,8 @@ export class AuthController {
     return responseWithoutToken;
   }
 
+  @GoogleLoginClientDoc()
   @Post('google/client')
-  @ApiOperation({
-    summary: 'Login de clientes con Google',
-    description: 'Permite a los clientes autenticarse con Google OAuth. Si el cliente no existe, se crea automáticamente. El subdomain se obtiene de la URL para asociar al cliente con la empresa correcta.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Login exitoso',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Token de Google inválido o subdomain incorrecto',
-  })
   async googleLoginClient(
     @Body() googleLoginDto: GoogleLoginDto,
     @GetSubdomain() subdomain: string,
