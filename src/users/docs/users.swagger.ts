@@ -92,8 +92,22 @@ export const FindAllUsersDoc = () =>
     ApiBearerAuth(),
     ApiCookieAuth('authToken'),
     ApiOperation({
-      summary: 'Obtener todos los usuarios',
-      description: 'Retorna una lista paginada de usuarios. Los usuarios solo ven usuarios de su propia empresa.',
+      summary: 'Obtener usuarios con paginación y filtros',
+      description: `Retorna una lista paginada de usuarios con soporte para filtros y búsqueda.
+
+      **Paginación:** page, limit
+      **Búsqueda:** search (busca en nombre, apellido, email)
+      **Filtros:**
+      - filter.userType: $eq, $in (EMPLOYEE, CLIENT, etc.)
+      - filter.isActive: $eq
+      - filter.createdAt: $gte, $lte, $btw
+      **Ordenamiento:** sortBy (createdAt, name, lastName, email, userType)
+
+      **Ejemplos:**
+      - ?page=1&limit=10 → Primera página con 10 usuarios
+      - ?search=juan → Buscar usuarios con "juan" en nombre/apellido/email
+      - ?filter.userType=$eq:EMPLOYEE → Solo empleados
+      - ?filter.isActive=$eq:true&sortBy=name:ASC → Usuarios activos ordenados por nombre`,
     }),
     ApiResponse({
       status: 200,
@@ -113,9 +127,19 @@ export const FindAllUsersDoc = () =>
               isEmailVerified: true,
             },
           ],
-          total: 10,
-          page: 1,
-          limit: 100,
+          meta: {
+            itemsPerPage: 10,
+            totalItems: 45,
+            currentPage: 1,
+            totalPages: 5,
+          },
+          links: {
+            first: '?page=1&limit=10',
+            previous: null,
+            current: '?page=1&limit=10',
+            next: '?page=2&limit=10',
+            last: '?page=5&limit=10',
+          },
         },
       },
     }),

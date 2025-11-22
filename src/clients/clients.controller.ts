@@ -31,9 +31,48 @@ export class ClientsController {
     - filter.isActive: $eq
     - filter.isEmailVerified: $eq
     - filter.createdAt: $gte, $lte, $btw
-    **Ordenamiento:** sortBy (createdAt, name, lastName, email)`,
+    **Ordenamiento:** sortBy (createdAt, name, lastName, email)
+
+    **Ejemplos:**
+    - ?page=1&limit=20 → Primera página con 20 clientes
+    - ?search=garcia → Buscar clientes con "garcia"
+    - ?filter.isEmailVerified=$eq:true → Solo clientes con email verificado
+    - ?sortBy=createdAt:DESC → Ordenar por fecha de creación (más recientes primero)`,
   })
-  @ApiResponse({ status: 200, description: 'Lista paginada de clientes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de clientes',
+    schema: {
+      example: {
+        data: [
+          {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            name: 'María',
+            lastName: 'García',
+            email: 'maria.garcia@example.com',
+            phoneNumber: '+573001234567',
+            userType: 'CLIENT',
+            isActive: true,
+            isEmailVerified: true,
+            createdAt: '2025-11-19T10:00:00Z',
+          },
+        ],
+        meta: {
+          itemsPerPage: 20,
+          totalItems: 156,
+          currentPage: 1,
+          totalPages: 8,
+        },
+        links: {
+          first: '?page=1&limit=20',
+          previous: null,
+          current: '?page=1&limit=20',
+          next: '?page=2&limit=20',
+          last: '?page=8&limit=20',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   findAll(
     @Paginate() query: PaginateQuery,
