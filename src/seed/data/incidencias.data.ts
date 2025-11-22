@@ -149,4 +149,32 @@ export const CUSTOM_INCIDENCIAS_DATA: CustomIncidenciaData[] = [
     ProducReferenceId: 'INC-CAMARGO-005',
     daysAgo: 30,
   },
+  // Incidencias de Julio Bonifacio
+  {
+    clientEmail: 'juliobonifacio53@gmail.com',
+    name: 'Impresora HP no imprime',
+    description: 'La impresora HP LaserJet Pro asignada a mi área no imprime. La pantalla muestra error de atasco de papel pero no hay papel atascado.',
+    tipo: TipoIncidencia.POR_FALLA_TECNICA,
+    status: IncidenciaStatus.PENDING,
+    ProducReferenceId: 'INC-BONIFACIO-001',
+    daysAgo: 1,
+  },
+  {
+    clientEmail: 'juliobonifacio53@gmail.com',
+    name: 'Audífonos Bluetooth defectuosos',
+    description: 'Los audífonos Sony WH-1000XM4 tienen problemas de conexión. Se desconectan cada 5 minutos.',
+    tipo: TipoIncidencia.POR_DANO,
+    status: IncidenciaStatus.IN_PROGRESS,
+    ProducReferenceId: 'INC-BONIFACIO-002',
+    daysAgo: 3,
+  },
+  {
+    clientEmail: 'juliobonifacio53@gmail.com',
+    name: 'Cargador de laptop extraviado',
+    description: 'Olvidé el cargador original de mi laptop Dell en la sala de reuniones y no lo encuentro. Necesito uno de reemplazo.',
+    tipo: TipoIncidencia.POR_PERDIDA,
+    status: IncidenciaStatus.RESOLVED,
+    ProducReferenceId: 'INC-BONIFACIO-003',
+    daysAgo: 10,
+  },
 ];

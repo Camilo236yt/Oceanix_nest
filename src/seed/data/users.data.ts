@@ -92,4 +92,11 @@ export const CUSTOM_CLIENTS_DATA: CustomClientData[] = [
     phoneNumber: '+573001234567',
     password: 'Camargo123!',
   },
+  {
+    name: 'Julio',
+    lastName: 'Bonifacio',
+    email: 'juliobonifacio53@gmail.com',
+    phoneNumber: '+573009876543',
+    password: 'Bonifacio123!',
+  },
 ];
