@@ -72,3 +72,24 @@ export const SUPER_ADMIN_DATA = {
  * Contraseña común para todos los usuarios de empresas
  */
 export const DEFAULT_USER_PASSWORD = 'Password123!';
+
+/**
+ * Clientes adicionales con emails personalizados (no siguen el patrón @{subdomain}.com)
+ */
+export interface CustomClientData {
+  name: string;
+  lastName: string;
+  email: string; // Email completo personalizado
+  phoneNumber: string;
+  password: string;
+}
+
+export const CUSTOM_CLIENTS_DATA: CustomClientData[] = [
+  {
+    name: 'Andrés',
+    lastName: 'Camargo',
+    email: 'camargoandres507@gmail.com',
+    phoneNumber: '+573001234567',
+    password: 'Camargo123!',
+  },
+];

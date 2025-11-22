@@ -88,3 +88,65 @@ export const RESOLUTION_DAYS = {
   min: 1,
   max: 5,
 };
+
+/**
+ * Incidencias personalizadas para clientes específicos
+ * Estas se crean además de las auto-generadas
+ */
+export interface CustomIncidenciaData {
+  clientEmail: string; // Email del cliente que creó la incidencia
+  name: string;
+  description: string;
+  tipo: TipoIncidencia;
+  status: IncidenciaStatus;
+  ProducReferenceId: string;
+  daysAgo: number; // Cuántos días atrás se creó
+}
+
+export const CUSTOM_INCIDENCIAS_DATA: CustomIncidenciaData[] = [
+  {
+    clientEmail: 'camargoandres507@gmail.com',
+    name: 'Laptop Dell no enciende',
+    description: 'La laptop Dell Inspiron 15 asignada a mi escritorio no enciende. La luz de carga parpadea pero la pantalla permanece negra.',
+    tipo: TipoIncidencia.POR_FALLA_TECNICA,
+    status: IncidenciaStatus.IN_PROGRESS,
+    ProducReferenceId: 'INC-CAMARGO-001',
+    daysAgo: 2,
+  },
+  {
+    clientEmail: 'camargoandres507@gmail.com',
+    name: 'Teclado mecánico con teclas pegadas',
+    description: 'El teclado mecánico Logitech tiene las teclas W, A, S pegadas. Dificulta mi trabajo en diseño gráfico.',
+    tipo: TipoIncidencia.POR_DANO,
+    status: IncidenciaStatus.PENDING,
+    ProducReferenceId: 'INC-CAMARGO-002',
+    daysAgo: 5,
+  },
+  {
+    clientEmail: 'camargoandres507@gmail.com',
+    name: 'Monitor LG con manchas en pantalla',
+    description: 'El monitor LG 27" tiene manchas oscuras en la esquina superior derecha que afectan la visualización de colores.',
+    tipo: TipoIncidencia.POR_DANO,
+    status: IncidenciaStatus.RESOLVED,
+    ProducReferenceId: 'INC-CAMARGO-003',
+    daysAgo: 15,
+  },
+  {
+    clientEmail: 'camargoandres507@gmail.com',
+    name: 'Mouse inalámbrico perdido',
+    description: 'Extravié el mouse inalámbrico Logitech MX Master 3 durante la mudanza de oficina. Solicito reemplazo.',
+    tipo: TipoIncidencia.POR_PERDIDA,
+    status: IncidenciaStatus.PENDING,
+    ProducReferenceId: 'INC-CAMARGO-004',
+    daysAgo: 7,
+  },
+  {
+    clientEmail: 'camargoandres507@gmail.com',
+    name: 'Cable HDMI dañado',
+    description: 'El cable HDMI de 2m que conecta mi laptop al monitor externo tiene el conector roto. No transmite señal.',
+    tipo: TipoIncidencia.POR_DANO,
+    status: IncidenciaStatus.CLOSED,
+    ProducReferenceId: 'INC-CAMARGO-005',
+    daysAgo: 30,
+  },
+];

@@ -45,6 +45,19 @@ export class CookieHelper {
    */
   static setAuthCookie(res: Response, token: string): void {
     const options = this.getCookieOptions();
+
+    // Log para debugging
+    console.log('🍪 Setting auth cookie with options:', {
+      name: COOKIE_CONFIG.NAME,
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+      options: {
+        ...options,
+        // No mostrar el token completo por seguridad
+      },
+      env: process.env.NODE_ENV,
+    });
+
     res.cookie(COOKIE_CONFIG.NAME, token, options);
   }
 

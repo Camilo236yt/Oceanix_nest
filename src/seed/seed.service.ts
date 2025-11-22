@@ -23,7 +23,9 @@ import {
   USERS_DATA,
   SUPER_ADMIN_DATA,
   DEFAULT_USER_PASSWORD,
+  CUSTOM_CLIENTS_DATA,
   INCIDENCIAS_CONFIG_BY_ENTERPRISE,
+  CUSTOM_INCIDENCIAS_DATA,
   DATE_RANGE,
   RESOLUTION_DAYS,
   getStatusDistribution,
@@ -78,6 +80,9 @@ export class SeedService {
 
     // Crear empresas con roles y usuarios
     await this.seedEnterprises(permissions);
+
+    // Crear clientes adicionales con emails personalizados
+    await this.seedCustomClients();
 
     // Crear incidencias de prueba para cada empresa
     await this.seedIncidencias();
@@ -448,6 +453,47 @@ export class SeedService {
   }
 
   /**
+   * Crea clientes adicionales con emails personalizados para todas las empresas
+   */
+  async seedCustomClients(): Promise<void> {
+    this.logger.log('Seeding custom clients...');
+
+    // Obtener todas las empresas
+    const enterprises = await this.enterpriseRepository.find();
+
+    for (const enterprise of enterprises) {
+      for (const clientData of CUSTOM_CLIENTS_DATA) {
+        // Hash password
+        const hashedPassword = await bcrypt.hash(clientData.password, 10);
+
+        // Crear cliente
+        const client = this.userRepository.create({
+          name: clientData.name,
+          lastName: clientData.lastName,
+          email: clientData.email,
+          password: hashedPassword,
+          phoneNumber: clientData.phoneNumber,
+          enterpriseId: enterprise.id,
+          isActive: true,
+          isEmailVerified: true,
+          userType: UserType.CLIENT,
+        });
+
+        const savedClient = await this.userRepository.save(client);
+
+        // Inicializar providers de notificación
+        await this.initializeDefaultNotificationProviders(savedClient.id);
+
+        this.logger.log(
+          `✅ Created custom client: ${clientData.email} for enterprise ${enterprise.name}`,
+        );
+      }
+    }
+
+    this.logger.log('Custom clients seeded successfully!');
+  }
+
+  /**
    * Crea incidencias de prueba para todas las empresas
    * Cada empresa tiene una cantidad diferente de incidencias
    */
@@ -499,7 +545,45 @@ export class SeedService {
       );
     }
 
-    this.logger.log(`✅ Successfully seeded ${totalCreated} incidencias in total`);
+    // Crear incidencias personalizadas para clientes específicos
+    for (const customIncidencia of CUSTOM_INCIDENCIAS_DATA) {
+      // Buscar el cliente por email
+      const client = await this.userRepository.findOne({
+        where: { email: customIncidencia.clientEmail },
+      });
+
+      if (!client) {
+        this.logger.warn(`Client not found: ${customIncidencia.clientEmail}. Skipping custom incidencia.`);
+        continue;
+      }
+
+      // Calcular fecha de creación
+      const createdDate = new Date();
+      createdDate.setDate(createdDate.getDate() - customIncidencia.daysAgo);
+
+      // Crear incidencia
+      const incidencia = this.incidenciaRepository.create({
+        name: customIncidencia.name,
+        description: customIncidencia.description,
+        tipo: customIncidencia.tipo,
+        status: customIncidencia.status,
+        ProducReferenceId: customIncidencia.ProducReferenceId,
+        enterpriseId: client.enterpriseId,
+        createdByUserId: client.id,
+        isActive: true,
+        createdAt: createdDate,
+        updatedAt: customIncidencia.status === IncidenciaStatus.RESOLVED || customIncidencia.status === IncidenciaStatus.CLOSED
+          ? new Date()
+          : createdDate,
+      });
+
+      await this.incidenciaRepository.save(incidencia);
+      totalCreated++;
+
+      this.logger.log(`✅ Created custom incidencia "${customIncidencia.name}" for ${customIncidencia.clientEmail}`);
+    }
+
+    this.logger.log(`✅ Successfully seeded ${totalCreated} incidencias in total (including custom ones)`);
   }
 
   /**
