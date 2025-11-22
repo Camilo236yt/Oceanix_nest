@@ -82,6 +82,7 @@ export interface CustomClientData {
   email: string; // Email completo personalizado
   phoneNumber: string;
   password: string;
+  enterpriseSubdomain: string; // Subdomain de la empresa a la que pertenece
 }
 
 export const CUSTOM_CLIENTS_DATA: CustomClientData[] = [
@@ -91,6 +92,7 @@ export const CUSTOM_CLIENTS_DATA: CustomClientData[] = [
     email: 'camargoandres507@gmail.com',
     phoneNumber: '+573001234567',
     password: 'Camargo123!',
+    enterpriseSubdomain: 'techcorp', // TechCorp Solutions
   },
   {
     name: 'Julio',
@@ -98,5 +100,6 @@ export const CUSTOM_CLIENTS_DATA: CustomClientData[] = [
     email: 'juliobonifacio53@gmail.com',
     phoneNumber: '+573009876543',
     password: 'Bonifacio123!',
+    enterpriseSubdomain: 'techcorp', // TechCorp Solutions
   },
 ];

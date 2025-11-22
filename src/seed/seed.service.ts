@@ -453,41 +453,49 @@ export class SeedService {
   }
 
   /**
-   * Crea clientes adicionales con emails personalizados para todas las empresas
+   * Crea clientes adicionales con emails personalizados
+   * Cada cliente se crea solo UNA VEZ en su empresa designada
    */
   async seedCustomClients(): Promise<void> {
     this.logger.log('Seeding custom clients...');
 
-    // Obtener todas las empresas
-    const enterprises = await this.enterpriseRepository.find();
+    for (const clientData of CUSTOM_CLIENTS_DATA) {
+      // Buscar la empresa por subdomain
+      const enterprise = await this.enterpriseRepository.findOne({
+        where: { subdomain: clientData.enterpriseSubdomain },
+      });
 
-    for (const enterprise of enterprises) {
-      for (const clientData of CUSTOM_CLIENTS_DATA) {
-        // Hash password
-        const hashedPassword = await bcrypt.hash(clientData.password, 10);
-
-        // Crear cliente
-        const client = this.userRepository.create({
-          name: clientData.name,
-          lastName: clientData.lastName,
-          email: clientData.email,
-          password: hashedPassword,
-          phoneNumber: clientData.phoneNumber,
-          enterpriseId: enterprise.id,
-          isActive: true,
-          isEmailVerified: true,
-          userType: UserType.CLIENT,
-        });
-
-        const savedClient = await this.userRepository.save(client);
-
-        // Inicializar providers de notificación
-        await this.initializeDefaultNotificationProviders(savedClient.id);
-
-        this.logger.log(
-          `✅ Created custom client: ${clientData.email} for enterprise ${enterprise.name}`,
+      if (!enterprise) {
+        this.logger.warn(
+          `⚠️  Enterprise with subdomain "${clientData.enterpriseSubdomain}" not found. Skipping client ${clientData.email}`,
         );
+        continue;
       }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(clientData.password, 10);
+
+      // Crear cliente
+      const client = this.userRepository.create({
+        name: clientData.name,
+        lastName: clientData.lastName,
+        email: clientData.email,
+        password: hashedPassword,
+        phoneNumber: clientData.phoneNumber,
+        enterpriseId: enterprise.id,
+        isActive: true,
+        isEmailVerified: true,
+        userType: UserType.CLIENT,
+      });
+
+      const savedClient = await this.userRepository.save(client);
+
+      // Inicializar providers de notificación
+      await this.initializeDefaultNotificationProviders(savedClient.id);
+
+      this.logger.log(
+        `✅ Created custom client: ${clientData.email} for enterprise ${enterprise.name} (${enterprise.subdomain})`,
+      );
     }
 
     this.logger.log('Custom clients seeded successfully!');
