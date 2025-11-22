@@ -21,19 +21,24 @@ export const CreateRoleDoc = () =>
       **Enterprise Isolation:**
       - The role is automatically associated with the user's enterprise
       - Only users with 'create_roles' or 'manage_roles' permissions can create roles
-      - Permission IDs must correspond to existing permissions in the system`
+      - Permission IDs must correspond to existing permissions in the system
+
+      **Automatic Incident Assignment:**
+      - Set canReceiveIncidents: true to enable automatic incident assignment for users with this role
+      - When enabled, automatically grants 'viewOwnIncidents' and 'editOwnIncidents' permissions
+      - Incidents are distributed among employees with eligible roles using load balancing (least workload)`
     }),
     ApiBody({
       type: CreateRoleDto,
       examples: {
         withPermissions: {
-          summary: 'Role with permissions',
-          description: 'Create a role and assign specific permissions',
+          summary: 'Role with permissions and incident assignment',
+          description: 'Create a role that can receive automatic incident assignments',
           value: RoleExamples.CreateWithPermissions,
         },
         withoutPermissions: {
           summary: 'Role without permissions',
-          description: 'Create a role without initial permissions (can be added later)',
+          description: 'Create a basic role without incident assignment capability',
           value: RoleExamples.CreateWithoutPermissions,
         },
       },
@@ -102,6 +107,10 @@ export const UpdateRoleDoc = () =>
       - Providing permissionIds replaces ALL existing permissions
       - To remove all permissions, pass an empty array: permissionIds: []
       - To keep existing permissions unchanged, omit the permissionIds field
+
+      **Incident Assignment:**
+      - Update canReceiveIncidents to enable/disable automatic incident assignment
+      - When enabled, automatically grants 'viewOwnIncidents' and 'editOwnIncidents' permissions
 
       **Enterprise Isolation:**
       - Only roles from the user's enterprise can be updated`

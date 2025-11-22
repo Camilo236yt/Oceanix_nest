@@ -67,6 +67,8 @@ export const SuccessRoleResponse = {
       name: { type: 'string', example: 'Support Agent' },
       description: { type: 'string', example: 'Agent responsible for handling customer support tickets' },
       enterpriseId: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440099' },
+      isSystemRole: { type: 'boolean', example: false },
+      canReceiveIncidents: { type: 'boolean', example: true },
       isActive: { type: 'boolean', example: true },
       createdAt: { type: 'string', format: 'date-time', example: '2025-01-14T10:00:00.000Z' },
       updatedAt: { type: 'string', format: 'date-time', example: '2025-01-14T10:00:00.000Z' },
@@ -82,6 +84,8 @@ export const SuccessRoleWithPermissionsResponse = {
       name: { type: 'string', example: 'Administrador de Incidencias' },
       description: { type: 'string', example: 'Full access to incident management' },
       enterpriseId: { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440099' },
+      isSystemRole: { type: 'boolean', example: false },
+      canReceiveIncidents: { type: 'boolean', example: true },
       isActive: { type: 'boolean', example: true },
       createdAt: { type: 'string', format: 'date-time', example: '2025-01-14T10:00:00.000Z' },
       updatedAt: { type: 'string', format: 'date-time', example: '2025-01-14T10:00:00.000Z' },
@@ -123,6 +127,7 @@ export const RoleExamples = {
   CreateWithPermissions: {
     name: 'Support Agent',
     description: 'Agent responsible for handling customer support tickets',
+    canReceiveIncidents: true,
     permissionIds: [
       '550e8400-e29b-41d4-a716-446655440001',
       '550e8400-e29b-41d4-a716-446655440002'
@@ -131,12 +136,14 @@ export const RoleExamples = {
 
   CreateWithoutPermissions: {
     name: 'Basic User',
-    description: 'Basic user with minimal access'
+    description: 'Basic user with minimal access',
+    canReceiveIncidents: false
   },
 
   UpdateBasicInfo: {
     name: 'Senior Support Agent',
-    description: 'Senior agent with extended permissions'
+    description: 'Senior agent with extended permissions',
+    canReceiveIncidents: true
   },
 
   UpdatePermissions: {
@@ -150,6 +157,7 @@ export const RoleExamples = {
   UpdateAll: {
     name: 'Team Lead',
     description: 'Team leader with full management access',
+    canReceiveIncidents: true,
     permissionIds: [
       '550e8400-e29b-41d4-a716-446655440001',
       '550e8400-e29b-41d4-a716-446655440002'

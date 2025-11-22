@@ -15,6 +15,7 @@ import { AlertLevel } from '../enums/alert-level.enum';
 import { IncidentImage } from '../entities/incident-image.entity';
 import { Enterprise } from '../../enterprise/entities/enterprise.entity';
 import { User } from '../../users/entities/user.entity';
+import { Message } from '../../messages/entities/message.entity';
 
 @Index('idx_incidencias_enterprise', ['enterpriseId'])
 
@@ -78,6 +79,20 @@ export class Incidencia {
   @Index()
   alertLevel: AlertLevel;
 
+  // Control de re-subida de imágenes por parte del cliente
+  @Column({ type: 'boolean', default: false })
+  canClientUploadImages: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  imagesUploadAllowedUntil: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  imageUploadRequestedBy: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'imageUploadRequestedBy' })
+  imageUploadRequestedByUser?: User;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
@@ -91,6 +106,10 @@ export class Incidencia {
   // Imágenes asociadas a la incidencia
   @OneToMany(() => IncidentImage, (image) => image.incidencia, { cascade: true })
   images?: IncidentImage[];
+
+  // Mensajes del chat de la incidencia
+  @OneToMany(() => Message, (message) => message.incidencia)
+  messages?: Message[];
 }
 
 

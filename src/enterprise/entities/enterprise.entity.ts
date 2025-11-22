@@ -5,6 +5,7 @@ import { Address } from '../../location/entities/address.entity';
 import { BusinessIdentificationType } from '../../users/constants';
 import { EnterpriseConfig } from '../../enterprise-config/entities/enterprise-config.entity';
 import { EnterpriseDocument } from '../../enterprise-config/entities/enterprise-document.entity';
+import { Incidencia } from '../../incidencias/entities/incidencia.entity';
 
 @Entity('enterprises')
 @Index('idx_enterprises_name', { synchronize: false })
@@ -59,6 +60,9 @@ export class Enterprise {
 
   @OneToMany(() => Role, (role) => role.enterprise)
   roles: Role[];
+
+  @OneToMany(() => Incidencia, (incidencia) => incidencia.enterprise)
+  incidencias: Incidencia[];
 
   @OneToOne(() => EnterpriseConfig, (config) => config.enterprise, {
     nullable: true,

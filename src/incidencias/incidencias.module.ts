@@ -13,6 +13,7 @@ import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.entity';
 import { Role } from '../roles/entities/role.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { NotificationModule } from '../notification/notification.module';
     StorageModule,
     ScheduleModule.forRoot(),
     NotificationModule,
+    MessagesModule,
   ],
   controllers: [IncidenciasController],
   providers: [IncidenciasService, EmployeeAssignmentService, IncidenciaMonitorService],
