@@ -87,6 +87,106 @@ export const CreateIncidenciaDoc = () =>
     }),
   );
 
+export const CreateIncidenciaClientDoc = () =>
+  applyDecorators(
+    ApiCookieAuth('authToken'),
+    ApiConsumes('multipart/form-data'),
+    ApiOperation({
+      summary: 'Crear incidencia como cliente',
+      description:
+        'Permite a los clientes crear una nueva incidencia reportando problemas con productos o servicios. ' +
+        'La incidencia será asignada automáticamente a un empleado disponible. ' +
+        'Acepta hasta 5 imágenes adjuntas para documentar el problema.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 3,
+            example: 'Laptop Dell no enciende',
+            description: 'Título breve de la incidencia',
+          },
+          description: {
+            type: 'string',
+            example: 'La laptop Dell Inspiron 15 asignada a mi escritorio no enciende. La luz de carga parpadea pero la pantalla permanece negra.',
+            description: 'Descripción detallada del problema',
+          },
+          ProducReferenceId: {
+            type: 'string',
+            example: 'LAPTOP-DELL-2024-001',
+            description: 'Código de referencia del producto o activo afectado',
+          },
+          tipo: {
+            type: 'string',
+            enum: Object.values(TipoIncidencia),
+            example: TipoIncidencia.POR_FALLA_TECNICA,
+            description: 'Tipo de incidencia según la naturaleza del problema',
+          },
+          images: {
+            type: 'array',
+            items: { type: 'string', format: 'binary' },
+            description: 'Imágenes que evidencian el problema (máximo 5)',
+          },
+        },
+        required: ['name', 'description', 'tipo', 'ProducReferenceId'],
+      },
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Incidencia creada exitosamente',
+      schema: {
+        example: {
+          id: '6cbf0b20-2ed2-4649-9aa0-95fd2eb2ede3',
+          name: 'Laptop Dell no enciende',
+          description: 'La laptop Dell Inspiron 15 asignada a mi escritorio no enciende. La luz de carga parpadea pero la pantalla permanece negra.',
+          tipo: 'POR_FALLA_TECNICA',
+          status: 'PENDING',
+          ProducReferenceId: 'LAPTOP-DELL-2024-001',
+          enterpriseId: 'ca62eba3-086e-4bad-9e42-4d8cfa83a6be',
+          createdByUserId: '6cbf0b20-2ed2-4649-9aa0-95fd2eb2ede3',
+          assignedEmployeeId: 'ad8985f6-66b4-457e-82a0-72068d23ce1c',
+          createdAt: '2025-11-22T14:27:29.000Z',
+          updatedAt: '2025-11-22T14:27:29.000Z',
+          imageGroupId: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+          images: [
+            {
+              id: 'b3fb3b7a-a0b2-4ff8-920d-2e5d0c07bbf7',
+              incidenciaId: '6cbf0b20-2ed2-4649-9aa0-95fd2eb2ede3',
+              url: 'http://localhost:9000/oceanix-uploads/incidencias/techcorp/laptop-error.jpg',
+              mimeType: 'image/jpeg',
+              originalName: 'laptop-error.jpg',
+            },
+          ],
+        },
+      },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'Datos inválidos o más de 5 imágenes adjuntas',
+      schema: {
+        example: {
+          statusCode: 400,
+          message: ['name must be longer than or equal to 3 characters'],
+          error: 'Bad Request',
+        },
+      },
+    }),
+    ApiResponse({
+      status: 401,
+      description: 'No autenticado - Token de autenticación inválido o ausente',
+    }),
+    ApiResponse({
+      status: 403,
+      description: 'Acceso denegado - Solo usuarios tipo CLIENT pueden crear incidencias por este endpoint',
+    }),
+    ApiResponse({
+      status: 429,
+      description: 'Demasiadas peticiones - Máximo 5 incidencias por minuto',
+    }),
+  );
+
 export const FindAllIncidenciasDoc = () =>
   applyDecorators(
     ApiBearerAuth(),

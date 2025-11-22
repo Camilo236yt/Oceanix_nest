@@ -23,6 +23,7 @@ import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
 import {
   CreateIncidenciaDoc,
+  CreateIncidenciaClientDoc,
   DeleteIncidenciaDoc,
   FindAllIncidenciasDoc,
   FindOneIncidenciaDoc,
@@ -232,13 +233,7 @@ export class IncidenciasController {
   @ClientAuth()
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @UseInterceptors(FilesInterceptor('images', 5))
-  @ApiOperation({
-    summary: 'Crear incidencia como cliente',
-    description: 'Permite a los clientes crear una nueva incidencia. Solo requiere autenticación como cliente, no permisos específicos.',
-  })
-  @ApiResponse({ status: 201, description: 'Incidencia creada exitosamente' })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Solo para clientes' })
+  @CreateIncidenciaClientDoc()
   createAsClient(
     @Body() createIncidenciaDto: CreateIncidenciaDto,
     @GetUser('enterpriseId') enterpriseId: string,
