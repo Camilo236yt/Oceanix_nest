@@ -70,12 +70,14 @@ export class AuthController {
     @Body() loginDto: LoginDto,
     @GetSubdomain() subdomain: string,
     @Res({ passthrough: true }) res: Response
-  ): Promise<Omit<AuthResponseDto, 'token'>> {
+  ): Promise<AuthResponseDto> {
     const result = await this.authService.login(loginDto, subdomain);
     CookieHelper.setAuthCookie(res, result.token);
 
-    const { token, ...responseWithoutToken } = result;
-    return responseWithoutToken;
+    // Return the full result including the token in the body
+    // Token is also set in HTTPOnly cookie for security in HTTP requests
+    // Token in body is needed for WebSocket authentication
+    return result;
   }
 
   @LoginDevDoc()
