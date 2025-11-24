@@ -47,6 +47,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
+      this.logger.log(`New connection attempt: ${client.id}`);
+
       // Extraer token del handshake
       const token = this.extractToken(client);
       if (!token) {
@@ -54,6 +56,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         client.disconnect();
         return;
       }
+      this.logger.log(`Token extracted for client ${client.id}`);
 
       // Verificar token JWT
       const payload = await this.verifyToken(token);
@@ -62,6 +65,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         client.disconnect();
         return;
       }
+      this.logger.log(`Token verified for user ${payload.id}`);
 
       // Buscar usuario en la base de datos para obtener enterpriseId y userType
       const user = await this.userRepository.findOne({
@@ -74,30 +78,36 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         client.disconnect();
         return;
       }
+      this.logger.log(`User found in database: ${user.id}, type: ${user.userType}, enterprise: ${user.enterpriseId}`);
 
       // Almacenar datos del usuario en el socket
       client.userId = user.id;
       client.enterpriseId = user.enterpriseId;
       client.userType = user.userType === UserType.CLIENT ? 'CLIENT' : 'EMPLOYEE';
 
-      this.logger.log(`User ${user.id} (${client.userType}) connected with socket ${client.id}`);
+      this.logger.log(`✅ User ${user.id} (${client.userType}) successfully connected with socket ${client.id}`);
     } catch (error) {
-      this.logger.error(`Error handling connection for client ${client.id}:`, error);
+      this.logger.error(`❌ Error handling connection for client ${client.id}:`, error);
       client.disconnect();
     }
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
-    this.logger.log(`Client disconnected: ${client.id} (User: ${client.userId})`);
+    this.logger.log(`❌ Client disconnected: ${client.id} (User: ${client.userId}, Type: ${client.userType}, Enterprise: ${client.enterpriseId})`);
   }
 
   /**
    * Extrae el token JWT del handshake
    */
   private extractToken(client: Socket): string | null {
+    this.logger.debug(`Extracting token from handshake. Query: ${JSON.stringify(client.handshake.query)}`);
+    this.logger.debug(`Auth object: ${JSON.stringify(client.handshake.auth)}`);
+    this.logger.debug(`Authorization header: ${client.handshake.headers?.authorization}`);
+
     // Intentar extraer del query parameter
     const tokenFromQuery = client.handshake.query?.token;
     if (tokenFromQuery && typeof tokenFromQuery === 'string') {
+      this.logger.debug(`Token found in query: ${tokenFromQuery.substring(0, 20)}...`);
       return tokenFromQuery;
     }
 
@@ -106,6 +116,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     if (authHeader && typeof authHeader === 'string') {
       const [type, token] = authHeader.split(' ');
       if (type === 'Bearer' && token) {
+        this.logger.debug(`Token found in authorization header: ${token.substring(0, 20)}...`);
         return token;
       }
     }
@@ -113,9 +124,11 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     // Intentar extraer del auth object
     const authToken = client.handshake.auth?.token;
     if (authToken && typeof authToken === 'string') {
+      this.logger.debug(`Token found in auth object: ${authToken.substring(0, 20)}...`);
       return authToken;
     }
 
+    this.logger.warn('No token found in any location');
     return null;
   }
 
