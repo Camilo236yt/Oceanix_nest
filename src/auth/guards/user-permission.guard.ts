@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { META_PERMISSIONS, ALLOW_ANY_RESOURCE_KEY } from 'src/auth/decorator';
 import { ValidPermission } from 'src/auth/interfaces/valid-permission';
+import { UserType } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class UserPermissionGuard implements CanActivate {
@@ -28,6 +29,11 @@ export class UserPermissionGuard implements CanActivate {
     
     if (!user) {
       throw new NotFoundException('User not found in request');
+    }
+
+    // SUPER_ADMIN has access to everything
+    if (user.userType === UserType.SUPER_ADMIN) {
+      return true;
     }
 
     // Si no se requieren permisos específicos = usuario normal (permitir acceso)

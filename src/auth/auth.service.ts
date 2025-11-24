@@ -12,10 +12,11 @@ import { Permission } from 'src/permissions/entities/permission.entity';
 import { RolePermission } from 'src/roles/entities/role-permission.entity';
 import { UserRole } from 'src/users/entities/user-role.entity';
 import { RegisterDto, RegisterEnterpriseDto, LoginDto, GoogleLoginDto } from './dto';
-import { JwtPayload, AuthResponseDto, ActivationTokenPayload, RegisterEnterpriseResponseDto, UserProfileResponseDto } from './interfaces';
+import { JwtPayload, AuthResponseDto, ActivationTokenPayload, RegisterEnterpriseResponseDto, UserProfileResponseDto, ValidPermission } from './interfaces';
 import { CryptoService, AuthValidationService } from './services';
 import { InvalidCredentialsException, EmailAlreadyExistsException, AuthDatabaseException } from './exceptions';
 import { EnterpriseConfigService } from '../enterprise-config/enterprise-config.service';
+import { VerificationStatus } from '../enterprise-config/enums/verification-status.enum';
 
 
 @Injectable()
@@ -487,12 +488,20 @@ export class AuthService {
      * Used by /auth/me endpoint to provide all configuration data to frontend
      */
     async getUserProfile(user: User): Promise<UserProfileResponseDto> {
-        // 1. Get enterprise configuration
-        const enterpriseConfig = await this.enterpriseConfigService.getByEnterpriseId(user.enterpriseId);
+        // 1. Get enterprise configuration (if user has enterprise)
+        const enterpriseConfig = user.enterpriseId
+            ? await this.enterpriseConfigService.getByEnterpriseId(user.enterpriseId)
+            : null;
 
         // 2. Aggregate unique permissions from all roles
         const permissionsSet = new Set<string>();
-        if (user.roles && user.roles.length > 0) {
+
+        // SUPER_ADMIN gets all permissions
+        if (user.userType === UserType.SUPER_ADMIN) {
+            Object.values(ValidPermission).forEach(permission => {
+                permissionsSet.add(permission);
+            });
+        } else if (user.roles && user.roles.length > 0) {
             user.roles.forEach(userRole => {
                 if (userRole.role?.permissions) {
                     userRole.role.permissions.forEach(rolePermission => {
@@ -512,9 +521,10 @@ export class AuthService {
         })) || [];
 
         // 4. Generate default logo/favicon/banner if not set
-        const logoUrl = enterpriseConfig.logoUrl || this.generateDefaultLogo(user.enterprise.name);
-        const faviconUrl = enterpriseConfig.faviconUrl || this.generateDefaultFavicon(user.enterprise.name);
-        const bannerUrl = enterpriseConfig.bannerUrl || this.generateDefaultBanner(user.enterprise.name);
+        const enterpriseName = user.enterprise?.name || 'Oceanix';
+        const logoUrl = enterpriseConfig?.logoUrl || this.generateDefaultLogo(enterpriseName);
+        const faviconUrl = enterpriseConfig?.faviconUrl || this.generateDefaultFavicon(enterpriseName);
+        const bannerUrl = enterpriseConfig?.bannerUrl || this.generateDefaultBanner(enterpriseName);
 
         // 5. Build response
         return {
@@ -528,23 +538,23 @@ export class AuthService {
                 isEmailVerified: user.isEmailVerified ?? false,
                 isActive: user.isActive ?? false,
             },
-            enterprise: {
+            enterprise: user.enterprise ? {
                 id: user.enterprise.id,
                 name: user.enterprise.name,
                 subdomain: user.enterprise.subdomain,
                 email: user.enterprise.email,
                 phone: user.enterprise.phone,
-            },
+            } : null,
             config: {
-                isVerified: enterpriseConfig.isVerified,
-                verificationStatus: enterpriseConfig.verificationStatus,
-                primaryColor: enterpriseConfig.primaryColor,
-                secondaryColor: enterpriseConfig.secondaryColor,
-                accentColor: enterpriseConfig.accentColor,
+                isVerified: enterpriseConfig?.isVerified ?? true,
+                verificationStatus: enterpriseConfig?.verificationStatus ?? VerificationStatus.VERIFIED,
+                primaryColor: enterpriseConfig?.primaryColor ?? '#9333ea',
+                secondaryColor: enterpriseConfig?.secondaryColor ?? '#7c3aed',
+                accentColor: enterpriseConfig?.accentColor ?? '#a855f7',
                 logoUrl,
                 faviconUrl,
                 bannerUrl,
-                requireCorporateEmail: enterpriseConfig.requireCorporateEmail,
+                requireCorporateEmail: enterpriseConfig?.requireCorporateEmail ?? false,
             },
             roles,
             permissions: Array.from(permissionsSet),

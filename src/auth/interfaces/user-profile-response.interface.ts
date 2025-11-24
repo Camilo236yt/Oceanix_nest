@@ -56,7 +56,7 @@ export interface RoleDto {
  */
 export interface UserProfileResponseDto {
   user: UserProfileDto;
-  enterprise: EnterpriseDto;
+  enterprise: EnterpriseDto | null; // null for SUPER_ADMIN users
   config: EnterpriseConfigDto;
   roles: RoleDto[];
   permissions: string[]; // Array of unique permission names
