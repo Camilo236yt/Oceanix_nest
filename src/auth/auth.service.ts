@@ -155,7 +155,24 @@ export class AuthService {
 
         const user = await this.userRepositoy.findOne({
             where: { email },
-            select: { id: true, password: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
+            select: {
+                id: true,
+                password: true,
+                email: true,
+                name: true,
+                lastName: true,
+                userType: true,
+                enterpriseId: true,
+                phoneNumber: true,
+                addressId: true,
+                identificationType: true,
+                identificationNumber: true,
+                isActive: true,
+                isEmailVerified: true,
+                isLegalRepresentative: true,
+                createdAt: true,
+                updatedAt: true
+            },
             relations: { enterprise: true }
         });
 
@@ -167,12 +184,52 @@ export class AuthService {
         // Validar que el usuario pertenece al subdomain (delega al servicio de validación)
         this.authValidationService.validateUserBelongsToSubdomain(user, subdomain);
 
-        const { password: _, ...userWithoutPassword } = user;
+        // Generate token
+        const token = this.generateTokenJwt({ id: user.id });
 
+        // Return in the format expected by frontend (will be wrapped by ResponseInterceptor)
+        // Frontend expects: { success: true, data: { token, user, enterprise }, statusCode: 200 }
+        // We return the inner 'data' object, and the interceptor wraps it
         return {
-            ...userWithoutPassword,
-            token: this.generateTokenJwt({ id: user.id })
-        };
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            lastName: user.lastName,
+            token,
+            userType: user.userType,
+            // Include user and enterprise for frontend compatibility
+            user: {
+                id: user.id,
+                enterpriseId: user.enterpriseId,
+                userType: user.userType,
+                name: user.name,
+                phoneNumber: user.phoneNumber || '',
+                lastName: user.lastName,
+                email: user.email,
+                addressId: user.addressId,
+                identificationType: user.identificationType || '',
+                identificationNumber: user.identificationNumber || '',
+                isActive: user.isActive,
+                isEmailVerified: user.isEmailVerified,
+                isLegalRepresentative: user.isLegalRepresentative || false,
+                createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+                updatedAt: user.updatedAt?.toISOString() || new Date().toISOString(),
+            } as any,
+            enterprise: user.enterprise ? {
+                id: user.enterprise.id,
+                name: user.enterprise.name,
+                subdomain: user.enterprise.subdomain,
+                email: user.enterprise.email,
+                phone: user.enterprise.phone,
+                addressId: user.enterprise.addressId,
+                taxIdType: user.enterprise.taxIdType,
+                taxIdNumber: user.enterprise.taxIdNumber,
+                logo: user.enterprise.logo,
+                isActive: user.enterprise.isActive,
+                createdAt: user.enterprise.createdAt?.toISOString() || new Date().toISOString(),
+                updatedAt: user.enterprise.updatedAt?.toISOString() || new Date().toISOString(),
+            } as any : undefined,
+        } as any;
     }
 
     async googleLogin(_googleLoginDto: GoogleLoginDto): Promise<AuthResponseDto> {
