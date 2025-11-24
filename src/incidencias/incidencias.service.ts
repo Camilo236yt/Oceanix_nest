@@ -260,26 +260,8 @@ export class IncidenciasService {
         isActive: true,
       },
 
-      // Relaciones a cargar (opcional)
+      // Relaciones a cargar
       relations: ['assignedEmployee', 'createdBy'],
-
-      // Seleccionar solo campos específicos del empleado asignado
-      select: [
-        'id',
-        'name',
-        'description',
-        'status',
-        'tipo',
-        'alertLevel',
-        'ProducReferenceId',
-        'enterpriseId',
-        'assignedEmployeeId',
-        'createdByUserId',
-        'createdAt',
-        'updatedAt',
-        'canClientUploadImages',
-        'imagesUploadAllowedUntil',
-      ],
     });
 
     return paginate(query, this.incidenciaRepository, config);
