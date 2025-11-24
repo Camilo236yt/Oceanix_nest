@@ -184,6 +184,7 @@ export class UsersService {
         isActive: true,
         ...(enterpriseId && { enterpriseId }),
       },
+      relations: ['roles', 'roles.role'],
     });
 
     return paginate(query, this.userRepository, config);
