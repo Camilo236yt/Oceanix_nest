@@ -8,10 +8,13 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { MessagesService } from './messages.service';
-import { CreateMessageDto } from './dto/create-message.dto';
 import { MessageSenderType, MessageType } from './entities/message.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Incidencia } from '../incidencias/entities/incidencia.entity';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -22,6 +25,7 @@ interface AuthenticatedSocket extends Socket {
 @WebSocketGateway({
   cors: {
     origin: '*', // Configure according to your needs
+    credentials: true,
   },
   namespace: '/chat',
 })
@@ -31,14 +35,112 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   private readonly logger = new Logger(MessagesGateway.name);
 
-  constructor(private readonly messagesService: MessagesService) {}
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly jwtService: JwtService,
+    @InjectRepository(Incidencia)
+    private readonly incidenciaRepository: Repository<Incidencia>,
+  ) {}
 
-  handleConnection(client: AuthenticatedSocket) {
-    this.logger.log(`Client connected: ${client.id}`);
+  async handleConnection(client: AuthenticatedSocket) {
+    try {
+      // Extraer token del handshake
+      const token = this.extractToken(client);
+      if (!token) {
+        this.logger.warn(`Client ${client.id} connected without token`);
+        client.disconnect();
+        return;
+      }
+
+      // Verificar token JWT
+      const payload = await this.verifyToken(token);
+      if (!payload || !payload.id) {
+        this.logger.warn(`Client ${client.id} has invalid token`);
+        client.disconnect();
+        return;
+      }
+
+      // Almacenar datos del usuario en el socket
+      client.userId = payload.id;
+      client.enterpriseId = payload.enterpriseId;
+      client.userType = payload.role === 'client' ? 'CLIENT' : 'EMPLOYEE';
+
+      this.logger.log(`User ${payload.id} (${client.userType}) connected with socket ${client.id}`);
+    } catch (error) {
+      this.logger.error(`Error handling connection for client ${client.id}:`, error);
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
-    this.logger.log(`Client disconnected: ${client.id}`);
+    this.logger.log(`Client disconnected: ${client.id} (User: ${client.userId})`);
+  }
+
+  /**
+   * Extrae el token JWT del handshake
+   */
+  private extractToken(client: Socket): string | null {
+    // Intentar extraer del query parameter
+    const tokenFromQuery = client.handshake.query?.token;
+    if (tokenFromQuery && typeof tokenFromQuery === 'string') {
+      return tokenFromQuery;
+    }
+
+    // Intentar extraer del header de autorización
+    const authHeader = client.handshake.headers?.authorization;
+    if (authHeader && typeof authHeader === 'string') {
+      const [type, token] = authHeader.split(' ');
+      if (type === 'Bearer' && token) {
+        return token;
+      }
+    }
+
+    // Intentar extraer del auth object
+    const authToken = client.handshake.auth?.token;
+    if (authToken && typeof authToken === 'string') {
+      return authToken;
+    }
+
+    return null;
+  }
+
+  /**
+   * Verifica y decodifica el token JWT
+   */
+  private async verifyToken(token: string): Promise<any> {
+    try {
+      return await this.jwtService.verifyAsync(token);
+    } catch (error) {
+      this.logger.error('Invalid token:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Valida que el usuario tiene acceso a la incidencia
+   */
+  private async validateIncidenciaAccess(
+    incidenciaId: string,
+    userId: string,
+    enterpriseId: string,
+    userType: 'EMPLOYEE' | 'CLIENT',
+  ): Promise<boolean> {
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id: incidenciaId, enterpriseId },
+    });
+
+    if (!incidencia) {
+      return false;
+    }
+
+    // Si es cliente, debe ser el creador de la incidencia
+    if (userType === 'CLIENT') {
+      return incidencia.createdByUserId === userId;
+    }
+
+    // Si es empleado, debe pertenecer a la misma empresa
+    // (opcionalmente, podríamos verificar si es el empleado asignado)
+    return true;
   }
 
   /**
@@ -47,18 +149,37 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
    */
   @SubscribeMessage('joinIncidenciaChat')
   async handleJoinRoom(
-    @MessageBody() data: { incidenciaId: string; userId: string; enterpriseId: string },
+    @MessageBody() data: { incidenciaId: string },
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    // Validar que el usuario esté autenticado
+    if (!client.userId || !client.enterpriseId || !client.userType) {
+      return {
+        event: 'error',
+        data: { message: 'Usuario no autenticado' },
+      };
+    }
+
+    // Validar acceso a la incidencia
+    const hasAccess = await this.validateIncidenciaAccess(
+      data.incidenciaId,
+      client.userId,
+      client.enterpriseId,
+      client.userType,
+    );
+
+    if (!hasAccess) {
+      this.logger.warn(`User ${client.userId} denied access to incidencia ${data.incidenciaId}`);
+      return {
+        event: 'error',
+        data: { message: 'No tienes acceso a esta incidencia' },
+      };
+    }
+
     const roomName = `incidencia:${data.incidenciaId}`;
-
-    // Store user info in socket
-    client.userId = data.userId;
-    client.enterpriseId = data.enterpriseId;
-
     await client.join(roomName);
 
-    this.logger.log(`User ${data.userId} joined room ${roomName}`);
+    this.logger.log(`User ${client.userId} (${client.userType}) joined room ${roomName}`);
 
     return {
       event: 'joinedRoom',
@@ -100,19 +221,30 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     @MessageBody()
     data: {
       incidenciaId: string;
-      senderId: string;
-      senderType: MessageSenderType;
       content: string;
       attachments?: string[];
     },
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    // Validar que el usuario esté autenticado
+    if (!client.userId || !client.enterpriseId || !client.userType) {
+      return {
+        event: 'error',
+        data: { message: 'Usuario no autenticado' },
+      };
+    }
+
     try {
+      // Usar los datos del socket autenticado, no del payload
+      const senderType = client.userType === 'CLIENT'
+        ? MessageSenderType.CLIENT
+        : MessageSenderType.EMPLOYEE;
+
       // Save message to database
       const message = await this.messagesService.create(
         data.incidenciaId,
-        data.senderId,
-        data.senderType,
+        client.userId,
+        senderType,
         data.content,
         MessageType.TEXT,
         data.attachments,
@@ -125,7 +257,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         message,
       });
 
-      this.logger.log(`Message sent to room ${roomName} by user ${data.senderId}`);
+      this.logger.log(`Message sent to room ${roomName} by user ${client.userId} (${client.userType})`);
 
       return {
         event: 'messageSent',
