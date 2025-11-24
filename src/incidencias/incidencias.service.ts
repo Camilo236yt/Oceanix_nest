@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
 import { paginate, Paginated, PaginateQuery, FilterOperator } from 'nestjs-paginate';
+import { v4 as uuidv4 } from 'uuid';
 
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
@@ -416,23 +417,22 @@ export class IncidenciasService {
           path,
         );
 
-        // Crear registro en DB para tener control
+        // Generar UUID para poder construir la URL antes de guardar
+        const imageId = uuidv4();
+        const apiBaseUrl = this.getApiBaseUrl();
+        const imageUrl = `${apiBaseUrl}/api/v1/incidencias/images/${imageId}`;
+
+        // Crear registro en DB con URL ya definida
         const imageEntity = this.incidentImageRepository.create({
+          id: imageId,
+          url: imageUrl,
           key,
           mimeType: file.mimetype,
           originalName: file.originalname,
           incidenciaId: incidencia.id,
         });
 
-        const savedImage = await this.incidentImageRepository.save(imageEntity);
-
-        // Retornar URL del endpoint de API
-        const apiBaseUrl = this.getApiBaseUrl();
-        const imageUrl = `${apiBaseUrl}/api/v1/incidencias/images/${savedImage.id}`;
-
-        // Actualizar URL en DB
-        savedImage.url = imageUrl;
-        await this.incidentImageRepository.save(savedImage);
+        await this.incidentImageRepository.save(imageEntity);
 
         uploadedUrls.push(imageUrl);
       }
@@ -502,27 +502,27 @@ export class IncidenciasService {
           path,
         );
 
-        // Crear registro de imagen
+        // Generar UUID para poder construir la URL antes de guardar
+        const imageId = uuidv4();
+        const apiBaseUrl = this.getApiBaseUrl();
+        const imageUrl = `${apiBaseUrl}/api/v1/incidencias/images/${imageId}`;
+
+        // Crear registro de imagen con URL ya definida
         const imageEntity = this.incidentImageRepository.create({
+          id: imageId,
+          url: imageUrl,
           key,
           mimeType: file.mimetype,
           originalName: file.originalname,
           incidenciaId: incidencia.id,
         });
 
-        const savedImage = await this.incidentImageRepository.save(imageEntity);
-
-        // URL del endpoint de API
-        const apiBaseUrl = this.getApiBaseUrl();
-        const imageUrl = `${apiBaseUrl}/api/v1/incidencias/images/${savedImage.id}`;
-
-        savedImage.url = imageUrl;
-        await this.incidentImageRepository.save(savedImage);
+        await this.incidentImageRepository.save(imageEntity);
 
         uploadedImages.push({
-          id: savedImage.id,
+          id: imageId,
           url: imageUrl,
-          originalName: savedImage.originalName,
+          originalName: file.originalname,
         });
       }
 
