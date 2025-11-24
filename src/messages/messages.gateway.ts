@@ -15,6 +15,7 @@ import { MessageSenderType, MessageType } from './entities/message.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incidencia } from '../incidencias/entities/incidencia.entity';
+import { User, UserType } from '../users/entities/user.entity';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -40,6 +41,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly jwtService: JwtService,
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -60,12 +63,24 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         return;
       }
 
-      // Almacenar datos del usuario en el socket
-      client.userId = payload.id;
-      client.enterpriseId = payload.enterpriseId;
-      client.userType = payload.role === 'client' ? 'CLIENT' : 'EMPLOYEE';
+      // Buscar usuario en la base de datos para obtener enterpriseId y userType
+      const user = await this.userRepository.findOne({
+        where: { id: payload.id },
+        select: ['id', 'enterpriseId', 'userType'],
+      });
 
-      this.logger.log(`User ${payload.id} (${client.userType}) connected with socket ${client.id}`);
+      if (!user) {
+        this.logger.warn(`User ${payload.id} not found in database`);
+        client.disconnect();
+        return;
+      }
+
+      // Almacenar datos del usuario en el socket
+      client.userId = user.id;
+      client.enterpriseId = user.enterpriseId;
+      client.userType = user.userType === UserType.CLIENT ? 'CLIENT' : 'EMPLOYEE';
+
+      this.logger.log(`User ${user.id} (${client.userType}) connected with socket ${client.id}`);
     } catch (error) {
       this.logger.error(`Error handling connection for client ${client.id}:`, error);
       client.disconnect();

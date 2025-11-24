@@ -6,10 +6,11 @@ import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
 import { Message } from './entities/message.entity';
 import { Incidencia } from '../incidencias/entities/incidencia.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Message, Incidencia]),
+    TypeOrmModule.forFeature([Message, Incidencia, User]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
