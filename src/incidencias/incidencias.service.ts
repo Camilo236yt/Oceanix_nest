@@ -291,6 +291,7 @@ export class IncidenciasService {
   async findOne(id: string, enterpriseId: string) {
     const incidencia = await this.incidenciaRepository.findOne({
       where: { id, enterpriseId },
+      relations: ['images'],
     });
 
     if (!incidencia) {
@@ -381,6 +382,7 @@ export class IncidenciasService {
   async findOneByClient(id: string, enterpriseId: string, clientUserId: string) {
     const incidencia = await this.incidenciaRepository.findOne({
       where: { id, enterpriseId, createdByUserId: clientUserId },
+      relations: ['images'],
     });
 
     if (!incidencia) {
@@ -388,6 +390,175 @@ export class IncidenciasService {
     }
 
     return incidencia;
+  }
+
+  /**
+   * Sube imágenes para adjuntar en mensajes del chat
+   * Las imágenes se guardan en MinIO y se retornan URLs del endpoint de API
+   */
+  async uploadMessageImages(
+    incidenciaId: string,
+    enterpriseId: string,
+    images: Express.Multer.File[],
+  ) {
+    if (!images || images.length === 0) {
+      throw new BadRequestException('No se proporcionaron imágenes');
+    }
+
+    if (images.length > 3) {
+      throw new BadRequestException('Máximo 3 imágenes por mensaje');
+    }
+
+    // Verificar que la incidencia existe
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id: incidenciaId, enterpriseId },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
+    }
+
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of images) {
+        // Validar tipo y tamaño
+        this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
+        this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
+
+        // Subir a MinIO en carpeta de mensajes
+        const path = `messages/${enterpriseId}/${incidenciaId}`;
+        const { key } = await this.storageService.uploadFile(
+          file,
+          STORAGE_BUCKETS.TICKETS,
+          path,
+        );
+
+        // Crear registro en DB para tener control
+        const imageEntity = this.incidentImageRepository.create({
+          key,
+          mimeType: file.mimetype,
+          originalName: file.originalname,
+          incidenciaId: incidencia.id,
+        });
+
+        const savedImage = await this.incidentImageRepository.save(imageEntity);
+
+        // Retornar URL del endpoint de API
+        const apiBaseUrl = this.getApiBaseUrl();
+        const imageUrl = `${apiBaseUrl}/api/v1/incidencias/images/${savedImage.id}`;
+
+        // Actualizar URL en DB
+        savedImage.url = imageUrl;
+        await this.incidentImageRepository.save(savedImage);
+
+        uploadedUrls.push(imageUrl);
+      }
+
+      return { urls: uploadedUrls };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Error al subir imágenes: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Permite al cliente re-subir imágenes cuando el empleado lo solicita
+   * Valida permisos y tiempo límite
+   */
+  async reuploadImages(
+    incidenciaId: string,
+    enterpriseId: string,
+    clientUserId: string,
+    images: Express.Multer.File[],
+  ) {
+    if (!images || images.length === 0) {
+      throw new BadRequestException('No se proporcionaron imágenes');
+    }
+
+    if (images.length > 5) {
+      throw new BadRequestException(INCIDENCIA_MESSAGES.MAX_IMAGES_EXCEEDED);
+    }
+
+    // Obtener incidencia con validación de permisos
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id: incidenciaId, enterpriseId, createdByUserId: clientUserId },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
+    }
+
+    // Validar que el cliente tiene permiso activo
+    if (!incidencia.canClientUploadImages) {
+      throw new BadRequestException(
+        'No tienes permiso para subir imágenes. El empleado debe solicitar re-subida primero.',
+      );
+    }
+
+    // Validar que no ha expirado el tiempo
+    if (incidencia.imagesUploadAllowedUntil && new Date() > incidencia.imagesUploadAllowedUntil) {
+      throw new BadRequestException(
+        'El tiempo para subir imágenes ha expirado.',
+      );
+    }
+
+    const uploadedImages: any[] = [];
+
+    try {
+      for (const file of images) {
+        // Validar tipo y tamaño
+        this.storageService.validateFileType(file, [...ALLOWED_FILE_TYPES.IMAGES]);
+        this.storageService.validateFileSize(file, MAX_FILE_SIZES.IMAGE);
+
+        // Subir a MinIO (misma carpeta que imágenes iniciales)
+        const path = `${INCIDENCIA_CONFIG.STORAGE_PATH}/${enterpriseId}/${incidencia.id}`;
+        const { key } = await this.storageService.uploadFile(
+          file,
+          STORAGE_BUCKETS.TICKETS,
+          path,
+        );
+
+        // Crear registro de imagen
+        const imageEntity = this.incidentImageRepository.create({
+          key,
+          mimeType: file.mimetype,
+          originalName: file.originalname,
+          incidenciaId: incidencia.id,
+        });
+
+        const savedImage = await this.incidentImageRepository.save(imageEntity);
+
+        // URL del endpoint de API
+        const apiBaseUrl = this.getApiBaseUrl();
+        const imageUrl = `${apiBaseUrl}/api/v1/incidencias/images/${savedImage.id}`;
+
+        savedImage.url = imageUrl;
+        await this.incidentImageRepository.save(savedImage);
+
+        uploadedImages.push({
+          id: savedImage.id,
+          url: imageUrl,
+          originalName: savedImage.originalName,
+        });
+      }
+
+      // Desactivar permiso de subida después de usar
+      incidencia.canClientUploadImages = false;
+      incidencia.imagesUploadAllowedUntil = null;
+      await this.incidenciaRepository.save(incidencia);
+
+      return {
+        message: 'Imágenes subidas exitosamente',
+        imageCount: uploadedImages.length,
+        images: uploadedImages,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Error al re-subir imágenes: ${error.message}`,
+      );
+    }
   }
 }
 

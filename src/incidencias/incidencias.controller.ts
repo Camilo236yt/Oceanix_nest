@@ -464,4 +464,76 @@ export class IncidenciasController {
       createMessageDto.attachments,
     );
   }
+
+  @Post('client/me/:id/messages/upload-image')
+  @ClientAuth()
+  @Throttle({ default: { limit: 10, ttl: 60 } })
+  @UseInterceptors(FilesInterceptor('images', 3))
+  @ApiOperation({
+    summary: 'Subir imágenes para adjuntar en mensaje',
+    description: 'Permite al cliente subir hasta 3 imágenes para adjuntar en un mensaje del chat. Retorna URLs del endpoint de API para incluir en el array de attachments del mensaje.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Imágenes subidas exitosamente',
+    schema: {
+      example: {
+        urls: [
+          'http://localhost:3000/api/v1/incidencias/images/uuid-1',
+          'http://localhost:3000/api/v1/incidencias/images/uuid-2',
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta incidencia' })
+  @ApiResponse({ status: 400, description: 'Tipo de archivo o tamaño inválido' })
+  async uploadMessageImagesAsClient(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+    @UploadedFiles() images: Express.Multer.File[],
+  ) {
+    // Verificar que el cliente tiene acceso a esta incidencia
+    await this.incidenciasService.findOneByClient(id, enterpriseId, userId);
+
+    // Subir imágenes y retornar URLs
+    return await this.incidenciasService.uploadMessageImages(id, enterpriseId, images);
+  }
+
+  @Post('client/me/:id/reupload-images')
+  @ClientAuth()
+  @Throttle({ default: { limit: 3, ttl: 60 } })
+  @UseInterceptors(FilesInterceptor('images', 5))
+  @ApiOperation({
+    summary: 'Re-subir imágenes de evidencia',
+    description: 'Permite al cliente re-subir hasta 5 imágenes de evidencia cuando el empleado lo ha solicitado. Solo funciona si el empleado ha habilitado la re-subida y está dentro del tiempo permitido. Las imágenes se agregan a la incidencia (no reemplazan las anteriores).',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Imágenes re-subidas exitosamente',
+    schema: {
+      example: {
+        message: 'Imágenes subidas exitosamente',
+        imageCount: 3,
+        images: [
+          {
+            id: 'uuid',
+            url: 'http://localhost:3000/api/v1/incidencias/images/uuid',
+            originalName: 'image1.jpg',
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 403, description: 'No tienes permiso para subir imágenes o el tiempo ha expirado' })
+  @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
+  async reuploadImagesAsClient(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+    @UploadedFiles() images: Express.Multer.File[],
+  ) {
+    // Re-subir imágenes con validación de permisos
+    return await this.incidenciasService.reuploadImages(id, enterpriseId, userId, images);
+  }
 }
