@@ -8,11 +8,30 @@ import { SubdomainMiddleware } from './common/middleware';
 import { getCorsConfig, setupSwagger, swaggerBasicAuth } from './config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false, // Disable default body parser
+  });
 
-  // Increase payload size limits for file uploads (50MB)
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  // Manually configure body parsers with size limits and multipart handling
+  app.use((req, res, next) => {
+    // Skip body parsing for multipart/form-data (let Multer handle it)
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      return next();
+    }
+
+    // Parse JSON and URL-encoded bodies with 50MB limit
+    const jsonParser = json({ limit: '50mb' });
+    const urlencodedParser = urlencoded({ extended: true, limit: '50mb' });
+
+    if (req.headers['content-type']?.includes('application/json')) {
+      return jsonParser(req, res, next);
+    }
+    if (req.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
+      return urlencodedParser(req, res, next);
+    }
+
+    next();
+  });
 
   app.enableCors(getCorsConfig());
   app.setGlobalPrefix('api/v1');
@@ -22,6 +41,11 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      // Skip validation for multipart/form-data to allow Multer to process it first
+      skipMissingProperties: false,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 
