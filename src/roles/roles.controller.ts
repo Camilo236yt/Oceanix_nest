@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Logger } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiCookieAuth } from '@nestjs/swagger';
 import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
 import type { PaginateQuery } from 'nestjs-paginate';
@@ -31,6 +32,7 @@ export class RolesController {
 
   @Auth(ValidPermission.createRoles, ValidPermission.manageRoles)
   @Post()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @CreateRoleDoc()
   async create(
     @Body() createRoleDto: CreateRoleDto,
@@ -86,6 +88,7 @@ export class RolesController {
 
   @Auth(ValidPermission.manageRoles, ValidPermission.deleteRoles)
   @Delete(':id')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @DeleteRoleDoc()
   async remove(
     @Param('id') id: string,

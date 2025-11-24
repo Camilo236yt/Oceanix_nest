@@ -44,7 +44,7 @@ import { MessageSenderType } from '../messages/entities/message.entity';
 
 @IncidenciasApiTags()
 @Controller('incidencias')
-@Throttle({ default: { limit: 20, ttl: 60 } })
+@Throttle({ default: { limit: 120, ttl: 60000 } })
 export class IncidenciasController {
   constructor(
     private readonly incidenciasService: IncidenciasService,
@@ -53,7 +53,7 @@ export class IncidenciasController {
 
   @Post()
   @Auth(ValidPermission.createIncidents)
-  @Throttle({ default: { limit: 5, ttl: 60 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseInterceptors(FilesInterceptor('images', 5))
   @CreateIncidenciaDoc()
   create(
@@ -231,7 +231,7 @@ export class IncidenciasController {
 
   @Post('client')
   @ClientAuth()
-  @Throttle({ default: { limit: 5, ttl: 60 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseInterceptors(FilesInterceptor('images', 5))
   @CreateIncidenciaClientDoc()
   createAsClient(
@@ -467,7 +467,7 @@ export class IncidenciasController {
 
   @Post('client/me/:id/messages/upload-image')
   @ClientAuth()
-  @Throttle({ default: { limit: 10, ttl: 60 } })
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @UseInterceptors(FilesInterceptor('images', 3))
   @ApiOperation({
     summary: 'Subir imágenes para adjuntar en mensaje',
@@ -502,7 +502,7 @@ export class IncidenciasController {
 
   @Post('client/me/:id/reupload-images')
   @ClientAuth()
-  @Throttle({ default: { limit: 3, ttl: 60 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseInterceptors(FilesInterceptor('images', 5))
   @ApiOperation({
     summary: 'Re-subir imágenes de evidencia',

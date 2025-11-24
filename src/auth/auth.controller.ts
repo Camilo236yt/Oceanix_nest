@@ -16,13 +16,13 @@ import { User } from '../users/entities/user.entity';
 import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 @AuthApiTags()
-@Throttle({ default: { limit: 200, ttl: 60000 } })
+@Throttle({ default: { limit: 60, ttl: 60000 } })
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @RegisterEnterpriseDoc()
-  @Throttle({ default: { limit: 200, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register-enterprise')
   async registerEnterprise(
     @Body() registerDto: RegisterEnterpriseDto
@@ -64,6 +64,7 @@ export class AuthController {
 
   @LoginDoc()
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseFilters(CustomBadRequestFilter)
   async login(
     @Body() loginDto: LoginDto,
@@ -89,6 +90,7 @@ export class AuthController {
 
   @GoogleLoginDoc()
   @Post('google-login')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async googleLogin(
     @Body() googleLoginDto: GoogleLoginDto,
     @Res({ passthrough: true }) res: Response
@@ -102,6 +104,7 @@ export class AuthController {
 
   @GoogleLoginClientDoc()
   @Post('google/client')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async googleLoginClient(
     @Body() googleLoginDto: GoogleLoginDto,
     @GetSubdomain() subdomain: string,

@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
 import type { PaginateQuery } from 'nestjs-paginate';
 
@@ -35,6 +36,7 @@ export class UsersController {
 
   @Post()
   @Auth(ValidPermission.createUsers)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @CreateUserDoc()
   async create(
     @Body() createUserDto: CreateUserDto,
@@ -122,6 +124,7 @@ export class UsersController {
 
   @Delete(':id')
   @Auth(ValidPermission.deleteUsers)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @DeleteUserDoc()
   async remove(@Param('id') id: string, @GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation
@@ -132,6 +135,7 @@ export class UsersController {
 
   @Patch('me/password')
   @Auth()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ChangePasswordDoc()
   async changePassword(@GetUser() user: User, @Body() changePasswordDto: ChangePasswordDto) {
     await this.usersService.changePassword(user.id, changePasswordDto);
