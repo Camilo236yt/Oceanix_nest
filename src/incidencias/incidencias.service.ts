@@ -273,7 +273,7 @@ export class IncidenciasService {
   async findOne(id: string, enterpriseId: string) {
     const incidencia = await this.incidenciaRepository.findOne({
       where: { id, enterpriseId },
-      relations: ['images'],
+      relations: ['images', 'assignedEmployee', 'createdBy'],
     });
 
     if (!incidencia) {
