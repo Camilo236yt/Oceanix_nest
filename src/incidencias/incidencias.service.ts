@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, forwardRef, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
@@ -15,6 +15,7 @@ import { EmployeeAssignmentService } from './services/employee-assignment.servic
 import { IncidenciaStatus } from './enums/incidencia.enums';
 import { INCIDENCIA_CONFIG, INCIDENCIA_MESSAGES } from './constants';
 import { createPaginationConfig } from '../common/helpers/pagination.config';
+import { MessagesGateway } from '../messages/messages.gateway';
 
 @Injectable()
 export class IncidenciasService {
@@ -25,6 +26,8 @@ export class IncidenciasService {
     private readonly incidentImageRepository: Repository<IncidentImage>,
     private readonly storageService: StorageService,
     private readonly employeeAssignmentService: EmployeeAssignmentService,
+    @Inject(forwardRef(() => MessagesGateway))
+    private readonly messagesGateway: MessagesGateway,
   ) {}
   
 
@@ -530,6 +533,15 @@ export class IncidenciasService {
       incidencia.canClientUploadImages = false;
       incidencia.imagesUploadAllowedUntil = null;
       await this.incidenciaRepository.save(incidencia);
+
+      // Emitir evento WebSocket para actualizar imágenes en tiempo real
+      const roomName = `incidencia:${incidenciaId}`;
+      this.messagesGateway.server.to(roomName).emit('imagesUploaded', {
+        incidenciaId,
+        images: uploadedImages,
+        imageCount: uploadedImages.length,
+        timestamp: new Date().toISOString(),
+      });
 
       return {
         message: 'Imágenes subidas exitosamente',
