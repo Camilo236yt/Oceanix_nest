@@ -20,7 +20,7 @@ import { User, UserType } from '../users/entities/user.entity';
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   enterpriseId?: string;
-  userType?: 'EMPLOYEE' | 'CLIENT';
+  userType?: UserType;
 }
 
 @WebSocketGateway({
@@ -83,7 +83,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       // Almacenar datos del usuario en el socket
       client.userId = user.id;
       client.enterpriseId = user.enterpriseId;
-      client.userType = user.userType === UserType.CLIENT ? 'CLIENT' : 'EMPLOYEE';
+      client.userType = user.userType;
 
       this.logger.log(`✅ User ${user.id} (${client.userType}) successfully connected with socket ${client.id}`);
     } catch (error) {
@@ -151,8 +151,16 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     incidenciaId: string,
     userId: string,
     enterpriseId: string,
-    userType: 'EMPLOYEE' | 'CLIENT',
+    userType: UserType,
   ): Promise<boolean> {
+    // SUPER_ADMIN tiene acceso a todas las incidencias
+    if (userType === UserType.SUPER_ADMIN) {
+      const incidencia = await this.incidenciaRepository.findOne({
+        where: { id: incidenciaId },
+      });
+      return !!incidencia;
+    }
+
     const incidencia = await this.incidenciaRepository.findOne({
       where: { id: incidenciaId, enterpriseId },
     });
@@ -162,12 +170,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
 
     // Si es cliente, debe ser el creador de la incidencia
-    if (userType === 'CLIENT') {
+    if (userType === UserType.CLIENT) {
       return incidencia.createdByUserId === userId;
     }
 
-    // Si es empleado, debe pertenecer a la misma empresa
-    // (opcionalmente, podríamos verificar si es el empleado asignado)
+    // Si es empleado/admin/supervisor, debe pertenecer a la misma empresa
+    // Los permisos específicos ya se validan en los guards HTTP
     return true;
   }
 
@@ -181,10 +189,17 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     // Validar que el usuario esté autenticado
-    if (!client.userId || !client.enterpriseId || !client.userType) {
+    if (!client.userId || !client.userType) {
       return {
         event: 'error',
         data: { message: 'Usuario no autenticado' },
+      };
+    }
+
+    if (client.userType !== UserType.SUPER_ADMIN && !client.enterpriseId) {
+      return {
+        event: 'error',
+        data: { message: 'Usuario sin empresa asociada' },
       };
     }
 
@@ -192,7 +207,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     const hasAccess = await this.validateIncidenciaAccess(
       data.incidenciaId,
       client.userId,
-      client.enterpriseId,
+      client.enterpriseId || '', // SUPER_ADMIN no tiene enterprise
       client.userType,
     );
 
@@ -255,16 +270,24 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     // Validar que el usuario esté autenticado
-    if (!client.userId || !client.enterpriseId || !client.userType) {
+    // SUPER_ADMIN no tiene enterpriseId, así que no lo validamos para ellos
+    if (!client.userId || !client.userType) {
       return {
         event: 'error',
         data: { message: 'Usuario no autenticado' },
       };
     }
 
+    if (client.userType !== UserType.SUPER_ADMIN && !client.enterpriseId) {
+      return {
+        event: 'error',
+        data: { message: 'Usuario sin empresa asociada' },
+      };
+    }
+
     try {
-      // Usar los datos del socket autenticado, no del payload
-      const senderType = client.userType === 'CLIENT'
+      // Determinar el tipo de remitente basado en el tipo de usuario
+      const senderType = client.userType === UserType.CLIENT
         ? MessageSenderType.CLIENT
         : MessageSenderType.EMPLOYEE;
 
@@ -280,8 +303,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       const roomName = `incidencia:${data.incidenciaId}`;
 
-      // Broadcast message to all users in the room
-      this.server.to(roomName).emit('newMessage', {
+      // Broadcast message to ALL users in the room (including sender)
+      this.server.in(roomName).emit('newMessage', {
         message,
       });
 
