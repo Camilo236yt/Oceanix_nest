@@ -6,15 +6,15 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EnterpriseDocument } from './entities/enterprise-document.entity';
-import { UploadDocumentDto } from './dto/upload-document.dto';
 import { DocumentStatus, DocumentType } from './enums/verification-status.enum';
+import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @Injectable()
 export class EnterpriseDocumentService {
   constructor(
     @InjectRepository(EnterpriseDocument)
     private readonly documentRepository: Repository<EnterpriseDocument>,
-  ) {}
+  ) { }
 
   /**
    * Create a new enterprise document
@@ -67,6 +67,7 @@ export class EnterpriseDocumentService {
     return saved;
   }
 
+
   /**
    * Get all documents for an enterprise
    */
@@ -95,54 +96,7 @@ export class EnterpriseDocumentService {
     return document;
   }
 
-  /**
-   * Approve a document (SUPER_ADMIN only)
-   */
-  async approveDocument(
-    documentId: string,
-    approvedBy: string,
-  ): Promise<EnterpriseDocument> {
-    const document = await this.documentRepository.findOne({
-      where: { id: documentId },
-    });
 
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    if (document.status === DocumentStatus.APPROVED) {
-      throw new BadRequestException('Document is already approved');
-    }
-
-    document.status = DocumentStatus.APPROVED;
-    document.approvedBy = approvedBy;
-    document.approvalDate = new Date();
-    document.rejectionReason = undefined;
-
-    return await this.documentRepository.save(document);
-  }
-
-  /**
-   * Reject a document (SUPER_ADMIN only)
-   */
-  async rejectDocument(
-    documentId: string,
-    rejectionReason: string,
-  ): Promise<EnterpriseDocument> {
-    const document = await this.documentRepository.findOne({
-      where: { id: documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    document.status = DocumentStatus.REJECTED;
-    document.rejectionReason = rejectionReason;
-    document.approvalDate = new Date();
-
-    return await this.documentRepository.save(document);
-  }
 
   /**
    * Soft delete a document
@@ -157,16 +111,7 @@ export class EnterpriseDocumentService {
     await this.documentRepository.save(document);
   }
 
-  /**
-   * Get all pending documents across all enterprises (SUPER_ADMIN only)
-   */
-  async getAllPendingDocuments(): Promise<EnterpriseDocument[]> {
-    return await this.documentRepository.find({
-      where: { status: DocumentStatus.PENDING, isActive: true },
-      relations: ['enterprise'],
-      order: { createdAt: 'ASC' },
-    });
-  }
+
 
   /**
    * Get documents by type for an enterprise
