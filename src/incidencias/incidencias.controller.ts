@@ -385,12 +385,27 @@ export class IncidenciasController {
     @GetUser('id') userId: string,
     @Body() requestDto: RequestImageReuploadDto,
   ) {
-    return await this.messagesService.requestImageReupload(
+    const message = await this.messagesService.requestImageReupload(
       id,
       userId,
       requestDto.message,
       requestDto.hoursAllowed,
     );
+
+    // Emitir evento WebSocket para notificar que se solicitó re-subida de imágenes
+    const roomName = `incidencia:${id}`;
+    this.messagesGateway.server.in(roomName).emit('imageReuploadRequested', {
+      message,
+      incidenciaId: id,
+    });
+
+    // También emitir evento para actualizar el estado de la incidencia (permiso habilitado)
+    this.messagesGateway.server.in(roomName).emit('incidenciaUpdated', {
+      incidenciaId: id,
+      canClientUploadImages: true,
+    });
+
+    return message;
   }
 
   // ==================== ENDPOINTS DE MENSAJES (CLIENTES) ====================
