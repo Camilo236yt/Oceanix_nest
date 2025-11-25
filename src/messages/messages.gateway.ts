@@ -396,6 +396,42 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       this.logger.log(`✅ Message sent to room ${roomName} by user ${client.userId} (${client.userType})`);
 
+      // Send notification to assigned employee if sender is CLIENT and employee is not in room
+      if (senderType === MessageSenderType.CLIENT) {
+        const incidencia = await this.incidenciaRepository.findOne({
+          where: { id: data.incidenciaId },
+          select: ['assignedEmployeeId', 'name'],
+        });
+
+        if (incidencia?.assignedEmployeeId) {
+          // Check if employee is currently in the incident room
+          const employeeInRoom = socketsInRoom.some(
+            (socket: any) => socket.userId === incidencia.assignedEmployeeId
+          );
+
+          // Only notify if employee is NOT viewing this incident
+          if (!employeeInRoom) {
+            await this.emitNotificationToUser(
+              incidencia.assignedEmployeeId,
+              'newMessageNotification',
+              {
+                incidenciaId: data.incidenciaId,
+                incidenciaName: incidencia.name,
+                message: {
+                  id: message.id,
+                  content: data.content,
+                  senderType: MessageSenderType.CLIENT,
+                  timestamp: message.createdAt,
+                },
+              }
+            );
+            this.logger.log(`🔔 Notification sent to employee ${incidencia.assignedEmployeeId} for incidencia ${data.incidenciaId}`);
+          } else {
+            this.logger.log(`👀 Employee ${incidencia.assignedEmployeeId} is viewing incident - no notification sent`);
+          }
+        }
+      }
+
       // Retornar directamente el mensaje para que NestJS ejecute el callback acknowledgment
       // (sin 'event' para que sea acknowledgment, no un nuevo emit)
       return { message };
