@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -350,8 +351,15 @@ export class IncidenciasController {
   async sendMessage(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
     @Body() createMessageDto: CreateMessageDto,
   ) {
+    // Verificar que la incidencia no esté resuelta
+    const incidencia = await this.incidenciasService.findOne(id, enterpriseId);
+    if (incidencia.status === 'RESOLVED') {
+      throw new BadRequestException('No se pueden enviar mensajes a una incidencia resuelta');
+    }
+
     // Crear mensaje en la base de datos
     const message = await this.messagesService.create(
       id,
@@ -479,7 +487,12 @@ export class IncidenciasController {
     @Body() createMessageDto: CreateMessageDto,
   ) {
     // Verificar que el cliente tiene acceso a esta incidencia
-    await this.incidenciasService.findOneByClient(id, enterpriseId, userId);
+    const incidencia = await this.incidenciasService.findOneByClient(id, enterpriseId, userId);
+
+    // Verificar que la incidencia no esté resuelta
+    if (incidencia.status === 'RESOLVED') {
+      throw new BadRequestException('No se pueden enviar mensajes a una incidencia resuelta');
+    }
 
     // Crear mensaje en la base de datos
     const message = await this.messagesService.create(
@@ -496,6 +509,24 @@ export class IncidenciasController {
     this.messagesGateway.server.in(roomName).emit('newMessage', {
       message,
     });
+
+    // Enviar notificación personal al empleado asignado
+    if (message && incidencia.assignedEmployeeId) {
+      this.messagesGateway.emitNotificationToUser(
+        incidencia.assignedEmployeeId,
+        'newMessageNotification',
+        {
+          incidenciaId: id,
+          message: {
+            id: message.id,
+            content: message.content,
+            createdAt: message.createdAt,
+          },
+          from: 'client',
+          incidenciaTitle: incidencia.name || 'Incidencia sin título',
+        },
+      );
+    }
 
     return message;
   }

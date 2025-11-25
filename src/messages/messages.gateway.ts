@@ -85,6 +85,11 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       client.enterpriseId = user.enterpriseId;
       client.userType = user.userType;
 
+      // Unir al usuario a su sala personal para notificaciones
+      const personalRoom = `user:${user.id}`;
+      client.join(personalRoom);
+      this.logger.log(`👤 User ${user.id} joined personal room: ${personalRoom}`);
+
       this.logger.log(`✅ User ${user.id} (${client.userType}) successfully connected with socket ${client.id}`);
     } catch (error) {
       this.logger.error(`❌ Error handling connection for client ${client.id}:`, error);
@@ -313,6 +318,26 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
 
     try {
+      // Verificar que la incidencia no esté resuelta
+      const incidencia = await this.incidenciaRepository.findOne({
+        where: { id: data.incidenciaId },
+        select: ['id', 'status'],
+      });
+
+      if (!incidencia) {
+        return {
+          event: 'error',
+          data: { message: 'Incidencia no encontrada' },
+        };
+      }
+
+      if (incidencia.status === 'RESOLVED') {
+        return {
+          event: 'error',
+          data: { message: 'No se pueden enviar mensajes a una incidencia resuelta' },
+        };
+      }
+
       // Determinar el tipo de remitente basado en el tipo de usuario
       const senderType = client.userType === UserType.CLIENT
         ? MessageSenderType.CLIENT
@@ -373,6 +398,20 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     });
 
     this.logger.log(`Image reupload request sent to room ${roomName}`);
+  }
+
+  /**
+   * Send notification to a specific user
+   * Uses personal room pattern: user:{userId}
+   */
+  emitNotificationToUser(
+    userId: string,
+    eventName: string,
+    data: any,
+  ) {
+    const personalRoom = `user:${userId}`;
+    this.server.to(personalRoom).emit(eventName, data);
+    this.logger.log(`🔔 Notification "${eventName}" sent to user ${userId} in room ${personalRoom}`);
   }
 
   /**

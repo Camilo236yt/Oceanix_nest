@@ -49,6 +49,6 @@ export const ALERT_CONFIG = {
 
 // Configuración del cronjob
 export const CRON_CONFIG = {
-  // Se puede cambiar a EVERY_HOUR para testing
-  ALERT_CHECK_SCHEDULE: '0 9 * * *', // Todos los días a las 9:00 AM
+  // Ejecutar cada 5 minutos para monitoreo en tiempo real
+  ALERT_CHECK_SCHEDULE: '*/5 * * * *', // Cada 5 minutos
 };
