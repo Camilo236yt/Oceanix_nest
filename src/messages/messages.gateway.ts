@@ -396,10 +396,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       this.logger.log(`✅ Message sent to room ${roomName} by user ${client.userId} (${client.userType})`);
 
-      return {
-        event: 'messageSent',
-        data: { message },
-      };
+      // Retornar directamente el mensaje para que NestJS ejecute el callback acknowledgment
+      // (sin 'event' para que sea acknowledgment, no un nuevo emit)
+      return { message };
     } catch (error) {
       this.logger.error(`Error sending message: ${error.message}`);
       return {
