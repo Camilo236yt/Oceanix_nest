@@ -554,6 +554,16 @@ export class IncidenciasController {
     @UploadedFiles() images: Express.Multer.File[],
   ) {
     // Re-subir imágenes con validación de permisos
-    return await this.incidenciasService.reuploadImages(id, enterpriseId, userId, images);
+    const result = await this.incidenciasService.reuploadImages(id, enterpriseId, userId, images);
+
+    // Emitir evento WebSocket para notificar que se subieron nuevas imágenes
+    const roomName = `incidencia:${id}`;
+    this.messagesGateway.server.in(roomName).emit('imagesUploaded', {
+      incidenciaId: id,
+      images: result.images,
+      imageCount: result.imageCount,
+    });
+
+    return result;
   }
 }
