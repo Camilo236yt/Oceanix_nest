@@ -30,13 +30,13 @@ export const INCIDENCIA_MESSAGES = {
   ASSIGNED_SUCCESSFULLY: 'Incidencia asignada exitosamente',
 };
 
-// Configuración de alertas/semáforo
+// Configuración de alertas/semáforo (basado en MINUTOS desde creación)
 export const ALERT_CONFIG = {
-  // Rangos de días para cada nivel
-  GREEN_MAX_DAYS: 5,
-  YELLOW_MAX_DAYS: 10,
-  ORANGE_MAX_DAYS: 12,
-  RED_MIN_DAYS: 13,
+  // Rangos de minutos para cada nivel (desde createdAt)
+  GREEN_MAX_MINUTES: 1,    // 0-1 minutos: Verde (recién creada)
+  YELLOW_MAX_MINUTES: 3,   // 2-3 minutos: Amarillo (advertencia)
+  ORANGE_MAX_MINUTES: 5,   // 4-5 minutos: Naranja (urgente)
+  RED_MIN_MINUTES: 6,      // 6+ minutos: Rojo (crítico)
 
   // Mensajes de notificación
   NOTIFICATION_TITLES: {
@@ -49,6 +49,6 @@ export const ALERT_CONFIG = {
 
 // Configuración del cronjob
 export const CRON_CONFIG = {
-  // Ejecutar cada 5 minutos para monitoreo en tiempo real
-  ALERT_CHECK_SCHEDULE: '*/5 * * * *', // Cada 5 minutos
+  // Ejecutar cada 1 minuto para monitoreo en tiempo real
+  ALERT_CHECK_SCHEDULE: '*/1 * * * *', // Cada 1 minuto
 };

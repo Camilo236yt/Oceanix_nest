@@ -1,29 +1,29 @@
 import { ALERT_CONFIG } from '../constants';
 
 /**
- * Niveles de alerta para incidencias basado en días sin atender
+ * Niveles de alerta para incidencias basado en minutos desde creación
  * Sistema de semáforo para priorización
  */
 export enum AlertLevel {
-  // 0-5 días - Sin problemas
+  // 0-1 minutos - Sin problemas (recién creada)
   GREEN = 'GREEN',
 
-  // 6-10 días - Advertencia
+  // 2-3 minutos - Advertencia
   YELLOW = 'YELLOW',
 
-  // 11-12 días - Urgente
+  // 4-5 minutos - Urgente
   ORANGE = 'ORANGE',
 
-  // 13-15 días - Crítico
+  // 6+ minutos - Crítico
   RED = 'RED',
 }
 
 /**
- * Determina el nivel de alerta basado en los días sin actualización
+ * Determina el nivel de alerta basado en los minutos transcurridos desde creación
  */
-export function getAlertLevel(daysSinceUpdate: number): AlertLevel {
-  if (daysSinceUpdate <= ALERT_CONFIG.GREEN_MAX_DAYS) return AlertLevel.GREEN;
-  if (daysSinceUpdate <= ALERT_CONFIG.YELLOW_MAX_DAYS) return AlertLevel.YELLOW;
-  if (daysSinceUpdate <= ALERT_CONFIG.ORANGE_MAX_DAYS) return AlertLevel.ORANGE;
+export function getAlertLevel(minutesSinceCreation: number): AlertLevel {
+  if (minutesSinceCreation <= ALERT_CONFIG.GREEN_MAX_MINUTES) return AlertLevel.GREEN;
+  if (minutesSinceCreation <= ALERT_CONFIG.YELLOW_MAX_MINUTES) return AlertLevel.YELLOW;
+  if (minutesSinceCreation <= ALERT_CONFIG.ORANGE_MAX_MINUTES) return AlertLevel.ORANGE;
   return AlertLevel.RED;
 }

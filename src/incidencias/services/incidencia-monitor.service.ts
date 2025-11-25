@@ -21,8 +21,8 @@ export class IncidenciaMonitorService {
   ) {}
 
   /**
-   * Cronjob que se ejecuta cada día a las 9:00 AM
-   * Actualiza niveles de alerta y notifica según el semáforo
+   * Cronjob que se ejecuta cada minuto
+   * Actualiza niveles de alerta basado en minutos desde creación y notifica según el semáforo
    */
   @Cron(CRON_CONFIG.ALERT_CHECK_SCHEDULE)
   async updateAlertLevelsAndNotify(): Promise<void> {
@@ -53,8 +53,8 @@ export class IncidenciaMonitorService {
       let notifiedCount = 0;
 
       for (const incidencia of incidencias) {
-        const daysSinceUpdate = this.calculateDaysSinceUpdate(incidencia.updatedAt);
-        const newAlertLevel = getAlertLevel(daysSinceUpdate);
+        const minutesSinceCreation = this.calculateMinutesSinceCreation(incidencia.createdAt);
+        const newAlertLevel = getAlertLevel(minutesSinceCreation);
         const previousLevel = incidencia.alertLevel;
 
         // Actualizar nivel de alerta si cambió
@@ -71,10 +71,10 @@ export class IncidenciaMonitorService {
             `   Nivel anterior: ${this.getAlertEmoji(previousLevel)} ${previousLevel} -> Nivel nuevo: ${this.getAlertEmoji(newAlertLevel)} ${newAlertLevel}`,
           );
           this.logger.warn(
-            `   Días sin actualización: ${daysSinceUpdate} días`,
+            `   Minutos desde creación: ${minutesSinceCreation} minutos`,
           );
           this.logger.warn(
-            `   Última actualización: ${incidencia.updatedAt.toLocaleString('es-ES')}`,
+            `   Fecha de creación: ${incidencia.createdAt.toLocaleString('es-ES')}`,
           );
           this.logger.warn(
             `   Empleado asignado: ${incidencia.assignedEmployeeId || 'Sin asignar'}`,
@@ -84,7 +84,7 @@ export class IncidenciaMonitorService {
 
         // Notificar si tiene empleado asignado y no está en verde
         if (incidencia.assignedEmployeeId && newAlertLevel !== AlertLevel.GREEN) {
-          await this.sendAlertNotification(incidencia, daysSinceUpdate, newAlertLevel);
+          await this.sendAlertNotification(incidencia, minutesSinceCreation, newAlertLevel);
           notifiedCount++;
 
           this.logger.log(
@@ -114,14 +114,14 @@ export class IncidenciaMonitorService {
    */
   private async sendAlertNotification(
     incidencia: Incidencia,
-    daysSinceUpdate: number,
+    minutesSinceCreation: number,
     alertLevel: AlertLevel,
   ): Promise<void> {
     if (!incidencia.assignedEmployeeId) {
       return;
     }
 
-    const { title, priority } = this.getNotificationConfig(alertLevel, daysSinceUpdate);
+    const { title, priority } = this.getNotificationConfig(alertLevel, minutesSinceCreation);
 
     try {
       await this.notificationService.sendToUser(
@@ -129,13 +129,13 @@ export class IncidenciaMonitorService {
         incidencia.enterpriseId,
         {
           title,
-          message: `La incidencia "${incidencia.name}" lleva ${daysSinceUpdate} días sin actualización.`,
+          message: `La incidencia "${incidencia.name}" lleva ${minutesSinceCreation} minutos desde su creación.`,
           type: NotificationType.TICKET_REMINDER,
           priority,
           metadata: {
             incidenciaId: incidencia.id,
             incidenciaName: incidencia.name,
-            daysSinceUpdate,
+            minutesSinceCreation,
             alertLevel,
             status: incidencia.status,
           },
@@ -159,7 +159,7 @@ export class IncidenciaMonitorService {
    */
   private getNotificationConfig(
     alertLevel: AlertLevel,
-    days: number,
+    minutes: number,
   ): { title: string; priority: NotificationPriority } {
     switch (alertLevel) {
       case AlertLevel.YELLOW:
@@ -186,13 +186,13 @@ export class IncidenciaMonitorService {
   }
 
   /**
-   * Calcula los días transcurridos desde la última actualización
+   * Calcula los minutos transcurridos desde la creación de la incidencia
    */
-  private calculateDaysSinceUpdate(updatedAt: Date): number {
+  private calculateMinutesSinceCreation(createdAt: Date): number {
     const now = new Date();
-    const diffTime = Math.abs(now.getTime() - updatedAt.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    const diffTime = Math.abs(now.getTime() - createdAt.getTime());
+    const diffMinutes = Math.floor(diffTime / (1000 * 60)); // Convertir ms a minutos
+    return diffMinutes;
   }
 
   /**
