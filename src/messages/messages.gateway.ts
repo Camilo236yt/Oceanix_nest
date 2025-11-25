@@ -105,22 +105,34 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Extrae el token JWT del handshake
    */
   private extractToken(client: Socket): string | null {
-    this.logger.debug(`Extracting token from handshake. Query: ${JSON.stringify(client.handshake.query)}`);
-    this.logger.debug(`Auth object: ${JSON.stringify(client.handshake.auth)}`);
-    this.logger.debug(`Authorization header: ${client.handshake.headers?.authorization}`);
-    this.logger.debug(`Cookies: ${client.handshake.headers?.cookie}`);
+    this.logger.log('=== 🔍 EXTRACTING TOKEN FROM HANDSHAKE ===');
+    this.logger.log(`Query params: ${JSON.stringify(client.handshake.query)}`);
+    this.logger.log(`Auth object: ${JSON.stringify(client.handshake.auth)}`);
+    this.logger.log(`Authorization header: ${client.handshake.headers?.authorization || 'NOT PRESENT'}`);
+
+    const cookieHeader = client.handshake.headers?.cookie;
+    this.logger.log(`Raw Cookie Header: ${cookieHeader || 'NOT PRESENT'}`);
+
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+      this.logger.log(`📦 Parsed cookies (${cookies.length} total):`);
+      cookies.forEach(cookie => {
+        const [name, value] = cookie.split('=');
+        this.logger.log(`   - ${name}: ${value ? `${value.substring(0, 30)}...` : 'EMPTY'}`);
+      });
+    }
 
     // 1. Intentar extraer del auth object (empleados/admin)
     const authToken = client.handshake.auth?.token;
     if (authToken && typeof authToken === 'string') {
-      this.logger.debug(`Token found in auth object: ${authToken.substring(0, 20)}...`);
+      this.logger.log(`✅ Token found in auth object: ${authToken.substring(0, 20)}...`);
       return authToken;
     }
 
     // 2. Intentar extraer del query parameter
     const tokenFromQuery = client.handshake.query?.token;
     if (tokenFromQuery && typeof tokenFromQuery === 'string') {
-      this.logger.debug(`Token found in query: ${tokenFromQuery.substring(0, 20)}...`);
+      this.logger.log(`✅ Token found in query: ${tokenFromQuery.substring(0, 20)}...`);
       return tokenFromQuery;
     }
 
@@ -129,15 +141,13 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     if (authHeader && typeof authHeader === 'string') {
       const [type, token] = authHeader.split(' ');
       if (type === 'Bearer' && token) {
-        this.logger.debug(`Token found in authorization header: ${token.substring(0, 20)}...`);
+        this.logger.log(`✅ Token found in authorization header: ${token.substring(0, 20)}...`);
         return token;
       }
     }
 
     // 4. Intentar extraer de las cookies (clientes)
-    const cookieHeader = client.handshake.headers?.cookie;
     if (cookieHeader && typeof cookieHeader === 'string') {
-      this.logger.debug(`Parsing cookies: ${cookieHeader}`);
       const cookies = cookieHeader.split(';').map(c => c.trim());
 
       // Buscar la cookie 'authToken' (nombre de la cookie del sistema)
@@ -145,16 +155,17 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         if (cookie.startsWith('authToken=')) {
           const token = cookie.substring('authToken='.length);
           if (token) {
-            this.logger.debug(`🍪 Token found in authToken cookie: ${token.substring(0, 20)}...`);
+            this.logger.log(`✅ 🍪 Token found in authToken cookie: ${token.substring(0, 20)}...`);
             return token;
           }
         }
       }
 
-      this.logger.debug('Cookie authToken not found in:', cookies.map(c => c.split('=')[0]).join(', '));
+      this.logger.warn(`❌ Cookie "authToken" not found. Available cookies: ${cookies.map(c => c.split('=')[0]).join(', ')}`);
     }
 
-    this.logger.warn('No token found in any location (auth, query, header, cookies)');
+    this.logger.warn('❌ No token found in any location (auth, query, header, cookies)');
+    this.logger.log('=== END TOKEN EXTRACTION ===');
     return null;
   }
 
