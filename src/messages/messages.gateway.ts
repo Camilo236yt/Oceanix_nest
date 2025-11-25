@@ -222,7 +222,13 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     const roomName = `incidencia:${data.incidenciaId}`;
     await client.join(roomName);
 
-    this.logger.log(`User ${client.userId} (${client.userType}) joined room ${roomName}`);
+    // Log de los sockets en la sala después de unirse
+    const socketsInRoom = await this.server.in(roomName).fetchSockets();
+    this.logger.log(`✅ User ${client.userId} (${client.userType}) joined room ${roomName}`);
+    this.logger.log(`📊 Room ${roomName} now has ${socketsInRoom.length} socket(s):`);
+    socketsInRoom.forEach((socket: any) => {
+      this.logger.log(`  - Socket ${socket.id} (User: ${socket.userId}, Type: ${socket.userType})`);
+    });
 
     return {
       event: 'joinedRoom',
@@ -303,12 +309,19 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       const roomName = `incidencia:${data.incidenciaId}`;
 
+      // Log de los sockets en la sala
+      const socketsInRoom = await this.server.in(roomName).fetchSockets();
+      this.logger.log(`📊 Room ${roomName} has ${socketsInRoom.length} sockets connected`);
+      socketsInRoom.forEach((socket: any) => {
+        this.logger.log(`  - Socket ${socket.id} (User: ${socket.userId}, Type: ${socket.userType})`);
+      });
+
       // Broadcast message to ALL users in the room (including sender)
       this.server.in(roomName).emit('newMessage', {
         message,
       });
 
-      this.logger.log(`Message sent to room ${roomName} by user ${client.userId} (${client.userType})`);
+      this.logger.log(`✅ Message sent to room ${roomName} by user ${client.userId} (${client.userType})`);
 
       return {
         event: 'messageSent',
