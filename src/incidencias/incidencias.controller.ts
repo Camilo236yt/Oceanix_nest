@@ -230,6 +230,21 @@ export class IncidenciasController {
     res.send(file.data);
   }
 
+  @Get('images/:imageId/client')
+  @ClientAuth()
+  @GetImageByIdDoc()
+  async getImageByIdClient(
+    @Param('imageId', new ParseUUIDPipe({ version: '4' })) imageId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+    @Res() res: Response,
+  ) {
+    // Endpoint para clientes con autenticación de cookies
+    const file = await this.incidenciasService.getImageById(imageId, enterpriseId);
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+    res.send(file.data);
+  }
+
   // ==================== ENDPOINTS PARA CLIENTES ====================
 
   @Post('client')
