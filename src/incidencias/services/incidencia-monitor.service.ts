@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -9,6 +9,7 @@ import { NotificationService } from '../../notification/notification.service';
 import { NotificationType } from '../../notification/enums/notification-type.enum';
 import { NotificationPriority } from '../../notification/enums/notification-priority.enum';
 import { ALERT_CONFIG, CRON_CONFIG } from '../constants';
+import { MessagesGateway } from '../../messages/messages.gateway';
 
 @Injectable()
 export class IncidenciaMonitorService {
@@ -18,6 +19,8 @@ export class IncidenciaMonitorService {
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => MessagesGateway))
+    private readonly messagesGateway: MessagesGateway,
   ) {}
 
   /**
@@ -80,6 +83,9 @@ export class IncidenciaMonitorService {
             `   Empleado asignado: ${incidencia.assignedEmployeeId || 'Sin asignar'}`,
           );
           this.logger.warn('─'.repeat(80));
+
+          // Emitir evento WebSocket a la sala de la incidencia para actualizar en tiempo real
+          this.emitAlertLevelChange(incidencia.id, previousLevel, newAlertLevel, minutesSinceCreation);
         }
 
         // Notificar si tiene empleado asignado y no está en verde
@@ -219,5 +225,30 @@ export class IncidenciaMonitorService {
       default:
         return '⚪';
     }
+  }
+
+  /**
+   * Emite evento WebSocket cuando cambia el nivel de alerta
+   */
+  private emitAlertLevelChange(
+    incidenciaId: string,
+    previousLevel: AlertLevel,
+    newLevel: AlertLevel,
+    minutesSinceCreation: number,
+  ): void {
+    const roomName = `incidencia:${incidenciaId}`;
+
+    this.messagesGateway.server.to(roomName).emit('alertLevelChanged', {
+      incidenciaId,
+      previousLevel,
+      newLevel,
+      minutesSinceCreation,
+      emoji: this.getAlertEmoji(newLevel),
+      timestamp: new Date().toISOString(),
+    });
+
+    this.logger.log(
+      `📡 WebSocket: Alert level change emitted to room ${roomName} (${this.getAlertEmoji(previousLevel)} ${previousLevel} -> ${this.getAlertEmoji(newLevel)} ${newLevel})`,
+    );
   }
 }
