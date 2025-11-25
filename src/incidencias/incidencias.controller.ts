@@ -354,11 +354,9 @@ export class IncidenciasController {
     @GetUser('enterpriseId') enterpriseId: string,
     @Body() createMessageDto: CreateMessageDto,
   ) {
-    // Verificar que la incidencia no esté resuelta
+    // Verificar que la incidencia esté activa y permita mensajes
     const incidencia = await this.incidenciasService.findOne(id, enterpriseId);
-    if (incidencia.status === 'RESOLVED') {
-      throw new BadRequestException('No se pueden enviar mensajes a una incidencia resuelta');
-    }
+    this.validateIncidenciaCanReceiveMessages(incidencia);
 
     // Crear mensaje en la base de datos
     const message = await this.messagesService.create(
@@ -489,10 +487,8 @@ export class IncidenciasController {
     // Verificar que el cliente tiene acceso a esta incidencia
     const incidencia = await this.incidenciasService.findOneByClient(id, enterpriseId, userId);
 
-    // Verificar que la incidencia no esté resuelta
-    if (incidencia.status === 'RESOLVED') {
-      throw new BadRequestException('No se pueden enviar mensajes a una incidencia resuelta');
-    }
+    // Verificar que la incidencia esté activa y permita mensajes
+    this.validateIncidenciaCanReceiveMessages(incidencia);
 
     // Crear mensaje en la base de datos
     const message = await this.messagesService.create(
@@ -618,5 +614,25 @@ export class IncidenciasController {
     });
 
     return result;
+  }
+
+  /**
+   * Valida que una incidencia pueda recibir mensajes
+   * @throws BadRequestException si la incidencia no puede recibir mensajes
+   */
+  private validateIncidenciaCanReceiveMessages(incidencia: any): void {
+    // Verificar si está desactivada
+    if (!incidencia.isActive) {
+      throw new BadRequestException('No se pueden enviar mensajes a una incidencia desactivada');
+    }
+
+    // Verificar el estado
+    if (incidencia.status === 'RESOLVED') {
+      throw new BadRequestException('No se pueden enviar mensajes a una incidencia resuelta');
+    }
+
+    if (incidencia.status === 'CLOSED') {
+      throw new BadRequestException('No se pueden enviar mensajes a una incidencia cerrada');
+    }
   }
 }

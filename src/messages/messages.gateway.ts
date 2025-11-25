@@ -318,10 +318,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
 
     try {
-      // Verificar que la incidencia no esté resuelta
+      // Verificar que la incidencia puede recibir mensajes
       const incidencia = await this.incidenciaRepository.findOne({
         where: { id: data.incidenciaId },
-        select: ['id', 'status'],
+        select: ['id', 'status', 'isActive'],
       });
 
       if (!incidencia) {
@@ -331,10 +331,26 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         };
       }
 
+      // Validar que está activa
+      if (!incidencia.isActive) {
+        return {
+          event: 'error',
+          data: { message: 'No se pueden enviar mensajes a una incidencia desactivada' },
+        };
+      }
+
+      // Validar el estado
       if (incidencia.status === 'RESOLVED') {
         return {
           event: 'error',
           data: { message: 'No se pueden enviar mensajes a una incidencia resuelta' },
+        };
+      }
+
+      if (incidencia.status === 'CLOSED') {
+        return {
+          event: 'error',
+          data: { message: 'No se pueden enviar mensajes a una incidencia cerrada' },
         };
       }
 
