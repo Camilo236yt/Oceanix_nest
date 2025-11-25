@@ -103,15 +103,23 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.logger.debug(`Extracting token from handshake. Query: ${JSON.stringify(client.handshake.query)}`);
     this.logger.debug(`Auth object: ${JSON.stringify(client.handshake.auth)}`);
     this.logger.debug(`Authorization header: ${client.handshake.headers?.authorization}`);
+    this.logger.debug(`Cookies: ${client.handshake.headers?.cookie}`);
 
-    // Intentar extraer del query parameter
+    // 1. Intentar extraer del auth object (empleados/admin)
+    const authToken = client.handshake.auth?.token;
+    if (authToken && typeof authToken === 'string') {
+      this.logger.debug(`Token found in auth object: ${authToken.substring(0, 20)}...`);
+      return authToken;
+    }
+
+    // 2. Intentar extraer del query parameter
     const tokenFromQuery = client.handshake.query?.token;
     if (tokenFromQuery && typeof tokenFromQuery === 'string') {
       this.logger.debug(`Token found in query: ${tokenFromQuery.substring(0, 20)}...`);
       return tokenFromQuery;
     }
 
-    // Intentar extraer del header de autorización
+    // 3. Intentar extraer del header de autorización
     const authHeader = client.handshake.headers?.authorization;
     if (authHeader && typeof authHeader === 'string') {
       const [type, token] = authHeader.split(' ');
@@ -121,14 +129,27 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
     }
 
-    // Intentar extraer del auth object
-    const authToken = client.handshake.auth?.token;
-    if (authToken && typeof authToken === 'string') {
-      this.logger.debug(`Token found in auth object: ${authToken.substring(0, 20)}...`);
-      return authToken;
+    // 4. Intentar extraer de las cookies (clientes)
+    const cookieHeader = client.handshake.headers?.cookie;
+    if (cookieHeader && typeof cookieHeader === 'string') {
+      this.logger.debug(`Parsing cookies: ${cookieHeader}`);
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+
+      // Buscar la cookie 'authToken' (nombre de la cookie del sistema)
+      for (const cookie of cookies) {
+        if (cookie.startsWith('authToken=')) {
+          const token = cookie.substring('authToken='.length);
+          if (token) {
+            this.logger.debug(`🍪 Token found in authToken cookie: ${token.substring(0, 20)}...`);
+            return token;
+          }
+        }
+      }
+
+      this.logger.debug('Cookie authToken not found in:', cookies.map(c => c.split('=')[0]).join(', '));
     }
 
-    this.logger.warn('No token found in any location');
+    this.logger.warn('No token found in any location (auth, query, header, cookies)');
     return null;
   }
 
