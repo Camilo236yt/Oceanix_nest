@@ -26,7 +26,10 @@ export class IncidenciaMonitorService {
    */
   @Cron(CRON_CONFIG.ALERT_CHECK_SCHEDULE)
   async updateAlertLevelsAndNotify(): Promise<void> {
-    this.logger.log('Starting alert levels update and notifications...');
+    const startTime = new Date();
+    this.logger.log('═'.repeat(80));
+    this.logger.log(`⏰ CRONJOB INICIADO - ${startTime.toLocaleString('es-ES')}`);
+    this.logger.log('═'.repeat(80));
 
     try {
       // Buscar todas las incidencias activas pendientes o en progreso
@@ -38,11 +41,13 @@ export class IncidenciaMonitorService {
       });
 
       if (incidencias.length === 0) {
-        this.logger.log('No active incidencias to process');
+        this.logger.log('✅ No hay incidencias activas para procesar');
+        this.logger.log('═'.repeat(80));
         return;
       }
 
-      this.logger.log(`Processing ${incidencias.length} incidencias`);
+      this.logger.log(`📊 Procesando ${incidencias.length} incidencia(s) activa(s)...`);
+      this.logger.log('─'.repeat(80));
 
       let updatedCount = 0;
       let notifiedCount = 0;
@@ -58,23 +63,49 @@ export class IncidenciaMonitorService {
           await this.incidenciaRepository.save(incidencia);
           updatedCount++;
 
-          this.logger.debug(
-            `Incidencia ${incidencia.id}: ${previousLevel} -> ${newAlertLevel} (${daysSinceUpdate} days)`,
+          // Log detallado del cambio de nivel
+          this.logger.warn(
+            `🚨 ALERTA CAMBIADA - Incidencia: "${incidencia.name}" (ID: ${incidencia.id})`,
           );
+          this.logger.warn(
+            `   Nivel anterior: ${this.getAlertEmoji(previousLevel)} ${previousLevel} -> Nivel nuevo: ${this.getAlertEmoji(newAlertLevel)} ${newAlertLevel}`,
+          );
+          this.logger.warn(
+            `   Días sin actualización: ${daysSinceUpdate} días`,
+          );
+          this.logger.warn(
+            `   Última actualización: ${incidencia.updatedAt.toLocaleString('es-ES')}`,
+          );
+          this.logger.warn(
+            `   Empleado asignado: ${incidencia.assignedEmployeeId || 'Sin asignar'}`,
+          );
+          this.logger.warn('─'.repeat(80));
         }
 
         // Notificar si tiene empleado asignado y no está en verde
         if (incidencia.assignedEmployeeId && newAlertLevel !== AlertLevel.GREEN) {
           await this.sendAlertNotification(incidencia, daysSinceUpdate, newAlertLevel);
           notifiedCount++;
+
+          this.logger.log(
+            `📧 Notificación enviada al empleado ${incidencia.assignedEmployeeId} - Incidencia: "${incidencia.name}" (${this.getAlertEmoji(newAlertLevel)} ${newAlertLevel})`,
+          );
         }
       }
 
-      this.logger.log(
-        `Alert levels update completed: ${updatedCount} updated, ${notifiedCount} notifications sent`,
-      );
+      const endTime = new Date();
+      const duration = endTime.getTime() - startTime.getTime();
+
+      this.logger.log('─'.repeat(80));
+      this.logger.log(`✅ CRONJOB COMPLETADO - ${endTime.toLocaleString('es-ES')}`);
+      this.logger.log(`   📈 Alertas actualizadas: ${updatedCount}`);
+      this.logger.log(`   📧 Notificaciones enviadas: ${notifiedCount}`);
+      this.logger.log(`   ⏱️  Duración: ${duration}ms`);
+      this.logger.log('═'.repeat(80));
     } catch (error) {
-      this.logger.error('Error updating alert levels:', error);
+      this.logger.error('═'.repeat(80));
+      this.logger.error('❌ ERROR EN CRONJOB:', error);
+      this.logger.error('═'.repeat(80));
     }
   }
 
@@ -170,5 +201,23 @@ export class IncidenciaMonitorService {
   async forceUpdateAlertLevels(): Promise<{ updated: number }> {
     await this.updateAlertLevelsAndNotify();
     return { updated: 1 };
+  }
+
+  /**
+   * Obtiene el emoji correspondiente al nivel de alerta
+   */
+  private getAlertEmoji(alertLevel: AlertLevel): string {
+    switch (alertLevel) {
+      case AlertLevel.GREEN:
+        return '🟢';
+      case AlertLevel.YELLOW:
+        return '🟡';
+      case AlertLevel.ORANGE:
+        return '🟠';
+      case AlertLevel.RED:
+        return '🔴';
+      default:
+        return '⚪';
+    }
   }
 }
