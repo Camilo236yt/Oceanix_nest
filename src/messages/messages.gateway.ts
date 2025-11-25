@@ -404,14 +404,29 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Send notification to a specific user
    * Uses personal room pattern: user:{userId}
    */
-  emitNotificationToUser(
+  async emitNotificationToUser(
     userId: string,
     eventName: string,
     data: any,
   ) {
     const personalRoom = `user:${userId}`;
+
+    // Verificar cuántos sockets están en la sala personal
+    const socketsInRoom = await this.server.in(personalRoom).fetchSockets();
+    this.logger.log(`🔔 [NOTIFICATION] Sending "${eventName}" to user ${userId}`);
+    this.logger.log(`   Room: ${personalRoom}`);
+    this.logger.log(`   Sockets in room: ${socketsInRoom.length}`);
+
+    if (socketsInRoom.length === 0) {
+      this.logger.warn(`⚠️  [NOTIFICATION] No sockets found in room ${personalRoom} - user may be offline`);
+    } else {
+      socketsInRoom.forEach((socket: any) => {
+        this.logger.log(`   - Socket ${socket.id} (User: ${socket.userId})`);
+      });
+    }
+
     this.server.to(personalRoom).emit(eventName, data);
-    this.logger.log(`🔔 Notification "${eventName}" sent to user ${userId} in room ${personalRoom}`);
+    this.logger.log(`✅ [NOTIFICATION] Event "${eventName}" emitted to room ${personalRoom}`);
   }
 
   /**

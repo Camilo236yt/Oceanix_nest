@@ -511,7 +511,12 @@ export class IncidenciasController {
     });
 
     // Enviar notificación personal al empleado asignado
+    console.log('🔔 [CONTROLLER] Checking notification conditions:');
+    console.log('   - message exists:', !!message);
+    console.log('   - assignedEmployeeId:', incidencia.assignedEmployeeId);
+
     if (message && incidencia.assignedEmployeeId) {
+      console.log('✅ [CONTROLLER] Sending notification to employee:', incidencia.assignedEmployeeId);
       this.messagesGateway.emitNotificationToUser(
         incidencia.assignedEmployeeId,
         'newMessageNotification',
@@ -526,6 +531,8 @@ export class IncidenciasController {
           incidenciaTitle: incidencia.name || 'Incidencia sin título',
         },
       );
+    } else {
+      console.log('❌ [CONTROLLER] NOT sending notification - conditions not met');
     }
 
     return message;
