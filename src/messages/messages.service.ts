@@ -42,7 +42,30 @@ export class MessagesService {
       attachments: attachments || null,
     });
 
-    return await this.messageRepository.save(message);
+    const savedMessage = await this.messageRepository.save(message);
+
+    // Cargar la relación sender para devolver el mensaje completo
+    return await this.messageRepository.findOne({
+      where: { id: savedMessage.id },
+      relations: ['sender'],
+      select: {
+        id: true,
+        incidenciaId: true,
+        senderId: true,
+        senderType: true,
+        messageType: true,
+        content: true,
+        attachments: true,
+        createdAt: true,
+        sender: {
+          id: true,
+          name: true,
+          lastName: true,
+          email: true,
+          userType: true,
+        },
+      },
+    });
   }
 
   /**
