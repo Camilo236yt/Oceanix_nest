@@ -38,6 +38,7 @@ import { ValidPermission } from 'src/auth/interfaces/valid-permission';
 import { User } from 'src/users/entities/user.entity';
 import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagesService } from '../messages/messages.service';
+import { MessagesGateway } from '../messages/messages.gateway';
 import { CreateMessageDto } from '../messages/dto/create-message.dto';
 import { RequestImageReuploadDto } from '../messages/dto/request-image-reupload.dto';
 import { MessageSenderType } from '../messages/entities/message.entity';
@@ -49,6 +50,7 @@ export class IncidenciasController {
   constructor(
     private readonly incidenciasService: IncidenciasService,
     private readonly messagesService: MessagesService,
+    private readonly messagesGateway: MessagesGateway,
   ) {}
 
   @Post()
@@ -350,7 +352,8 @@ export class IncidenciasController {
     @GetUser('id') userId: string,
     @Body() createMessageDto: CreateMessageDto,
   ) {
-    return await this.messagesService.create(
+    // Crear mensaje en la base de datos
+    const message = await this.messagesService.create(
       id,
       userId,
       MessageSenderType.EMPLOYEE,
@@ -358,6 +361,14 @@ export class IncidenciasController {
       undefined,
       createMessageDto.attachments,
     );
+
+    // Emitir evento WebSocket a todos los usuarios en la sala
+    const roomName = `incidencia:${id}`;
+    this.messagesGateway.server.in(roomName).emit('newMessage', {
+      message,
+    });
+
+    return message;
   }
 
   @Post(':id/request-images')
@@ -455,7 +466,8 @@ export class IncidenciasController {
     // Verificar que el cliente tiene acceso a esta incidencia
     await this.incidenciasService.findOneByClient(id, enterpriseId, userId);
 
-    return await this.messagesService.create(
+    // Crear mensaje en la base de datos
+    const message = await this.messagesService.create(
       id,
       userId,
       MessageSenderType.CLIENT,
@@ -463,6 +475,14 @@ export class IncidenciasController {
       undefined,
       createMessageDto.attachments,
     );
+
+    // Emitir evento WebSocket a todos los usuarios en la sala
+    const roomName = `incidencia:${id}`;
+    this.messagesGateway.server.in(roomName).emit('newMessage', {
+      message,
+    });
+
+    return message;
   }
 
   @Post('client/me/:id/messages/upload-image')
