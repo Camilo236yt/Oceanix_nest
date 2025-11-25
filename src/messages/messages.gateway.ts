@@ -397,7 +397,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.logger.log(`✅ Message sent to room ${roomName} by user ${client.userId} (${client.userType})`);
 
       // Send notification to assigned employee if sender is CLIENT and employee is not in room
-      if (senderType === MessageSenderType.CLIENT) {
+      if (senderType === MessageSenderType.CLIENT && message) {
         const incidencia = await this.incidenciaRepository.findOne({
           where: { id: data.incidenciaId },
           select: ['assignedEmployeeId', 'name'],
