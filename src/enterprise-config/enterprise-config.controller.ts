@@ -54,6 +54,7 @@ export class EnterpriseConfigController {
 
   @Get()
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Configuration')
   @ApiOperation({
     summary: 'Get enterprise configuration',
     description:
@@ -70,6 +71,7 @@ export class EnterpriseConfigController {
 
   @Get('status')
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Configuration')
   @ApiOperation({
     summary: 'Get configuration status',
     description:
@@ -108,6 +110,7 @@ export class EnterpriseConfigController {
 
   @Patch()
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Configuration')
   @ApiOperation({
     summary: 'Update enterprise configuration',
     description:
@@ -135,6 +138,7 @@ export class EnterpriseConfigController {
     ]),
   )
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Branding')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Update enterprise branding',
@@ -313,6 +317,7 @@ export class EnterpriseConfigController {
 
   @Patch('email-domains')
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Email Configuration')
   @ApiOperation({
     summary: 'Update corporate email domains',
     description:
@@ -370,8 +375,47 @@ export class EnterpriseConfigController {
     };
   }
 
+  @Get('current-email')
+  @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Email Configuration')
+  @ApiOperation({
+    summary: 'Get current user email',
+    description:
+      'Obtiene el email del usuario autenticado (solo lectura). Este endpoint es útil para mostrar qué email recibirá el código de verificación.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email obtenido exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        email: {
+          type: 'string',
+          example: 'admin@empresa.com',
+          description: 'Email del usuario autenticado',
+        },
+        hasEmail: {
+          type: 'boolean',
+          example: true,
+          description: 'Si el usuario tiene email configurado',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autorizado',
+  })
+  async getCurrentEmail(@GetUser() user: User) {
+    return {
+      email: user.email || null,
+      hasEmail: !!user.email,
+    };
+  }
+
   @Post('send-email-verification')
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Email Verification')
   @ApiOperation({
     summary: 'Send email verification code',
     description:
@@ -420,6 +464,7 @@ export class EnterpriseConfigController {
 
   @Post('verify-email')
   @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiTags('Email Verification')
   @ApiOperation({
     summary: 'Verify email code',
     description:
@@ -470,6 +515,7 @@ export class EnterpriseConfigController {
   // ========== Document Management Endpoints ==========
   @Get('documents')
   @Auth(ValidPermission.uploadEnterpriseDocuments)
+  @ApiTags('Documents')
   @ApiOperation({
     summary: 'List enterprise documents',
     description: 'Lista todos los documentos de la empresa autenticada',
@@ -493,6 +539,7 @@ export class EnterpriseConfigController {
     ]),
   )
   @Auth(ValidPermission.uploadEnterpriseDocuments)
+  @ApiTags('Documents')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Upload required enterprise documents',
