@@ -40,7 +40,9 @@ export class WhatsAppNotificationProvider
           '--disable-gpu',
         ],
         headless: true,
+        timeout: 300000, // 5 minutos en lugar de 30 segundos por defecto
       },
+      authTimeoutMs: 300000, // 5 minutos para autenticación
     });
 
     this.initializeClient();
