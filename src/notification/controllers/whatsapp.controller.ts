@@ -1,6 +1,6 @@
 import { Controller, Get, Res, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { WhatsAppNotificationProvider } from '../providers/whatsapp/whatsapp-notification.provider';
 
 @ApiTags('WhatsApp')
