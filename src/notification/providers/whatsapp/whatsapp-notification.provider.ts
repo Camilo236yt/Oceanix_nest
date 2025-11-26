@@ -2,7 +2,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client, LocalAuth } from 'whatsapp-web.js';
-import * as qrcode from 'qrcode-terminal';
 import { INotificationProvider, NotificationPayload } from '../../interfaces';
 import { NotificationProviderPreference } from '../../../user-preferences/entities';
 import { ProviderType } from '../../../user-preferences/enums';
@@ -18,6 +17,7 @@ export class WhatsAppNotificationProvider
   private readonly logger = new Logger(WhatsAppNotificationProvider.name);
   public client: Client;
   private isReady = false;
+  public qrCode: string | null = null; // QR en formato base64 data URL
 
   constructor(
     @InjectRepository(NotificationProviderPreference)
@@ -54,13 +54,22 @@ export class WhatsAppNotificationProvider
 
   private initializeClient() {
     this.client.on('qr', (qr) => {
-      this.logger.log('Escanea este código QR con tu WhatsApp:');
-      qrcode.generate(qr, { small: true });
+      this.logger.log('🔄 QR Code generado. Accede a /whatsapp/qr para escanearlo');
+      // Convertir QR a base64 data URL para mostrarlo en el navegador
+      const QRCode = require('qrcode');
+      QRCode.toDataURL(qr, (err, url) => {
+        if (err) {
+          this.logger.error('Error generando QR:', err);
+          return;
+        }
+        this.qrCode = url;
+      });
     });
 
     this.client.on('ready', () => {
       this.logger.log('✅ WhatsApp Bot is ready!');
       this.isReady = true;
+      this.qrCode = null; // Limpiar QR cuando ya está autenticado
     });
 
     this.client.on('authenticated', () => {

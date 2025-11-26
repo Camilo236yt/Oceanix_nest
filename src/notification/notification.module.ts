@@ -19,6 +19,7 @@ import { NotificationProviderFactory } from './providers/provider.factory';
 import { NotificationGateway } from './gateways/notification.gateway';
 
 import { TestNotificationController } from './test-notification.controller';
+import { WhatsAppController } from './controllers/whatsapp.controller';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { TestNotificationController } from './test-notification.controller';
     UserPreferencesModule, // Importar módulo de preferencias
     JwtModule, // Para verificar tokens en WebSocket
   ],
-  controllers: [NotificationController, TestNotificationController],
+  controllers: [NotificationController, TestNotificationController, WhatsAppController],
   providers: [
     NotificationService,
     NotificationGateway,
