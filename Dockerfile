@@ -1,5 +1,5 @@
 # Stage 1: Dependencies
-FROM node:24-alpine AS dependencies
+FROM node:24-slim AS dependencies
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Stage 2: Build
-FROM node:24-alpine AS builder
+FROM node:24-slim AS builder
 
 WORKDIR /app
 
@@ -31,14 +31,41 @@ COPY src ./src
 RUN npm run build
 
 # Stage 3: Production
-FROM node:24-alpine AS production
+FROM node:24-slim AS production
 
-# Instalar dumb-init para manejo apropiado de señales
-RUN apk add --no-cache dumb-init
+# Instalar dependencias del sistema necesarias para Chromium/Puppeteer
+RUN apt-get update && apt-get install -y \
+    dumb-init \
+    chromium \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configurar Puppeteer para usar el Chromium del sistema
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Crear usuario no-root para seguridad
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -m -u 1001 -g nodejs nestjs
 
 WORKDIR /app
 
