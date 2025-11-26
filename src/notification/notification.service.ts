@@ -254,6 +254,13 @@ export class NotificationService {
    * Envía un mensaje de prueba por WhatsApp
    */
   async sendTestWhatsapp(phoneNumber: string, message?: string): Promise<{ message: string }> {
+    // Verificar que el cliente esté listo
+    this.logger.log(`WhatsApp isReady status: ${this.whatsappProvider.isReady}`);
+
+    if (!this.whatsappProvider.isReady) {
+      throw new Error('WhatsApp no está conectado. Por favor escanea el código QR en /whatsapp/qr');
+    }
+
     // Usar el provider inyectado directamente
     // Simular un payload de notificación
     await this.whatsappProvider.client.sendMessage(

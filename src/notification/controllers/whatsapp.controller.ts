@@ -25,7 +25,7 @@ export class WhatsAppController {
     })
     getQRPage(@Res() res: Response) {
         const qrCode = this.whatsappProvider.qrCode;
-        const isReady = this.whatsappProvider['isReady'];
+        const isReady = this.whatsappProvider.isReady;
 
         const html = `
 <!DOCTYPE html>

@@ -16,7 +16,7 @@ export class WhatsAppNotificationProvider
   readonly name = 'WhatsAppProvider';
   private readonly logger = new Logger(WhatsAppNotificationProvider.name);
   public client: Client;
-  private isReady = false;
+  public isReady = false;
   public qrCode: string | null = null; // QR en formato base64 data URL
 
   constructor(
