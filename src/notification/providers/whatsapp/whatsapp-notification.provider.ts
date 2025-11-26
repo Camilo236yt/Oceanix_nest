@@ -17,6 +17,7 @@ export class WhatsAppNotificationProvider
   private readonly logger = new Logger(WhatsAppNotificationProvider.name);
   public client: Client;
   public isReady = false;
+  public isAuthenticated = false; // Se autentica rápido, pero no está ready hasta sincronizar chats
   public qrCode: string | null = null; // QR en formato base64 data URL
 
   constructor(
@@ -74,6 +75,8 @@ export class WhatsAppNotificationProvider
 
     this.client.on('authenticated', () => {
       this.logger.log('✅ WhatsApp Authenticated successfully');
+      this.isAuthenticated = true;
+      this.logger.warn('⏳ Sincronizando chats de WhatsApp... Esto puede tardar 30-90 segundos.');
     });
 
     this.client.on('auth_failure', (msg) => {
