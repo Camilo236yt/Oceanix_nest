@@ -51,6 +51,12 @@ COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 # Copiar package.json para tener información de la app
 COPY --chown=nestjs:nodejs package*.json ./
 
+# Crear directorio para WhatsApp con permisos correctos
+RUN mkdir -p /app/.wwebjs_auth && chown -R nestjs:nodejs /app/.wwebjs_auth
+
+# Declarar volumen para persistencia de sesión de WhatsApp
+VOLUME ["/app/.wwebjs_auth"]
+
 # Cambiar a usuario no-root
 USER nestjs
 
