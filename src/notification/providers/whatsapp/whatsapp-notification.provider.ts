@@ -47,15 +47,22 @@ export class WhatsAppNotificationProvider
   }
 
   onModuleInit() {
-    this.logger.log('Initializing WhatsApp Client...');
-    this.client.initialize().catch((err) => {
-      this.logger.error('Failed to initialize WhatsApp client', err);
-    });
+    this.logger.log('🔵 onModuleInit called - Starting WhatsApp client initialization...');
+    this.client.initialize()
+      .then(() => {
+        this.logger.log('✅ WhatsApp client.initialize() completed successfully');
+      })
+      .catch((err) => {
+        this.logger.error('❌ Failed to initialize WhatsApp client:', err);
+        this.logger.error('Error stack:', err.stack);
+      });
   }
 
   private initializeClient() {
+    this.logger.log('🔧 Setting up WhatsApp client event handlers...');
+
     this.client.on('qr', (qr) => {
-      this.logger.log('🔄 QR Code generado. Accede a /whatsapp/qr para escanearlo');
+      this.logger.log('📱 [EVENT] QR code received, generating base64...');
       // Convertir QR a base64 data URL para mostrarlo en el navegador
       const QRCode = require('qrcode');
       QRCode.toDataURL(qr, (err, url) => {
@@ -64,29 +71,37 @@ export class WhatsAppNotificationProvider
           return;
         }
         this.qrCode = url;
+        this.logger.log('✅ QR Code generado. Accede a /whatsapp/qr para escanearlo');
       });
     });
 
     this.client.on('ready', () => {
-      this.logger.log('✅ WhatsApp Bot is ready!');
+      this.logger.log('🎉 [EVENT] WhatsApp Bot is ready!');
       this.isReady = true;
       this.qrCode = null; // Limpiar QR cuando ya está autenticado
     });
 
     this.client.on('authenticated', () => {
-      this.logger.log('✅ WhatsApp Authenticated successfully');
+      this.logger.log('🔐 [EVENT] WhatsApp Authenticated successfully');
       this.isAuthenticated = true;
       this.logger.warn('⏳ Sincronizando chats de WhatsApp... Esto puede tardar 30-90 segundos.');
     });
 
     this.client.on('auth_failure', (msg) => {
-      this.logger.error('❌ WhatsApp Authentication failure', msg);
+      this.logger.error('❌ [EVENT] WhatsApp Authentication failure:', msg);
     });
 
     this.client.on('disconnected', (reason) => {
-      this.logger.warn('WhatsApp Client was disconnected', reason);
+      this.logger.warn('🔌 [EVENT] WhatsApp Client was disconnected. Reason:', reason);
       this.isReady = false;
+      this.isAuthenticated = false;
     });
+
+    this.client.on('loading_screen', (percent, message) => {
+      this.logger.log(`⏳ [EVENT] Loading: ${percent}% - ${message}`);
+    });
+
+    this.logger.log('✅ All event handlers registered');
   }
 
   /**
