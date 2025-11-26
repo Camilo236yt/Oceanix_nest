@@ -8,9 +8,11 @@ import {
   Param,
   ParseUUIDPipe,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -26,7 +28,8 @@ import { GetUser } from '../auth/decorator/get-user.decorator';
 import { ValidPermission } from '../auth/interfaces/valid-permission';
 import { User } from '../users/entities/user.entity';
 import { UpdateEnterpriseConfigDto } from './dto/update-enterprise-config.dto';
-import { UploadDocumentDto } from './dto/upload-document.dto';
+import { UpdateEmailDomainsDto } from './dto/update-email-domains.dto';
+import { DocumentType } from './enums/verification-status.enum';
 import {
   STORAGE_BUCKETS,
   ALLOWED_FILE_TYPES,
@@ -78,9 +81,254 @@ export class EnterpriseConfigController {
     return await this.configService.updateConfig(user.enterpriseId, updateDto);
   }
 
+  // ========== Branding Endpoints ==========
+
+  @Patch('branding')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'logo', maxCount: 1 },
+      { name: 'favicon', maxCount: 1 },
+      { name: 'banner', maxCount: 1 },
+    ]),
+  )
+  @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Update enterprise branding',
+    description:
+      'Personaliza la apariencia de la empresa: logos, colores de marca y tema personalizado',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        logo: {
+          type: 'string',
+          format: 'binary',
+          description: 'Logo de la empresa (PNG, JPG máx 5MB)',
+        },
+        favicon: {
+          type: 'string',
+          format: 'binary',
+          description: 'Favicon (ICO, PNG máx 1MB)',
+        },
+        banner: {
+          type: 'string',
+          format: 'binary',
+          description: 'Banner/Hero image (PNG, JPG máx 10MB)',
+        },
+        primaryColor: {
+          type: 'string',
+          pattern: '^#[0-9A-Fa-f]{6}$',
+          description: 'Color principal (HEX)',
+          example: '#9333EA',
+        },
+        secondaryColor: {
+          type: 'string',
+          pattern: '^#[0-9A-Fa-f]{6}$',
+          description: 'Color secundario (HEX)',
+          example: '#424242',
+        },
+        accentColor: {
+          type: 'string',
+          pattern: '^#[0-9A-Fa-f]{6}$',
+          description: 'Color de acento (HEX)',
+          example: '#FF4081',
+        },
+        customTheme: {
+          type: 'string',
+          description: 'Tema avanzado (JSON string)',
+          example: '{"darkMode": true, "fontSize": "16px"}',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Branding actualizado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Branding updated successfully' },
+        config: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            logoUrl: { type: 'string' },
+            faviconUrl: { type: 'string' },
+            bannerUrl: { type: 'string' },
+            primaryColor: { type: 'string', example: '#9333EA' },
+            secondaryColor: { type: 'string', example: '#424242' },
+            accentColor: { type: 'string', example: '#FF4081' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivos inválidos o colores HEX incorrectos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autorizado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Permisos insuficientes',
+  })
+  async updateBranding(
+    @GetUser() user: User,
+    @UploadedFiles()
+    files?: {
+      logo?: Express.Multer.File[];
+      favicon?: Express.Multer.File[];
+      banner?: Express.Multer.File[];
+    },
+    @Body() body?: any,
+  ) {
+    const brandingData: any = {};
+
+    // Process logo if uploaded
+    if (files?.logo) {
+      const logoFile = files.logo[0];
+      this.storageService.validateFileType(logoFile, [
+        ...ALLOWED_FILE_TYPES.IMAGES,
+      ]);
+      this.storageService.validateFileSize(logoFile, 5 * 1024 * 1024); // 5MB
+
+      const logoResult = await this.storageService.uploadFile(
+        logoFile,
+        STORAGE_BUCKETS.AVATARS,
+        `enterprises/${user.enterpriseId}/branding`,
+      );
+      brandingData.logoUrl = logoResult.key;
+    }
+
+    // Process favicon if uploaded
+    if (files?.favicon) {
+      const faviconFile = files.favicon[0];
+      this.storageService.validateFileType(faviconFile, [
+        ...ALLOWED_FILE_TYPES.IMAGES,
+      ]);
+      this.storageService.validateFileSize(faviconFile, 1 * 1024 * 1024); // 1MB
+
+      const faviconResult = await this.storageService.uploadFile(
+        faviconFile,
+        STORAGE_BUCKETS.AVATARS,
+        `enterprises/${user.enterpriseId}/branding`,
+      );
+      brandingData.faviconUrl = faviconResult.key;
+    }
+
+    // Process banner if uploaded
+    if (files?.banner) {
+      const bannerFile = files.banner[0];
+      this.storageService.validateFileType(bannerFile, [
+        ...ALLOWED_FILE_TYPES.IMAGES,
+      ]);
+      this.storageService.validateFileSize(bannerFile, MAX_FILE_SIZES.IMAGE);
+
+      const bannerResult = await this.storageService.uploadFile(
+        bannerFile,
+        STORAGE_BUCKETS.AVATARS,
+        `enterprises/${user.enterpriseId}/branding`,
+      );
+      brandingData.bannerUrl = bannerResult.key;
+    }
+
+    // Add colors from body
+    if (body?.primaryColor) brandingData.primaryColor = body.primaryColor;
+    if (body?.secondaryColor) brandingData.secondaryColor = body.secondaryColor;
+    if (body?.accentColor) brandingData.accentColor = body.accentColor;
+
+    // Parse and add custom theme if provided
+    if (body?.customTheme) {
+      try {
+        brandingData.customTheme =
+          typeof body.customTheme === 'string'
+            ? JSON.parse(body.customTheme)
+            : body.customTheme;
+      } catch (error) {
+        throw new BadRequestException('customTheme must be valid JSON');
+      }
+    }
+
+    // Update branding
+    const config = await this.configService.updateBranding(
+      user.enterpriseId,
+      brandingData,
+    );
+
+    return {
+      message: 'Branding updated successfully',
+      config,
+    };
+  }
+
+  // ========== Email Configuration Endpoints ==========
+
+  @Patch('email-domains')
+  @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiOperation({
+    summary: 'Update corporate email domains',
+    description:
+      'Configura los dominios de email corporativo permitidos y si se requiere email corporativo para registro',
+  })
+  @ApiBody({
+    type: UpdateEmailDomainsDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Dominios actualizados exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Email domains updated successfully',
+        },
+        config: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            emailDomains: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['empresa.com', 'subsidiary.com'],
+            },
+            requireCorporateEmail: { type: 'boolean', example: false },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autorizado',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Permisos insuficientes',
+  })
+  async updateEmailDomains(
+    @GetUser() user: User,
+    @Body() dto: UpdateEmailDomainsDto,
+  ) {
+    const config = await this.configService.updateEmailDomains(
+      user.enterpriseId,
+      dto.emailDomains,
+      dto.requireCorporateEmail,
+    );
+
+    return {
+      message: 'Email domains updated successfully',
+      config,
+    };
+  }
+
   // ========== Document Management Endpoints ==========
 
-  @Get('documents')
   @Auth(ValidPermission.uploadEnterpriseDocuments)
   @ApiOperation({
     summary: 'List enterprise documents',
@@ -97,74 +345,62 @@ export class EnterpriseConfigController {
   }
 
   @Post('documents/upload')
-  @UseInterceptors(FileInterceptor('document'))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'taxId', maxCount: 1 },
+      { name: 'chamberCommerce', maxCount: 1 },
+      { name: 'legalRepId', maxCount: 1 },
+    ]),
+  )
   @Auth(ValidPermission.uploadEnterpriseDocuments)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Upload enterprise document',
+    summary: 'Upload required enterprise documents',
     description:
-      'Sube un documento legal de la empresa (RUT/NIT/CUIT, Cámara de Comercio, Cédula Representante Legal, etc.). ' +
-      'El sistema valida el tipo de archivo y tamaño, almacena en MinIO y registra en la base de datos. ' +
-      'Soporta versionamiento automático: si ya existe un documento del mismo tipo, se crea una nueva versión.',
+      'Sube los 3 documentos legales obligatorios de la empresa: ' +
+      '(1) RUT/NIT/CUIT, (2) Cámara de Comercio, (3) Cédula Representante Legal.',
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        document: {
+        taxId: {
           type: 'string',
           format: 'binary',
-          description: 'Archivo del documento (PDF, JPG, PNG máx 10MB)',
+          description: 'RUT/NIT/CUIT (PDF, JPG, PNG máx 10MB)',
         },
-        type: {
+        chamberCommerce: {
           type: 'string',
-          enum: [
-            'tax_id',
-            'chamber_commerce',
-            'legal_rep_id',
-            'power_attorney',
-            'bank_certificate',
-            'other',
-          ],
-          description: 'Tipo de documento: tax_id (RUT/NIT), chamber_commerce (Cámara de Comercio), legal_rep_id (Cédula Rep. Legal)',
-          example: 'tax_id',
+          format: 'binary',
+          description: 'Cámara de Comercio (PDF, JPG, PNG máx 10MB)',
         },
-        description: {
+        legalRepId: {
           type: 'string',
-          maxLength: 500,
-          description: 'Descripción opcional del documento',
-          example: 'RUT actualizado enero 2025',
-        },
-        expirationDate: {
-          type: 'string',
-          format: 'date',
-          description: 'Fecha de vencimiento (opcional) en formato YYYY-MM-DD',
-          example: '2026-12-31',
+          format: 'binary',
+          description: 'Cédula Representante Legal (PDF, JPG, PNG máx 10MB)',
         },
       },
-      required: ['document', 'type'],
+      required: ['taxId', 'chamberCommerce', 'legalRepId'],
     },
   })
   @ApiResponse({
     status: 201,
-    description: 'Documento subido exitosamente',
+    description: 'Documentos subidos exitosamente',
     schema: {
       type: 'object',
       properties: {
-        message: {
-          type: 'string',
-          example: 'Document uploaded successfully',
-        },
-        document: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            type: { type: 'string', example: 'tax_id' },
-            fileName: { type: 'string', example: 'rut-empresa.pdf' },
-            fileUrl: { type: 'string', example: 'https://storage.example.com/...' },
-            status: { type: 'string', example: 'pending' },
-            version: { type: 'number', example: 1 },
-            createdAt: { type: 'string', example: '2025-01-25T18:15:00Z' },
+        message: { type: 'string', example: 'Documents uploaded successfully' },
+        documents: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              type: { type: 'string', enum: ['tax_id', 'chamber_commerce', 'legal_rep_id'] },
+              fileName: { type: 'string' },
+              status: { type: 'string', example: 'pending' },
+              version: { type: 'number', example: 1 },
+            },
           },
         },
       },
@@ -172,51 +408,127 @@ export class EnterpriseConfigController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Archivo inválido, tipo no soportado o tamaño excedido',
+    description: 'Archivos faltantes, tipos no soportados o tamaños excedidos',
   })
   @ApiResponse({
     status: 401,
-    description: 'No autorizado - Token inválido o expirado',
+    description: 'No autorizado',
   })
   @ApiResponse({
     status: 403,
-    description: 'Permisos insuficientes - requiere permiso uploadEnterpriseDocuments',
+    description: 'Permisos insuficientes',
   })
-  async uploadDocument(
+  async uploadDocuments(
     @GetUser() user: User,
-    @Body() uploadDto: UploadDocumentDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      taxId?: Express.Multer.File[];
+      chamberCommerce?: Express.Multer.File[];
+      legalRepId?: Express.Multer.File[];
+    },
   ) {
-    // Validate file
-    this.storageService.validateFileType(file, [
+    // Validate that all 3 required files are present
+    if (!files.taxId || !files.chamberCommerce || !files.legalRepId) {
+      throw new BadRequestException(
+        'Los 3 documentos son obligatorios: RUT/NIT, Cámara de Comercio y Cédula Representante Legal',
+      );
+    }
+
+    const documentsToCreate: Array<{
+      type: DocumentType;
+      fileData: {
+        fileName: string;
+        fileKey: string;
+        fileUrl: string;
+        mimeType: string;
+        fileSize: number;
+      };
+    }> = [];
+
+    // Process RUT/NIT/CUIT
+    const taxIdFile = files.taxId[0];
+    this.storageService.validateFileType(taxIdFile, [
       ...ALLOWED_FILE_TYPES.DOCUMENTS,
       ...ALLOWED_FILE_TYPES.IMAGES,
     ]);
-    this.storageService.validateFileSize(file, MAX_FILE_SIZES.DOCUMENT);
+    this.storageService.validateFileSize(taxIdFile, MAX_FILE_SIZES.DOCUMENT);
 
-    // Upload to MinIO
-    const result = await this.storageService.uploadFile(
-      file,
+    const taxIdResult = await this.storageService.uploadFile(
+      taxIdFile,
       STORAGE_BUCKETS.DOCUMENTS,
       `enterprises/${user.enterpriseId}/documents`,
     );
 
-    // Create document record
-    const document = await this.documentService.createDocument(
-      user.enterpriseId,
-      uploadDto,
-      {
-        fileName: file.originalname,
-        fileKey: result.key,
-        fileUrl: result.url,
-        mimeType: file.mimetype,
-        fileSize: file.size,
+    documentsToCreate.push({
+      type: DocumentType.TAX_ID,
+      fileData: {
+        fileName: taxIdFile.originalname,
+        fileKey: taxIdResult.key,
+        fileUrl: taxIdResult.url,
+        mimeType: taxIdFile.mimetype,
+        fileSize: taxIdFile.size,
       },
+    });
+
+    // Process Cámara de Comercio
+    const chamberFile = files.chamberCommerce[0];
+    this.storageService.validateFileType(chamberFile, [
+      ...ALLOWED_FILE_TYPES.DOCUMENTS,
+      ...ALLOWED_FILE_TYPES.IMAGES,
+    ]);
+    this.storageService.validateFileSize(chamberFile, MAX_FILE_SIZES.DOCUMENT);
+
+    const chamberResult = await this.storageService.uploadFile(
+      chamberFile,
+      STORAGE_BUCKETS.DOCUMENTS,
+      `enterprises/${user.enterpriseId}/documents`,
+    );
+
+    documentsToCreate.push({
+      type: DocumentType.CHAMBER_COMMERCE,
+      fileData: {
+        fileName: chamberFile.originalname,
+        fileKey: chamberResult.key,
+        fileUrl: chamberResult.url,
+        mimeType: chamberFile.mimetype,
+        fileSize: chamberFile.size,
+      },
+    });
+
+    // Process Cédula Representante Legal
+    const legalRepFile = files.legalRepId[0];
+    this.storageService.validateFileType(legalRepFile, [
+      ...ALLOWED_FILE_TYPES.DOCUMENTS,
+      ...ALLOWED_FILE_TYPES.IMAGES,
+    ]);
+    this.storageService.validateFileSize(legalRepFile, MAX_FILE_SIZES.DOCUMENT);
+
+    const legalRepResult = await this.storageService.uploadFile(
+      legalRepFile,
+      STORAGE_BUCKETS.DOCUMENTS,
+      `enterprises/${user.enterpriseId}/documents`,
+    );
+
+    documentsToCreate.push({
+      type: DocumentType.LEGAL_REP_ID,
+      fileData: {
+        fileName: legalRepFile.originalname,
+        fileKey: legalRepResult.key,
+        fileUrl: legalRepResult.url,
+        mimeType: legalRepFile.mimetype,
+        fileSize: legalRepFile.size,
+      },
+    });
+
+    // Create all documents
+    const documents = await this.documentService.createMultipleDocuments(
+      user.enterpriseId,
+      documentsToCreate,
     );
 
     return {
-      message: 'Document uploaded successfully',
-      document,
+      message: 'Documents uploaded successfully',
+      documents,
     };
   }
 

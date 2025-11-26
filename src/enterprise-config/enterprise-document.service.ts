@@ -7,7 +7,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EnterpriseDocument } from './entities/enterprise-document.entity';
 import { DocumentStatus, DocumentType } from './enums/verification-status.enum';
-import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @Injectable()
 export class EnterpriseDocumentService {
@@ -21,7 +20,7 @@ export class EnterpriseDocumentService {
    */
   async createDocument(
     enterpriseId: string,
-    uploadDto: UploadDocumentDto,
+    type: DocumentType,
     fileData: {
       fileName: string;
       fileKey: string;
@@ -34,7 +33,7 @@ export class EnterpriseDocumentService {
     const existingDocument = await this.documentRepository.findOne({
       where: {
         enterpriseId,
-        type: uploadDto.type,
+        type,
         isActive: true,
       },
       order: { version: 'DESC' },
@@ -48,11 +47,7 @@ export class EnterpriseDocumentService {
 
     const document = this.documentRepository.create({
       enterpriseId,
-      type: uploadDto.type,
-      description: uploadDto.description,
-      expirationDate: uploadDto.expirationDate
-        ? new Date(uploadDto.expirationDate)
-        : undefined,
+      type,
       fileName: fileData.fileName,
       fileKey: fileData.fileKey,
       fileUrl: fileData.fileUrl,
@@ -66,6 +61,38 @@ export class EnterpriseDocumentService {
     const saved = await this.documentRepository.save(document);
     return saved;
   }
+
+  /**
+   * Create multiple enterprise documents at once
+   */
+  async createMultipleDocuments(
+    enterpriseId: string,
+    documents: Array<{
+      type: DocumentType;
+      fileData: {
+        fileName: string;
+        fileKey: string;
+        fileUrl: string;
+        mimeType: string;
+        fileSize: number;
+      };
+    }>,
+  ): Promise<EnterpriseDocument[]> {
+    const createdDocuments: EnterpriseDocument[] = [];
+
+    for (const doc of documents) {
+      const document = await this.createDocument(
+        enterpriseId,
+        doc.type,
+        doc.fileData,
+      );
+      createdDocuments.push(document);
+    }
+
+    return createdDocuments;
+  }
+
+
 
 
   /**
