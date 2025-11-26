@@ -125,6 +125,103 @@ export class EnterpriseConfigService {
   }
 
   /**
+   * Send email verification code to user's email
+   */
+  async sendEmailVerification(
+    enterpriseId: string,
+    userEmail: string,
+    redisService: any,
+    emailService: any,
+  ): Promise<void> {
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store in Redis with 10 minutes expiration
+    const key = `email_verification:${enterpriseId}`;
+    await redisService.set(key, { email: userEmail, code }, 600); // 10 minutes
+
+    // Send email
+    await emailService.sendVerificationEmail(userEmail, code);
+  }
+
+  /**
+   * Verify email code
+   */
+  async verifyEmailCode(
+    enterpriseId: string,
+    userEmail: string,
+    code: string,
+    redisService: any,
+    emailService: any,
+  ): Promise<boolean> {
+    const key = `email_verification:${enterpriseId}`;
+    const stored = await redisService.get(key);
+
+    if (!stored) {
+      throw new BadRequestException('Código expirado o no encontrado');
+    }
+
+    if (stored.email !== userEmail) {
+      throw new BadRequestException('Email no coincide');
+    }
+
+    if (stored.code !== code) {
+      throw new BadRequestException('Código incorrecto');
+    }
+
+    // Delete code after verification
+    await redisService.del(key);
+
+    // TODO: Mark user email as verified in User entity if needed
+    // For now we just return true
+
+    // Send welcome email
+    const config = await this.getOrCreateConfig(enterpriseId);
+    if (config.enterprise?.name) {
+      await emailService.sendWelcomeEmail(userEmail, config.enterprise.name);
+    }
+
+    return true;
+  }
+
+  /**
+   * Get configuration status (what's been configured)
+   */
+  async getConfigurationStatus(
+    enterpriseId: string,
+    documentService: any,
+  ): Promise<{
+    documentsUploaded: boolean;
+    brandingConfigured: boolean;
+    emailDomainsConfigured: boolean;
+  }> {
+    const config = await this.getOrCreateConfig(enterpriseId);
+
+    // Check if documents are uploaded (3 required docs)
+    const documents = await documentService.getDocumentsByEnterprise(enterpriseId);
+    const hasDocuments = documents.length >= 3;
+
+    // Check if branding is configured
+    const hasBranding = !!(
+      config.logoUrl ||
+      config.faviconUrl ||
+      config.bannerUrl ||
+      config.primaryColor
+    );
+
+    // Check if email domains are configured
+    const hasEmailDomains = !!(
+      config.emailDomains && config.emailDomains.length > 0
+    );
+
+    return {
+      documentsUploaded: hasDocuments,
+      brandingConfigured: hasBranding,
+      emailDomainsConfigured: hasEmailDomains,
+    };
+  }
+
+  /**
    * Get all verified enterprises
    */
   async getVerifiedEnterprises(): Promise<EnterpriseConfig[]> {

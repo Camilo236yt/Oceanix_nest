@@ -29,12 +29,15 @@ import { ValidPermission } from '../auth/interfaces/valid-permission';
 import { User } from '../users/entities/user.entity';
 import { UpdateEnterpriseConfigDto } from './dto/update-enterprise-config.dto';
 import { UpdateEmailDomainsDto } from './dto/update-email-domains.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { DocumentType } from './enums/verification-status.enum';
 import {
   STORAGE_BUCKETS,
   ALLOWED_FILE_TYPES,
   MAX_FILE_SIZES,
 } from '../storage/config/storage.config';
+import { EmailService } from './email.service';
+import { RedisService } from '../redis/redis.service';
 
 @ApiTags('Enterprise Configuration')
 @Controller('enterprise-config')
@@ -43,6 +46,8 @@ export class EnterpriseConfigController {
     private readonly configService: EnterpriseConfigService,
     private readonly documentService: EnterpriseDocumentService,
     private readonly storageService: StorageService,
+    private readonly emailService: EmailService,
+    private readonly redisService: RedisService,
   ) { }
 
   // ========== Configuration Endpoints ==========
@@ -61,6 +66,44 @@ export class EnterpriseConfigController {
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async getConfig(@GetUser() user: User) {
     return await this.configService.getByEnterpriseId(user.enterpriseId);
+  }
+
+  @Get('status')
+  @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiOperation({
+    summary: 'Get configuration status',
+    description:
+      'Obtiene el estado de la configuración (qué pasos están completos) en forma de booleanos',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado de configuración obtenido',
+    schema: {
+      type: 'object',
+      properties: {
+        documentsUploaded: {
+          type: 'boolean',
+          example: true,
+          description: 'Si se subieron los 3 documentos obligatorios',
+        },
+        brandingConfigured: {
+          type: 'boolean',
+          example: false,
+          description: 'Si se configuró logo, colores o banner',
+        },
+        emailDomainsConfigured: {
+          type: 'boolean',
+          example: true,
+          description: 'Si se configuraron dominios de email corporativo',
+        },
+      },
+    },
+  })
+  async getConfigurationStatus(@GetUser() user: User) {
+    return await this.configService.getConfigurationStatus(
+      user.enterpriseId,
+      this.documentService,
+    );
   }
 
   @Patch()
@@ -327,8 +370,105 @@ export class EnterpriseConfigController {
     };
   }
 
-  // ========== Document Management Endpoints ==========
+  @Post('send-email-verification')
+  @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiOperation({
+    summary: 'Send email verification code',
+    description:
+      'Envía un código de verificación de 6 dígitos al email del usuario autenticado. El código expira en 10 minutos.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Código enviado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Verification code sent successfully',
+        },
+        emailSentTo: {
+          type: 'string',
+          example: 'admin@empresa.com',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Usuario no tiene email configurado',
+  })
+  async sendEmailVerification(@GetUser() user: User) {
+    if (!user.email) {
+      throw new BadRequestException(
+        'Usuario no tiene email configurado en su perfil',
+      );
+    }
 
+    await this.configService.sendEmailVerification(
+      user.enterpriseId,
+      user.email,
+      this.redisService,
+      this.emailService,
+    );
+
+    return {
+      message: 'Verification code sent successfully',
+      emailSentTo: user.email,
+    };
+  }
+
+  @Post('verify-email')
+  @Auth(ValidPermission.manageEnterpriseConfig)
+  @ApiOperation({
+    summary: 'Verify email code',
+    description:
+      'Verifica el código de 6 dígitos enviado al email del usuario autenticado',
+  })
+  @ApiBody({
+    type: VerifyEmailDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verificado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Email verified successfully',
+        },
+        verified: { type: 'boolean', example: true },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Código incorrecto, expirado o usuario sin email',
+  })
+  async verifyEmail(@GetUser() user: User, @Body() dto: VerifyEmailDto) {
+    if (!user.email) {
+      throw new BadRequestException(
+        'Usuario no tiene email configurado en su perfil',
+      );
+    }
+
+    const verified = await this.configService.verifyEmailCode(
+      user.enterpriseId,
+      user.email,
+      dto.code,
+      this.redisService,
+      this.emailService,
+    );
+
+    return {
+      message: 'Email verified successfully',
+      verified,
+    };
+  }
+
+  // ========== Document Management Endpoints ==========
+  @Get('documents')
   @Auth(ValidPermission.uploadEnterpriseDocuments)
   @ApiOperation({
     summary: 'List enterprise documents',
