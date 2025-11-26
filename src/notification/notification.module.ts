@@ -18,13 +18,15 @@ import { NotificationProviderFactory } from './providers/provider.factory';
 // Gateway
 import { NotificationGateway } from './gateways/notification.gateway';
 
+import { TestNotificationController } from './test-notification.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Notification, User, NotificationProviderPreference]),
     UserPreferencesModule, // Importar módulo de preferencias
     JwtModule, // Para verificar tokens en WebSocket
   ],
-  controllers: [NotificationController],
+  controllers: [NotificationController, TestNotificationController],
   providers: [
     NotificationService,
     NotificationGateway,
@@ -36,4 +38,4 @@ import { NotificationGateway } from './gateways/notification.gateway';
   ],
   exports: [NotificationService], // Exportar para que otros módulos puedan usarlo
 })
-export class NotificationModule {}
+export class NotificationModule { }

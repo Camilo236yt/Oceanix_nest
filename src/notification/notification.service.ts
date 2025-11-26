@@ -11,6 +11,7 @@ import { NotificationProviderFactory } from './providers/provider.factory';
 import { NotificationPayload } from './interfaces';
 import { NotificationPriority } from './enums';
 import { createPaginationConfig } from '../common/helpers/pagination.config';
+import { WhatsAppNotificationProvider } from './providers/whatsapp/whatsapp-notification.provider';
 
 @Injectable()
 export class NotificationService {
@@ -21,7 +22,8 @@ export class NotificationService {
     private readonly notificationRepository: Repository<Notification>,
     private readonly userPreferencesService: UserPreferencesService,
     private readonly providerFactory: NotificationProviderFactory,
-  ) {}
+    private readonly whatsappProvider: WhatsAppNotificationProvider,
+  ) { }
 
   /**
    * Envía una notificación a un usuario específico
@@ -246,5 +248,19 @@ export class NotificationService {
       createdAt: notification.createdAt,
       updatedAt: notification.updatedAt,
     };
+  }
+
+  /**
+   * Envía un mensaje de prueba por WhatsApp
+   */
+  async sendTestWhatsapp(phoneNumber: string, message?: string): Promise<{ message: string }> {
+    // Usar el provider inyectado directamente
+    // Simular un payload de notificación
+    await this.whatsappProvider.client.sendMessage(
+      phoneNumber.endsWith('@c.us') ? phoneNumber : `${phoneNumber}@c.us`,
+      message || 'Hola desde Oceanix Bot 🤖'
+    );
+
+    return { message: `Mensaje enviado a ${phoneNumber}` };
   }
 }

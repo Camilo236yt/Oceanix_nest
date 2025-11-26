@@ -21,7 +21,7 @@ export class IncidenciaMonitorService {
     private readonly notificationService: NotificationService,
     @Inject(forwardRef(() => MessagesGateway))
     private readonly messagesGateway: MessagesGateway,
-  ) {}
+  ) { }
 
   /**
    * Cronjob que se ejecuta cada minuto
@@ -41,6 +41,7 @@ export class IncidenciaMonitorService {
           status: In([IncidenciaStatus.PENDING, IncidenciaStatus.IN_PROGRESS]),
           isActive: true,
         },
+        relations: ['enterprise'],
       });
 
       if (incidencias.length === 0) {
@@ -145,7 +146,7 @@ export class IncidenciaMonitorService {
             alertLevel,
             status: incidencia.status,
           },
-          actionUrl: `/incidencias/${incidencia.id}`,
+          actionUrl: `https://${incidencia.enterprise?.subdomain || 'app'}.oceanix.space/incidencias/${incidencia.id}`,
         },
       );
 

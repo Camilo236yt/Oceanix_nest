@@ -1,38 +1,98 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Client, LocalAuth } from 'whatsapp-web.js';
+import * as qrcode from 'qrcode-terminal';
 import { INotificationProvider, NotificationPayload } from '../../interfaces';
 import { NotificationProviderPreference } from '../../../user-preferences/entities';
 import { ProviderType } from '../../../user-preferences/enums';
 
 /**
- * Provider para enviar notificaciones por WhatsApp
- * TODO: Implementar integración con WhatsApp Business API o Twilio
- * Implementa INotificationProvider siguiendo el patrón Strategy
+ * Provider para enviar notificaciones por WhatsApp usando whatsapp-web.js
+ * Escanea el QR en la terminal para iniciar sesión.
  */
 @Injectable()
-export class WhatsAppNotificationProvider implements INotificationProvider {
+export class WhatsAppNotificationProvider
+  implements INotificationProvider, OnModuleInit {
   readonly name = 'WhatsAppProvider';
   private readonly logger = new Logger(WhatsAppNotificationProvider.name);
+  public client: Client;
+  private isReady = false;
 
   constructor(
     @InjectRepository(NotificationProviderPreference)
     private readonly providerPreferenceRepository: Repository<NotificationProviderPreference>,
-  ) {}
+  ) {
+    this.client = new Client({
+      authStrategy: new LocalAuth({
+        clientId: 'oceanix-bot',
+        dataPath: './.wwebjs_auth',
+      }),
+      puppeteer: {
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+        ],
+        headless: true,
+      },
+    });
+
+    this.initializeClient();
+  }
+
+  onModuleInit() {
+    this.logger.log('Initializing WhatsApp Client...');
+    this.client.initialize().catch((err) => {
+      this.logger.error('Failed to initialize WhatsApp client', err);
+    });
+  }
+
+  private initializeClient() {
+    this.client.on('qr', (qr) => {
+      this.logger.log('Escanea este código QR con tu WhatsApp:');
+      qrcode.generate(qr, { small: true });
+    });
+
+    this.client.on('ready', () => {
+      this.logger.log('✅ WhatsApp Bot is ready!');
+      this.isReady = true;
+    });
+
+    this.client.on('authenticated', () => {
+      this.logger.log('✅ WhatsApp Authenticated successfully');
+    });
+
+    this.client.on('auth_failure', (msg) => {
+      this.logger.error('❌ WhatsApp Authentication failure', msg);
+    });
+
+    this.client.on('disconnected', (reason) => {
+      this.logger.warn('WhatsApp Client was disconnected', reason);
+      this.isReady = false;
+    });
+  }
 
   /**
-   * Envía una notificación por WhatsApp al usuario
-   * TODO: Implementar envío real usando WhatsApp Business API o Twilio
+   * Envía una notificación por WhatsApp
    */
   async send(userId: string, payload: NotificationPayload): Promise<void> {
+    if (!this.isReady) {
+      this.logger.warn('WhatsApp client is not ready yet. Cannot send message.');
+      return;
+    }
+
     try {
       const isActive = await this.isEnabled(userId);
       if (!isActive) {
-        this.logger.debug(`WhatsApp provider is disabled for user ${userId}`);
         return;
       }
 
-      // Obtener configuración del usuario (phoneNumber)
+      // Obtener configuración del usuario
       const preference = await this.providerPreferenceRepository.findOne({
         where: {
           userId,
@@ -41,33 +101,39 @@ export class WhatsAppNotificationProvider implements INotificationProvider {
         },
       });
 
-      if (!preference || !preference.config?.phoneNumber || !preference.config?.isVerified) {
-        this.logger.warn(`User ${userId} has no verified WhatsApp number configured`);
+      if (!preference?.config?.phoneNumber) {
+        this.logger.warn(`User ${userId} has no WhatsApp number configured`);
         return;
       }
 
-      const phoneNumber = preference.config.phoneNumber;
+      // Formatear número: eliminar +, espacios y asegurar sufijo @c.us
+      let phoneNumber = preference.config.phoneNumber.replace(/[^0-9]/g, '');
 
-      // TODO: Implementar envío real
-      this.logger.log(`[WHATSAPP] Would send notification to ${phoneNumber}:`);
-      this.logger.log(`  Message: ${payload.title} - ${payload.message}`);
-      this.logger.log(`  Type: ${payload.type}`);
+      // Ajustes comunes de formato (ej. agregar código de país si falta)
+      // Nota: whatsapp-web.js espera formato: 573001234567@c.us
+      if (!phoneNumber.endsWith('@c.us')) {
+        phoneNumber = `${phoneNumber}@c.us`;
+      }
 
-      // Aquí se implementaría el envío real usando Twilio o WhatsApp Business API:
-      // await this.twilioClient.messages.create({
-      //   from: 'whatsapp:+14155238886', // Twilio Sandbox o número oficial
-      //   to: `whatsapp:${phoneNumber}`,
-      //   body: `*${payload.title}*\n\n${payload.message}${payload.actionUrl ? `\n\n${payload.actionUrl}` : ''}`
-      // });
+      let message = `*${payload.title}*\n\n${payload.message}`;
 
-      this.logger.warn('WhatsApp provider not fully implemented yet');
+      if (payload.actionUrl) {
+        message += `\n\n🔗 Ver más: ${payload.actionUrl}`;
+      }
+
+      await this.client.sendMessage(phoneNumber, message);
+      this.logger.log(`✅ WhatsApp sent to ${phoneNumber}`);
+
     } catch (error) {
-      this.logger.error(`Failed to send WhatsApp notification to user ${userId}:`, error);
+      this.logger.error(
+        `Failed to send WhatsApp notification to user ${userId}:`,
+        error,
+      );
     }
   }
 
   /**
-   * Verifica si el provider de WhatsApp está habilitado y configurado
+   * Verifica si el provider está habilitado para el usuario
    */
   async isEnabled(userId: string): Promise<boolean> {
     try {
@@ -79,13 +145,8 @@ export class WhatsAppNotificationProvider implements INotificationProvider {
         },
       });
 
-      return (
-        !!preference &&
-        !!preference.config?.phoneNumber &&
-        preference.config?.isVerified === true
-      );
+      return !!preference && !!preference.config?.phoneNumber;
     } catch (error) {
-      this.logger.error(`Error checking if WhatsApp provider is enabled for user ${userId}:`, error);
       return false;
     }
   }

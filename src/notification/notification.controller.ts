@@ -1,5 +1,5 @@
-import { Controller, Get, Patch, Delete, Param, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Patch, Delete, Post, Body, Param, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
 import type { PaginateQuery } from 'nestjs-paginate';
 
@@ -7,13 +7,14 @@ import { NotificationService } from './notification.service';
 import { NotificationResponseDto } from './dto';
 import { Auth, GetUser } from '../auth/decorator';
 import { User } from '../users/entities/user.entity';
+import { TestWhatsappDto } from './dto/test-whatsapp.dto';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 @Auth()
 @ApiBearerAuth()
 export class NotificationController {
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(private readonly notificationService: NotificationService) { }
 
   @Get()
   @ApiPaginationQuery({
