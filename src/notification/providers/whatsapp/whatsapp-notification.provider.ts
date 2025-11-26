@@ -1,14 +1,16 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import { Client, RemoteAuth } from 'whatsapp-web.js';
 import { INotificationProvider, NotificationPayload } from '../../interfaces';
 import { NotificationProviderPreference } from '../../../user-preferences/entities';
 import { ProviderType } from '../../../user-preferences/enums';
+import { PostgresAuthStore } from './postgres-auth-store';
 
 /**
  * Provider para enviar notificaciones por WhatsApp usando whatsapp-web.js
  * Escanea el QR en la terminal para iniciar sesión.
+ * Usa RemoteAuth con PostgreSQL para mejor estabilidad en Docker.
  */
 @Injectable()
 export class WhatsAppNotificationProvider
@@ -23,11 +25,14 @@ export class WhatsAppNotificationProvider
   constructor(
     @InjectRepository(NotificationProviderPreference)
     private readonly providerPreferenceRepository: Repository<NotificationProviderPreference>,
+    private readonly postgresStore: PostgresAuthStore,
   ) {
     this.client = new Client({
-      authStrategy: new LocalAuth({
+      authStrategy: new RemoteAuth({
         clientId: 'oceanix-bot',
         dataPath: './.wwebjs_auth',
+        store: this.postgresStore,
+        backupSyncIntervalMs: 60000, // Backup cada 60 segundos
       }),
       puppeteer: {
         args: [

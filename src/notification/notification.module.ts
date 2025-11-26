@@ -20,10 +20,12 @@ import { NotificationGateway } from './gateways/notification.gateway';
 
 import { TestNotificationController } from './test-notification.controller';
 import { WhatsAppController } from './controllers/whatsapp.controller';
+import { WhatsAppSession } from './entities/whatsapp-session.entity';
+import { PostgresAuthStore } from './providers/whatsapp/postgres-auth-store';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Notification, User, NotificationProviderPreference]),
+    TypeOrmModule.forFeature([Notification, User, NotificationProviderPreference, WhatsAppSession]),
     UserPreferencesModule, // Importar módulo de preferencias
     JwtModule, // Para verificar tokens en WebSocket
   ],
@@ -36,6 +38,7 @@ import { WhatsAppController } from './controllers/whatsapp.controller';
     WebSocketNotificationProvider,
     TelegramNotificationProvider,
     WhatsAppNotificationProvider,
+    PostgresAuthStore,
   ],
   exports: [NotificationService], // Exportar para que otros módulos puedan usarlo
 })
