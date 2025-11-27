@@ -208,19 +208,32 @@ export class AuthController {
         subdomain
       );
 
-      // 6. Construir URL de redirección al subdomain del tenant
-      // Usar finalOriginDomain (ya incluye detección de headers)
-      const appDomain = finalOriginDomain;
+      // 6. Construir URL de redirección
       const path = returnPath || '/portal/dashboard';
+      let redirectUrl: string;
 
-      // Special handling for localhost - don't add subdomain
-      const isLocalhost = appDomain.includes('localhost');
-      const redirectUrl = isLocalhost
-        ? `http://${appDomain}${path}`  // localhost sin subdomain
-        : `https://${subdomain}.${appDomain}${path}`;  // producción con subdomain
+      if (originDomain) {
+        // Si tenemos el dominio de origen del frontend, lo usamos directamente
+        // originDomain ya viene como "localhost:4200" o "tenant.oceanix.space"
+        const isLocal = originDomain.includes('localhost');
+        const protocol = isLocal ? 'http' : 'https';
+        redirectUrl = `${protocol}://${originDomain}${path}`;
+      } else {
+        // Fallback si no hay originDomain (comportamiento legacy)
+        const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
+        const isLocal = appDomain.includes('localhost');
+
+        if (isLocal) {
+          redirectUrl = `http://${appDomain}${path}`;
+        } else {
+          // En producción, aseguramos el subdominio
+          redirectUrl = `https://${subdomain}.${appDomain}${path}`;
+        }
+      }
+
+      this.logger.log(`🔄 Redirecting user to: ${redirectUrl}`);
 
       // 7. Setear cookie de autenticación
-      // IMPORTANTE: Para localhost no usar domain, para producción usar wildcard domain
       const cookieOptions: any = {
         httpOnly: true,
         sameSite: 'lax',
@@ -229,16 +242,18 @@ export class AuthController {
       };
 
       // Solo agregar secure y domain si NO es localhost
-      if (!isLocalhost) {
+      if (!redirectUrl.includes('localhost')) {
         cookieOptions.secure = true;
-        cookieOptions.domain = `.${appDomain}`;
+        // Extraer el dominio base para la cookie (ej: .oceanix.space)
+        const domainParts = (originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space').split('.');
+        if (domainParts.length >= 2) {
+          const baseDomain = domainParts.slice(-2).join('.');
+          cookieOptions.domain = `.${baseDomain}`;
+        }
       }
 
       res.cookie('authToken', result.token, cookieOptions);
-
       this.logger.log(`✅ Authentication successful, redirecting to: ${redirectUrl}`);
-
-      // 8. Redirigir de vuelta al subdomain del tenant con el token en la URL
       res.redirect(`${redirectUrl}?token=${result.token}`);
 
     } catch (error) {
@@ -248,17 +263,14 @@ export class AuthController {
       let targetDomain = appDomain;
       let isLocalhost = appDomain.includes('localhost');
 
-      // Intentar recuperar el subdomain para redirigir al tenant correcto en caso de error
       try {
         if (stateParam) {
           const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
           const state = JSON.parse(stateDecoded);
 
-          // Use originDomain from state if available, otherwise use APP_DOMAIN
           const baseDomain = state.originDomain || appDomain;
           isLocalhost = baseDomain.includes('localhost');
 
-          // Para localhost no agregar subdomain, para producción sí
           if (state.subdomain && !isLocalhost) {
             targetDomain = `${state.subdomain}.${baseDomain}`;
           } else {
@@ -271,7 +283,6 @@ export class AuthController {
 
       const errorMessage = encodeURIComponent(error.message || 'google_auth_failed');
       const protocol = isLocalhost ? 'http' : 'https';
-      // Redirigir al portal de login del subdominio específico
       res.redirect(`${protocol}://${targetDomain}/portal/login?error=${errorMessage}`);
     }
   }
@@ -326,5 +337,4 @@ export class AuthController {
   async getMe(@GetUser() user: User): Promise<UserProfileResponseDto> {
     return await this.authService.getUserProfile(user);
   }
-
 }
