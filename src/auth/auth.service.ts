@@ -354,8 +354,13 @@ export class AuthService {
         try {
             // Use originDomain if provided, otherwise fall back to APP_DOMAIN
             const appDomain = originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space';
+
+            // Use http for localhost, https for production
+            const isLocalhost = appDomain.includes('localhost');
+            const protocol = isLocalhost ? 'http' : 'https';
+
             // IMPORTANTE: Debe incluir /api/v1 porque Nginx solo proxy /api/v1 al backend
-            const redirectUri = `https://${appDomain}/api/v1/auth/google/callback`;
+            const redirectUri = `${protocol}://${appDomain}/api/v1/auth/google/callback`;
 
             this.logger.debug(`🔄 Exchanging authorization code for tokens`);
             this.logger.debug(`📍 Redirect URI: ${redirectUri}`);
