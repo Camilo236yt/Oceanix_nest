@@ -158,13 +158,14 @@ export class AuthController {
       // 2. Decodificar el state parameter
       const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
       const state = JSON.parse(stateDecoded);
-      const { subdomain, returnPath } = state;
+      const { subdomain, returnPath, originDomain } = state;
 
       if (!subdomain) {
         throw new BadRequestException('Invalid state parameter: missing subdomain');
       }
 
       this.logger.log(`🏢 Tenant subdomain: ${subdomain}`);
+      this.logger.log(`🌐 Origin domain: ${originDomain || 'not provided, using APP_DOMAIN'}`);
 
       // 3. Validar timestamp del state (máximo 10 minutos)
       if (state.timestamp) {
@@ -175,7 +176,8 @@ export class AuthController {
       }
 
       // 4. Intercambiar el código por el token de Google
-      const googleToken = await this.authService.exchangeCodeForToken(code);
+      // Pasar originDomain para construir la redirectUri correcta
+      const googleToken = await this.authService.exchangeCodeForToken(code, originDomain);
 
       if (!googleToken.id_token) {
         throw new BadRequestException('No se recibió id_token de Google');
@@ -188,7 +190,8 @@ export class AuthController {
       );
 
       // 6. Construir URL de redirección al subdomain del tenant
-      const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
+      // Use originDomain if provided, otherwise fall back to APP_DOMAIN
+      const appDomain = originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space';
       const path = returnPath || '/portal/dashboard';
       const redirectUrl = `https://${subdomain}.${appDomain}${path}`;
 
@@ -222,7 +225,9 @@ export class AuthController {
           const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
           const state = JSON.parse(stateDecoded);
           if (state.subdomain) {
-            targetDomain = `${state.subdomain}.${appDomain}`;
+            // Use originDomain from state if available, otherwise use APP_DOMAIN
+            const baseDomain = state.originDomain || appDomain;
+            targetDomain = `${state.subdomain}.${baseDomain}`;
           }
         }
       } catch (e) {

@@ -347,15 +347,19 @@ export class AuthService {
     /**
      * Intercambia el código de autorización de Google por tokens
      * Usado en el flujo OAuth centralizado con redirect
+     * @param code - Authorization code from Google
+     * @param originDomain - Optional origin domain (e.g., 'example.com'). Falls back to APP_DOMAIN if not provided.
      */
-    async exchangeCodeForToken(code: string) {
+    async exchangeCodeForToken(code: string, originDomain?: string) {
         try {
-            const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
+            // Use originDomain if provided, otherwise fall back to APP_DOMAIN
+            const appDomain = originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space';
             // IMPORTANTE: Debe incluir /api/v1 porque Nginx solo proxy /api/v1 al backend
             const redirectUri = `https://${appDomain}/api/v1/auth/google/callback`;
 
             this.logger.debug(`🔄 Exchanging authorization code for tokens`);
             this.logger.debug(`📍 Redirect URI: ${redirectUri}`);
+            this.logger.debug(`🌐 Origin Domain: ${originDomain || 'using APP_DOMAIN fallback'}`);
 
             const { tokens } = await this.googleClient.getToken({
                 code,
