@@ -270,7 +270,10 @@ export class AuthController {
 
       res.cookie('authToken', result.token, cookieOptions);
       this.logger.log(`✅ Authentication successful, redirecting to: ${redirectUrl}`);
-      res.redirect(`${redirectUrl}?token=${result.token}`);
+
+      // NO enviamos el token en la URL, solo redirigimos
+      // La cookie httpOnly ya está seteada y se enviará automáticamente
+      res.redirect(redirectUrl);
 
     } catch (error) {
       this.logger.error(`❌ Google OAuth callback error: ${error.message}`);
