@@ -343,6 +343,36 @@ export class AuthService {
         return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
     }
 
+    /**
+     * Intercambia el código de autorización de Google por tokens
+     * Usado en el flujo OAuth centralizado con redirect
+     */
+    async exchangeCodeForToken(code: string) {
+        try {
+            const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
+            const redirectUri = `https://${appDomain}/auth/google/callback`;
+
+            this.logger.debug(`🔄 Exchanging authorization code for tokens`);
+            this.logger.debug(`📍 Redirect URI: ${redirectUri}`);
+
+            const { tokens } = await this.googleClient.getToken({
+                code,
+                redirect_uri: redirectUri,
+            });
+
+            if (!tokens.id_token) {
+                this.logger.error('❌ No id_token received from Google');
+                throw new BadRequestException('No se recibió id_token de Google');
+            }
+
+            this.logger.log('✅ Successfully exchanged code for tokens');
+            return tokens;
+        } catch (error) {
+            this.logger.error(`❌ Error exchanging code for token: ${error.message}`);
+            throw new BadRequestException('Error al obtener token de Google');
+        }
+    }
+
     async registerEnterprise(registerDto: RegisterEnterpriseDto): Promise<RegisterEnterpriseResponseDto> {
         // Validaciones antes de iniciar transacción
         this.authValidationService.validatePasswordConfirmation(registerDto.adminPassword, registerDto.adminConfirmPassword);
