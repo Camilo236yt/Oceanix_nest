@@ -193,20 +193,29 @@ export class AuthController {
       // Use originDomain if provided, otherwise fall back to APP_DOMAIN
       const appDomain = originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space';
       const path = returnPath || '/portal/dashboard';
-      const redirectUrl = `https://${subdomain}.${appDomain}${path}`;
+
+      // Special handling for localhost - don't add subdomain
+      const isLocalhost = appDomain.includes('localhost');
+      const redirectUrl = isLocalhost
+        ? `http://${appDomain}${path}`  // localhost sin subdomain
+        : `https://${subdomain}.${appDomain}${path}`;  // producción con subdomain
 
       // 7. Setear cookie de autenticación
-      // IMPORTANTE: La cookie debe ser para el dominio completo (.oceanix.space)
-      // para que funcione en todos los subdominios
-      // Usamos 'authToken' que es el nombre estándar en este proyecto
-      res.cookie('authToken', result.token, {
+      // IMPORTANTE: Para localhost no usar domain, para producción usar wildcard domain
+      const cookieOptions: any = {
         httpOnly: true,
-        secure: true,
         sameSite: 'lax',
-        domain: `.${appDomain}`,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
         path: '/',
-      });
+      };
+
+      // Solo agregar secure y domain si NO es localhost
+      if (!isLocalhost) {
+        cookieOptions.secure = true;
+        cookieOptions.domain = `.${appDomain}`;
+      }
+
+      res.cookie('authToken', result.token, cookieOptions);
 
       this.logger.log(`✅ Authentication successful, redirecting to: ${redirectUrl}`);
 
@@ -218,16 +227,23 @@ export class AuthController {
 
       const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
       let targetDomain = appDomain;
+      let isLocalhost = appDomain.includes('localhost');
 
       // Intentar recuperar el subdomain para redirigir al tenant correcto en caso de error
       try {
         if (stateParam) {
           const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
           const state = JSON.parse(stateDecoded);
-          if (state.subdomain) {
-            // Use originDomain from state if available, otherwise use APP_DOMAIN
-            const baseDomain = state.originDomain || appDomain;
+
+          // Use originDomain from state if available, otherwise use APP_DOMAIN
+          const baseDomain = state.originDomain || appDomain;
+          isLocalhost = baseDomain.includes('localhost');
+
+          // Para localhost no agregar subdomain, para producción sí
+          if (state.subdomain && !isLocalhost) {
             targetDomain = `${state.subdomain}.${baseDomain}`;
+          } else {
+            targetDomain = baseDomain;
           }
         }
       } catch (e) {
@@ -235,8 +251,9 @@ export class AuthController {
       }
 
       const errorMessage = encodeURIComponent(error.message || 'google_auth_failed');
+      const protocol = isLocalhost ? 'http' : 'https';
       // Redirigir al portal de login del subdominio específico
-      res.redirect(`https://${targetDomain}/portal/login?error=${errorMessage}`);
+      res.redirect(`${protocol}://${targetDomain}/portal/login?error=${errorMessage}`);
     }
   }
 
