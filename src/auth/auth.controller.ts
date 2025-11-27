@@ -145,6 +145,7 @@ export class AuthController {
   async googleOAuthCallback(
     @Query('code') code: string,
     @Query('state') stateParam: string,
+    @Req() req: Request,
     @Res() res: Response
   ) {
     try {
@@ -155,7 +156,21 @@ export class AuthController {
 
       this.logger.log(`📥 Received Google OAuth callback`);
 
-      // 2. Decodificar el state parameter
+      // 2. Detectar el dominio de origen desde los headers
+      const origin = req.headers.origin || req.headers.referer;
+      let detectedDomain: string | undefined;
+
+      if (origin) {
+        try {
+          const url = new URL(origin);
+          detectedDomain = url.host; // Incluye puerto si existe (ej: localhost:4200)
+          this.logger.log(`🌐 Detected origin from headers: ${detectedDomain}`);
+        } catch (e) {
+          this.logger.warn(`Could not parse origin header: ${origin}`);
+        }
+      }
+
+      // 3. Decodificar el state parameter
       const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
       const state = JSON.parse(stateDecoded);
       const { subdomain, returnPath, originDomain } = state;
@@ -164,8 +179,11 @@ export class AuthController {
         throw new BadRequestException('Invalid state parameter: missing subdomain');
       }
 
+      // Usar el dominio detectado de los headers, o el del state, o APP_DOMAIN como fallback
+      const finalOriginDomain = detectedDomain || originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space';
+
       this.logger.log(`🏢 Tenant subdomain: ${subdomain}`);
-      this.logger.log(`🌐 Origin domain: ${originDomain || 'not provided, using APP_DOMAIN'}`);
+      this.logger.log(`🌐 Using origin domain: ${finalOriginDomain}`);
 
       // 3. Validar timestamp del state (máximo 10 minutos)
       if (state.timestamp) {
@@ -176,8 +194,9 @@ export class AuthController {
       }
 
       // 4. Intercambiar el código por el token de Google
-      // Pasar originDomain para construir la redirectUri correcta
-      const googleToken = await this.authService.exchangeCodeForToken(code, originDomain);
+      // IMPORTANTE: Google hace callback al BACKEND, no al frontend
+      // Por eso SIEMPRE usamos APP_DOMAIN (dominio del backend)
+      const googleToken = await this.authService.exchangeCodeForToken(code);
 
       if (!googleToken.id_token) {
         throw new BadRequestException('No se recibió id_token de Google');
@@ -190,8 +209,8 @@ export class AuthController {
       );
 
       // 6. Construir URL de redirección al subdomain del tenant
-      // Use originDomain if provided, otherwise fall back to APP_DOMAIN
-      const appDomain = originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space';
+      // Usar finalOriginDomain (ya incluye detección de headers)
+      const appDomain = finalOriginDomain;
       const path = returnPath || '/portal/dashboard';
 
       // Special handling for localhost - don't add subdomain
