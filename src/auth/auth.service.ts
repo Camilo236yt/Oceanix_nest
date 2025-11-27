@@ -44,6 +44,7 @@ export class AuthService {
     ) {
         this.googleClient = new OAuth2Client(
             this.configService.get('GOOGLE_CLIENT_ID'),
+            this.configService.get('GOOGLE_CLIENT_SECRET'),
         );
     }
 
