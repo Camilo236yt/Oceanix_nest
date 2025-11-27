@@ -350,7 +350,8 @@ export class AuthService {
     async exchangeCodeForToken(code: string) {
         try {
             const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
-            const redirectUri = `https://${appDomain}/auth/google/callback`;
+            // IMPORTANTE: Debe incluir /api/v1 porque Nginx solo proxy /api/v1 al backend
+            const redirectUri = `https://${appDomain}/api/v1/auth/google/callback`;
 
             this.logger.debug(`🔄 Exchanging authorization code for tokens`);
             this.logger.debug(`📍 Redirect URI: ${redirectUri}`);
