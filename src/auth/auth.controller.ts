@@ -271,9 +271,13 @@ export class AuthController {
       res.cookie('authToken', result.token, cookieOptions);
       this.logger.log(`✅ Authentication successful, redirecting to: ${redirectUrl}`);
 
-      // NO enviamos el token en la URL, solo redirigimos
-      // La cookie httpOnly ya está seteada y se enviará automáticamente
-      res.redirect(redirectUrl);
+      // Si el frontend es localhost, enviar token en URL para Bearer auth (localStorage)
+      // Si es producción, solo usar cookie httpOnly (más seguro)
+      if (isFrontendLocal) {
+        res.redirect(`${redirectUrl}?token=${result.token}`);
+      } else {
+        res.redirect(redirectUrl);
+      }
 
     } catch (error) {
       this.logger.error(`❌ Google OAuth callback error: ${error.message}`);
