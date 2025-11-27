@@ -195,7 +195,8 @@ export class AuthController {
       // 7. Setear cookie de autenticación
       // IMPORTANTE: La cookie debe ser para el dominio completo (.oceanix.space)
       // para que funcione en todos los subdominios
-      res.cookie('token', result.token, {
+      // Usamos 'authToken' que es el nombre estándar en este proyecto
+      res.cookie('authToken', result.token, {
         httpOnly: true,
         secure: true,
         sameSite: 'lax',
