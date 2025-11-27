@@ -212,10 +212,25 @@ export class AuthController {
     } catch (error) {
       this.logger.error(`❌ Google OAuth callback error: ${error.message}`);
 
-      // Redirigir a página de error
       const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
+      let targetDomain = appDomain;
+
+      // Intentar recuperar el subdomain para redirigir al tenant correcto en caso de error
+      try {
+        if (stateParam) {
+          const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
+          const state = JSON.parse(stateDecoded);
+          if (state.subdomain) {
+            targetDomain = `${state.subdomain}.${appDomain}`;
+          }
+        }
+      } catch (e) {
+        this.logger.warn('Could not parse state parameter for error redirect');
+      }
+
       const errorMessage = encodeURIComponent(error.message || 'google_auth_failed');
-      res.redirect(`https://${appDomain}/portal/login?error=${errorMessage}`);
+      // Redirigir al portal de login del subdominio específico
+      res.redirect(`https://${targetDomain}/portal/login?error=${errorMessage}`);
     }
   }
 
