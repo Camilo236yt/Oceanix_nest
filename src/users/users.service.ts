@@ -39,7 +39,7 @@ export class UsersService {
     private readonly dataSource: DataSource,
     private readonly cryptoService: CryptoService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async create(createUserDto: CreateUserDto, enterpriseId?: string): Promise<User> {
     const { roleIds, ...userDto } = createUserDto;
@@ -181,7 +181,6 @@ export class UsersService {
       },
       defaultSortBy: [['name', 'ASC']],
       where: {
-        isActive: true,
         ...(enterpriseId && { enterpriseId }),
       },
       relations: ['roles', 'roles.role'],
