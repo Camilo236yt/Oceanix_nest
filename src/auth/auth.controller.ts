@@ -236,19 +236,35 @@ export class AuthController {
       // 7. Setear cookie de autenticación
       const cookieOptions: any = {
         httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
         path: '/',
       };
 
-      // Solo agregar secure y domain si NO es localhost
-      if (!redirectUrl.includes('localhost')) {
+      const appDomain = this.configService.get('APP_DOMAIN') || 'oceanix.space';
+      const isBackendLocal = appDomain.includes('localhost');
+      const isFrontendLocal = redirectUrl.includes('localhost');
+
+      if (isFrontendLocal && !isBackendLocal) {
+        // CASO: Frontend Local (localhost) -> Backend Producción (oceanix.space)
+        // Necesitamos SameSite=None y Secure=true para que la cookie se envíe en peticiones cross-site
+        cookieOptions.sameSite = 'none';
         cookieOptions.secure = true;
-        // Extraer el dominio base para la cookie (ej: .oceanix.space)
-        const domainParts = (originDomain || this.configService.get('APP_DOMAIN') || 'oceanix.space').split('.');
-        if (domainParts.length >= 2) {
-          const baseDomain = domainParts.slice(-2).join('.');
-          cookieOptions.domain = `.${baseDomain}`;
+        // No seteamos domain para que sea host-only (oceanix.space)
+      } else {
+        // CASO: Producción -> Producción O Local -> Local
+        cookieOptions.sameSite = 'lax';
+
+        if (!isBackendLocal) {
+          // Producción
+          cookieOptions.secure = true;
+          // Extraer el dominio base para la cookie (ej: .oceanix.space) para soportar subdominios
+          const domainParts = appDomain.split('.');
+          if (domainParts.length >= 2) {
+            const baseDomain = domainParts.slice(-2).join('.');
+            cookieOptions.domain = `.${baseDomain}`;
+          }
+        } else {
+          // Local Backend
+          cookieOptions.secure = false;
         }
       }
 
