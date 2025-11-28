@@ -28,8 +28,8 @@ export class IncidenciasService {
     private readonly employeeAssignmentService: EmployeeAssignmentService,
     @Inject(forwardRef(() => MessagesGateway))
     private readonly messagesGateway: MessagesGateway,
-  ) {}
-  
+  ) { }
+
 
   private getApiBaseUrl(): string {
     return (
@@ -553,6 +553,90 @@ export class IncidenciasService {
         `Error al re-subir imágenes: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Permite al cliente cancelar su propia incidencia
+   * Solo disponible si el estado es PENDING o IN_PROGRESS
+   */
+  async cancelIncidentByClient(
+    id: string,
+    enterpriseId: string,
+    clientUserId: string,
+  ) {
+    // Verificar que la incidencia existe y pertenece al cliente
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id, enterpriseId, createdByUserId: clientUserId },
+      relations: ['assignedEmployee'],
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
+    }
+
+    // Validar que el estado permite cancelación
+    if (
+      incidencia.status !== IncidenciaStatus.PENDING &&
+      incidencia.status !== IncidenciaStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException(INCIDENCIA_MESSAGES.CANNOT_CANCEL);
+    }
+
+    // Actualizar estado a CANCELLED
+    incidencia.status = IncidenciaStatus.CANCELLED;
+    const updatedIncidencia = await this.incidenciaRepository.save(incidencia);
+
+    // Emitir evento WebSocket para notificar la cancelación
+    const roomName = `incidencia:${id}`;
+    this.messagesGateway.server.to(roomName).emit('incidenciaCancelled', {
+      incidenciaId: id,
+      status: IncidenciaStatus.CANCELLED,
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      message: INCIDENCIA_MESSAGES.CANCELLED_SUCCESSFULLY,
+      incidencia: updatedIncidencia,
+    };
+  }
+
+  /**
+   * Permite al cliente eliminar (soft delete) su propia incidencia
+   * Solo disponible si el estado es PENDING o CANCELLED
+   */
+  async deleteIncidentByClient(
+    id: string,
+    enterpriseId: string,
+    clientUserId: string,
+  ) {
+    // Verificar que la incidencia existe y pertenece al cliente
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id, enterpriseId, createdByUserId: clientUserId },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
+    }
+
+    // Validar que el estado permite eliminación
+    if (
+      incidencia.status !== IncidenciaStatus.PENDING &&
+      incidencia.status !== IncidenciaStatus.CANCELLED
+    ) {
+      throw new BadRequestException(INCIDENCIA_MESSAGES.CANNOT_DELETE);
+    }
+
+    // Soft delete
+    await this.incidenciaRepository.softDelete(incidencia.id);
+
+    // Emitir evento WebSocket para notificar la eliminación
+    const roomName = `incidencia:${id}`;
+    this.messagesGateway.server.to(roomName).emit('incidenciaDeleted', {
+      incidenciaId: id,
+      timestamp: new Date().toISOString(),
+    });
+
+    return { message: INCIDENCIA_MESSAGES.DELETED_BY_CLIENT_SUCCESSFULLY };
   }
 }
 

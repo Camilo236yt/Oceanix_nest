@@ -52,7 +52,7 @@ export class IncidenciasController {
     private readonly incidenciasService: IncidenciasService,
     private readonly messagesService: MessagesService,
     private readonly messagesGateway: MessagesGateway,
-  ) {}
+  ) { }
 
   @Post()
   @Auth(ValidPermission.createIncidents)
@@ -154,7 +154,7 @@ export class IncidenciasController {
     return this.incidenciasService.findAllPaginated(query, enterpriseId);
   }
 
-  
+
   @Get(':id')
   @Auth(ValidPermission.viewIncidents)
   @FindOneIncidenciaDoc()
@@ -165,7 +165,7 @@ export class IncidenciasController {
     return this.incidenciasService.findOne(id, enterpriseId);
   }
 
-  
+
   @Patch(':id')
   @Auth(ValidPermission.editIncidents)
   @UpdateIncidenciaDoc()
@@ -624,6 +624,72 @@ export class IncidenciasController {
     });
 
     return result;
+  }
+
+  @Patch('client/me/:id/cancel')
+  @ClientAuth()
+  @ApiOperation({
+    summary: 'Cancelar mi incidencia',
+    description: 'Permite al cliente cancelar su propia incidencia. Solo disponible para incidencias en estado PENDING o IN_PROGRESS. La incidencia cambiará a estado CANCELLED.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Incidencia cancelada exitosamente',
+    schema: {
+      example: {
+        message: 'Incidencia cancelada exitosamente',
+        incidencia: {
+          id: 'uuid',
+          name: 'Fuga en baño',
+          status: 'CANCELLED',
+          createdAt: '2025-11-27T10:00:00Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'No se puede cancelar una incidencia resuelta o cerrada' })
+  @ApiResponse({ status: 403, description: 'No tienes permiso para cancelar esta incidencia' })
+  @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
+  async cancelMyIncident(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    return await this.incidenciasService.cancelIncidentByClient(
+      id,
+      enterpriseId,
+      userId,
+    );
+  }
+
+  @Delete('client/me/:id')
+  @ClientAuth()
+  @ApiOperation({
+    summary: 'Eliminar mi incidencia',
+    description: 'Permite al cliente eliminar (soft delete) su propia incidencia. Solo disponible para incidencias en estado PENDING o CANCELLED. La incidencia será eliminada pero puede ser restaurada por un administrador.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Incidencia eliminada exitosamente',
+    schema: {
+      example: {
+        message: 'Incidencia eliminada exitosamente',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Solo puedes eliminar incidencias en estado PENDING o CANCELLED' })
+  @ApiResponse({ status: 403, description: 'No tienes permiso para eliminar esta incidencia' })
+  @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
+  async deleteMyIncident(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    return await this.incidenciasService.deleteIncidentByClient(
+      id,
+      enterpriseId,
+      userId,
+    );
   }
 
   /**

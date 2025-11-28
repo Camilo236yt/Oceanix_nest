@@ -3,6 +3,7 @@ export enum IncidenciaStatus {
   IN_PROGRESS = 'IN_PROGRESS',
   RESOLVED = 'RESOLVED',
   CLOSED = 'CLOSED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum TipoIncidencia {

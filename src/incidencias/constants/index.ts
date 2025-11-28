@@ -15,6 +15,8 @@ export const INCIDENCIA_MESSAGES = {
   UPDATED_SUCCESSFULLY: 'Incidencia actualizada exitosamente',
   DELETED_SUCCESSFULLY: 'Incidencia eliminada exitosamente',
   RESTORED_SUCCESSFULLY: 'Incidencia restaurada exitosamente',
+  CANCELLED_SUCCESSFULLY: 'Incidencia cancelada exitosamente',
+  DELETED_BY_CLIENT_SUCCESSFULLY: 'Incidencia eliminada exitosamente',
 
   // Errores
   NOT_FOUND: 'Incidencia no encontrada',
@@ -24,6 +26,9 @@ export const INCIDENCIA_MESSAGES = {
   IMAGE_NOT_FOUND: 'Imagen no encontrada para esta incidencia',
   IMAGE_NOT_FOUND_TENANT: 'Imagen no encontrada para este tenant',
   DUPLICATE_ERROR: 'Error: registro duplicado',
+  CANNOT_CANCEL: 'No puedes cancelar una incidencia que ya está resuelta o cerrada',
+  CANNOT_DELETE: 'Solo puedes eliminar incidencias en estado PENDING o CANCELLED',
+  NOT_OWNER: 'No tienes permiso para realizar esta acción en esta incidencia',
 
   // Asignación
   NO_EMPLOYEES_AVAILABLE: 'No hay empleados disponibles para asignación',
