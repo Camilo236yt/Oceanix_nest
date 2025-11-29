@@ -291,13 +291,20 @@ export class AuthController {
           const stateDecoded = Buffer.from(stateParam, 'base64').toString('utf-8');
           const state = JSON.parse(stateDecoded);
 
-          const baseDomain = state.originDomain || appDomain;
-          isLocalhost = baseDomain.includes('localhost');
-
-          if (state.subdomain && !isLocalhost) {
-            targetDomain = `${state.subdomain}.${baseDomain}`;
+          // Usar originDomain si está disponible (ya incluye el subdomain)
+          if (state.originDomain) {
+            targetDomain = state.originDomain;
+            isLocalhost = state.originDomain.includes('localhost');
           } else {
-            targetDomain = baseDomain;
+            // Fallback: construir dominio con subdomain
+            const baseDomain = appDomain;
+            isLocalhost = baseDomain.includes('localhost');
+
+            if (state.subdomain && !isLocalhost) {
+              targetDomain = `${state.subdomain}.${baseDomain}`;
+            } else {
+              targetDomain = baseDomain;
+            }
           }
         }
       } catch (e) {
