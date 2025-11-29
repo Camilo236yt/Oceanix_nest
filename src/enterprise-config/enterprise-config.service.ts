@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { EnterpriseConfig } from './entities/enterprise-config.entity';
 import { UpdateEnterpriseConfigDto } from './dto/update-enterprise-config.dto';
 import { VerificationStatus } from './enums/verification-status.enum';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class EnterpriseConfigService {
@@ -17,6 +18,8 @@ export class EnterpriseConfigService {
   constructor(
     @InjectRepository(EnterpriseConfig)
     private readonly configRepository: Repository<EnterpriseConfig>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) { }
 
   /**
@@ -213,8 +216,18 @@ export class EnterpriseConfigService {
     await redisService.del(key);
     this.logger.log('   ✅ Código eliminado de Redis');
 
-    // TODO: Mark user email as verified in User entity if needed
-    // For now we just return true
+    // Mark user email as verified
+    const user = await this.userRepository.findOne({
+      where: { email: userEmail, enterpriseId },
+    });
+
+    if (user) {
+      user.isEmailVerified = true;
+      await this.userRepository.save(user);
+      this.logger.log(`   ✅ Usuario ${userEmail} marcado como email verificado`);
+    } else {
+      this.logger.warn(`   ⚠️  No se encontró usuario con email ${userEmail}`);
+    }
 
     // Send welcome email
     const config = await this.getOrCreateConfig(enterpriseId);
