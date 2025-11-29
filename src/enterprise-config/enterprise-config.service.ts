@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,8 @@ import { VerificationStatus } from './enums/verification-status.enum';
 
 @Injectable()
 export class EnterpriseConfigService {
+  private readonly logger = new Logger(EnterpriseConfigService.name);
+
   constructor(
     @InjectRepository(EnterpriseConfig)
     private readonly configRepository: Repository<EnterpriseConfig>,
@@ -133,15 +136,26 @@ export class EnterpriseConfigService {
     redisService: any,
     emailService: any,
   ): Promise<void> {
+    this.logger.log('═'.repeat(80));
+    this.logger.log('📧 INICIANDO ENVÍO DE CÓDIGO DE VERIFICACIÓN');
+    this.logger.log(`   Enterprise ID: ${enterpriseId}`);
+    this.logger.log(`   Email: ${userEmail}`);
+
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    this.logger.log(`   Código generado: ${code}`);
 
     // Store in Redis with 10 minutes expiration
     const key = `email_verification:${enterpriseId}`;
+    this.logger.log(`   Redis key: ${key}`);
+
     await redisService.set(key, { email: userEmail, code }, 600); // 10 minutes
+    this.logger.log('   ✅ Código guardado en Redis (expira en 10 minutos)');
 
     // Send email
     await emailService.sendVerificationEmail(userEmail, code);
+    this.logger.log('   ✅ Email de verificación enviado');
+    this.logger.log('═'.repeat(80));
   }
 
   /**
@@ -154,23 +168,50 @@ export class EnterpriseConfigService {
     redisService: any,
     emailService: any,
   ): Promise<boolean> {
+    this.logger.log('═'.repeat(80));
+    this.logger.log('🔍 VERIFICANDO CÓDIGO DE EMAIL');
+    this.logger.log(`   Enterprise ID: ${enterpriseId}`);
+    this.logger.log(`   Email recibido: ${userEmail}`);
+    this.logger.log(`   Código recibido: ${code}`);
+
     const key = `email_verification:${enterpriseId}`;
+    this.logger.log(`   Buscando en Redis con key: ${key}`);
+
     const stored = await redisService.get(key);
 
     if (!stored) {
+      this.logger.error('   ❌ ERROR: Código expirado o no encontrado en Redis');
+      this.logger.log('═'.repeat(80));
       throw new BadRequestException('Código expirado o no encontrado');
     }
 
+    this.logger.log(`   ✅ Datos encontrados en Redis:`);
+    this.logger.log(`      - Email almacenado: ${stored.email}`);
+    this.logger.log(`      - Código almacenado: ${stored.code}`);
+
     if (stored.email !== userEmail) {
+      this.logger.error(`   ❌ ERROR: Email no coincide`);
+      this.logger.error(`      - Esperado: ${stored.email}`);
+      this.logger.error(`      - Recibido: ${userEmail}`);
+      this.logger.log('═'.repeat(80));
       throw new BadRequestException('Email no coincide');
     }
 
+    this.logger.log('   ✅ Email coincide');
+
     if (stored.code !== code) {
+      this.logger.error(`   ❌ ERROR: Código incorrecto`);
+      this.logger.error(`      - Esperado: ${stored.code}`);
+      this.logger.error(`      - Recibido: ${code}`);
+      this.logger.log('═'.repeat(80));
       throw new BadRequestException('Código incorrecto');
     }
 
+    this.logger.log('   ✅ Código correcto');
+
     // Delete code after verification
     await redisService.del(key);
+    this.logger.log('   ✅ Código eliminado de Redis');
 
     // TODO: Mark user email as verified in User entity if needed
     // For now we just return true
@@ -178,9 +219,15 @@ export class EnterpriseConfigService {
     // Send welcome email
     const config = await this.getOrCreateConfig(enterpriseId);
     if (config.enterprise?.name) {
+      this.logger.log(`   📧 Enviando email de bienvenida a ${userEmail}`);
       await emailService.sendWelcomeEmail(userEmail, config.enterprise.name);
+      this.logger.log('   ✅ Email de bienvenida enviado');
+    } else {
+      this.logger.warn('   ⚠️  No se encontró nombre de empresa, no se envió email de bienvenida');
     }
 
+    this.logger.log('   ✅ VERIFICACIÓN COMPLETADA EXITOSAMENTE');
+    this.logger.log('═'.repeat(80));
     return true;
   }
 
