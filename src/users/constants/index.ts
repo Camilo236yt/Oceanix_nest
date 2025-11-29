@@ -11,6 +11,8 @@ export const USER_MESSAGES = {
   EMAIL_ALREADY_REGISTERED: 'El email ya está registrado',
   USER_NOT_FOUND: 'Usuario no encontrado',
   USER_DEACTIVATED: 'Usuario desactivado correctamente',
+  USER_ALREADY_ACTIVE: 'El usuario ya está activo',
+  USER_REACTIVATED: 'Usuario reactivado correctamente',
   USER_CREATED_BUT_NOT_RETRIEVED: 'User was created but could not be retrieved',
 
   // User type restrictions

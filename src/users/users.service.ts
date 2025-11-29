@@ -250,6 +250,20 @@ export class UsersService {
     return { message: USER_MESSAGES.USER_DEACTIVATED };
   }
 
+  async reactivate(id: string, enterpriseId?: string): Promise<{ message: string }> {
+    // Use findOne WITHOUT validateActive to find inactive users
+    const user = await this.findOne(id, false, enterpriseId);
+
+    if (user.isActive) {
+      throw new BadRequestException(USER_MESSAGES.USER_ALREADY_ACTIVE);
+    }
+
+    user.isActive = true;
+    await this.userRepository.save(user);
+
+    return { message: USER_MESSAGES.USER_REACTIVATED };
+  }
+
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<void> {
     const { currentPassword, newPassword, confirmNewPassword } = changePasswordDto;
 

@@ -301,6 +301,42 @@ export const DeleteUserDoc = () =>
     }),
   );
 
+export const ReactivateUserDoc = () =>
+  applyDecorators(
+    ApiBearerAuth(),
+    ApiCookieAuth('authToken'),
+    ApiOperation({
+      summary: 'Reactivar un usuario desactivado',
+      description: 'Reactiva un usuario que fue previamente desactivado, estableciendo isActive en true.',
+    }),
+    ApiParam({
+      name: 'id',
+      description: 'UUID del usuario a reactivar',
+      example: '550e8400-e29b-41d4-a716-446655440001',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Usuario reactivado exitosamente',
+      schema: {
+        example: {
+          message: 'Usuario reactivado correctamente',
+        },
+      },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'El usuario ya está activo',
+    }),
+    ApiResponse({
+      status: 404,
+      description: 'Usuario no encontrado',
+    }),
+    ApiResponse({
+      status: 403,
+      description: 'Prohibido - No tiene permisos',
+    }),
+  );
+
 export const ChangePasswordDoc = () =>
   applyDecorators(
     ApiBearerAuth(),

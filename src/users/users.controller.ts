@@ -21,6 +21,7 @@ import {
   FindOneUserDoc,
   UpdateUserDoc,
   DeleteUserDoc,
+  ReactivateUserDoc,
   ChangePasswordDoc,
   AssignRolesDoc,
   RemoveRoleDoc,
@@ -32,7 +33,7 @@ import {
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   @Post()
   @Auth(ValidPermission.createUsers)
@@ -48,8 +49,8 @@ export class UsersController {
     // Validate that ENTERPRISE_ADMIN can only create EMPLOYEE or CLIENT
     if (currentUser.userType === UserType.ENTERPRISE_ADMIN) {
       if (createUserDto.userType &&
-          createUserDto.userType !== UserType.EMPLOYEE &&
-          createUserDto.userType !== UserType.CLIENT) {
+        createUserDto.userType !== UserType.EMPLOYEE &&
+        createUserDto.userType !== UserType.CLIENT) {
         throw new BadRequestException(
           USER_MESSAGES.ENTERPRISE_ADMIN_USER_TYPE_RESTRICTION
         );
@@ -129,6 +130,17 @@ export class UsersController {
   async remove(@Param('id') id: string, @GetUser() currentUser: User) {
     // Pass enterpriseId for tenant isolation
     const result = await this.usersService.remove(id, currentUser.enterpriseId);
+
+    return result;
+  }
+
+  @Patch(':id/reactivate')
+  @Auth(ValidPermission.editUsers)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @ReactivateUserDoc()
+  async reactivate(@Param('id') id: string, @GetUser() currentUser: User) {
+    // Pass enterpriseId for tenant isolation
+    const result = await this.usersService.reactivate(id, currentUser.enterpriseId);
 
     return result;
   }
