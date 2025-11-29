@@ -567,7 +567,44 @@ export class AuthService {
         const faviconUrl = enterpriseConfig?.faviconUrl || this.generateDefaultFavicon(enterpriseName);
         const bannerUrl = enterpriseConfig?.bannerUrl || this.generateDefaultBanner(enterpriseName);
 
-        // 5. Build response
+        // 5. Check if any admin has verified their email (for actualVerificationStatus)
+        let hasAdminVerifiedEmail = false;
+        if (user.enterpriseId) {
+            // Get all users from the enterprise with manageEnterpriseConfig permission
+            const adminUsers = await this.userRepositoy.find({
+                where: {
+                    enterpriseId: user.enterpriseId,
+                    isActive: true,
+                    isEmailVerified: true,
+                },
+                relations: ['roles', 'roles.role', 'roles.role.permissions', 'roles.role.permissions.permission'],
+            });
+
+            // Check if any of them have manageEnterpriseConfig permission
+            hasAdminVerifiedEmail = adminUsers.some(admin => {
+                if (admin.userType === UserType.SUPER_ADMIN || admin.userType === UserType.ENTERPRISE_ADMIN) {
+                    return true;
+                }
+                return admin.roles?.some(userRole =>
+                    userRole.role?.permissions?.some(rp =>
+                        rp.permission?.name === ValidPermission.manageEnterpriseConfig
+                    )
+                );
+            });
+        }
+
+        // 6. Determine actual verification status
+        let actualVerificationStatus: VerificationStatus;
+        if (enterpriseConfig?.isVerified) {
+            actualVerificationStatus = VerificationStatus.VERIFIED;
+        } else if (hasAdminVerifiedEmail) {
+            // At least one admin verified email but enterprise not yet verified
+            actualVerificationStatus = VerificationStatus.IN_PROGRESS;
+        } else {
+            actualVerificationStatus = enterpriseConfig?.verificationStatus ?? VerificationStatus.PENDING;
+        }
+
+        // 7. Build response
         return {
             user: {
                 id: user.id,
@@ -589,6 +626,7 @@ export class AuthService {
             config: {
                 isVerified: enterpriseConfig?.isVerified ?? true,
                 verificationStatus: enterpriseConfig?.verificationStatus ?? VerificationStatus.VERIFIED,
+                actualVerificationStatus, // Nuevo campo que refleja el estado real
                 primaryColor: enterpriseConfig?.primaryColor ?? '#9333ea',
                 secondaryColor: enterpriseConfig?.secondaryColor ?? '#7c3aed',
                 accentColor: enterpriseConfig?.accentColor ?? '#a855f7',

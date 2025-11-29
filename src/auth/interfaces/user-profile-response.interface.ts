@@ -32,6 +32,7 @@ export interface EnterpriseDto {
 export interface EnterpriseConfigDto {
   isVerified: boolean;
   verificationStatus: VerificationStatus;
+  actualVerificationStatus: VerificationStatus; // Estado real basado en si algún admin verificó email
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;

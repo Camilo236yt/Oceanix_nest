@@ -1,5 +1,6 @@
 export enum VerificationStatus {
   PENDING = 'pending',
+  IN_PROGRESS = 'in_progress', // Admin verificó email pero empresa no verificada aún
   VERIFIED = 'verified',
   REJECTED = 'rejected',
 }
