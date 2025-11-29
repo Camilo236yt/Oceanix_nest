@@ -16,6 +16,9 @@ import { IncidenciaStatus } from './enums/incidencia.enums';
 import { INCIDENCIA_CONFIG, INCIDENCIA_MESSAGES } from './constants';
 import { createPaginationConfig } from '../common/helpers/pagination.config';
 import { MessagesGateway } from '../messages/messages.gateway';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationPriority } from '../notification/enums/notification-priority.enum';
 
 @Injectable()
 export class IncidenciasService {
@@ -28,6 +31,7 @@ export class IncidenciasService {
     private readonly employeeAssignmentService: EmployeeAssignmentService,
     @Inject(forwardRef(() => MessagesGateway))
     private readonly messagesGateway: MessagesGateway,
+    private readonly notificationService: NotificationService,
   ) { }
 
 
@@ -137,6 +141,36 @@ export class IncidenciasService {
           await this.incidentImageRepository.save(savedImages);
 
           incidenciaRecord.images = savedImages;
+        }
+      }
+
+      // Enviar notificación al empleado asignado
+      if (assignedEmployeeId) {
+        try {
+          const priority = incidenciaRecord.alertLevel === 'RED'
+            ? NotificationPriority.HIGH
+            : NotificationPriority.NORMAL;
+
+          await this.notificationService.sendToUser(
+            assignedEmployeeId,
+            enterpriseId,
+            {
+              title: 'Nueva incidencia asignada',
+              message: `Se te ha asignado la incidencia "${incidenciaRecord.name || 'Sin título'}"`,
+              type: NotificationType.TICKET_ASSIGNED,
+              priority,
+              metadata: {
+                incidenciaId: incidenciaRecord.id,
+                incidenciaName: incidenciaRecord.name,
+                alertLevel: incidenciaRecord.alertLevel,
+                status: incidenciaRecord.status,
+              },
+              actionUrl: `/incidencias/${incidenciaRecord.id}`,
+            },
+          );
+        } catch (notificationError) {
+          // Log error pero no falla la creación de la incidencia
+          console.error('Error al enviar notificación:', notificationError);
         }
       }
 
