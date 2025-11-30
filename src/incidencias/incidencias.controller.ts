@@ -429,6 +429,45 @@ export class IncidenciasController {
     return message;
   }
 
+  @Patch(':id/messages/mark-read')
+  @Auth(ValidPermission.viewIncidents)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Marcar mensajes como leídos',
+    description: 'Marca uno o varios mensajes de una incidencia como leídos por el usuario actual. Si no se especifican IDs, marca todos los no leídos.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Mensajes marcados como leídos',
+    schema: {
+      example: {
+        message: 'Mensajes marcados como leídos',
+        count: 5,
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
+  async markMessagesAsRead(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+    @Body() body: { messageIds?: string[] },
+  ) {
+    // Verificar que la incidencia existe
+    await this.incidenciasService.findOne(id, enterpriseId);
+
+    const count = await this.messagesService.markMultipleAsRead(
+      id,
+      userId,
+      body.messageIds,
+    );
+
+    return {
+      message: 'Mensajes marcados como leídos',
+      count,
+    };
+  }
+
   // ==================== ENDPOINTS DE MENSAJES (CLIENTES) ====================
 
   @Get('client/me/:id/messages')
@@ -542,6 +581,44 @@ export class IncidenciasController {
     }
 
     return message;
+  }
+
+  @Patch('client/me/:id/messages/mark-read')
+  @ClientAuth()
+  @ApiOperation({
+    summary: 'Marcar mensajes como leídos (cliente)',
+    description: 'Marca mensajes de mi incidencia como leídos. Si no se especifican IDs, marca todos los no leídos.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Mensajes marcados como leídos',
+    schema: {
+      example: {
+        message: 'Mensajes marcados como leídos',
+        count: 3,
+      },
+    },
+  })
+  @ApiResponse({ status: 403, description: 'No tienes acceso a esta incidencia' })
+  async markMessagesAsReadClient(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+    @Body() body: { messageIds?: string[] },
+  ) {
+    // Verificar que el cliente tiene acceso a esta incidencia
+    await this.incidenciasService.findOneByClient(id, enterpriseId, userId);
+
+    const count = await this.messagesService.markMultipleAsRead(
+      id,
+      userId,
+      body.messageIds,
+    );
+
+    return {
+      message: 'Mensajes marcados como leídos',
+      count,
+    };
   }
 
   @Post('client/me/:id/messages/upload-image')

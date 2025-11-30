@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { Message, MessageSenderType, MessageType } from './entities/message.entity';
 import { Incidencia } from '../incidencias/entities/incidencia.entity';
 import { UserType } from '../users/entities/user.entity';
@@ -12,7 +12,7 @@ export class MessagesService {
     private readonly messageRepository: Repository<Message>,
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
-  ) {}
+  ) { }
 
   /**
    * Crea un nuevo mensaje en el chat de una incidencia
@@ -290,5 +290,80 @@ export class MessagesService {
       oldestMessageId: orderedMessages.length > 0 ? orderedMessages[0].id : null,
       newestMessageId: orderedMessages.length > 0 ? orderedMessages[orderedMessages.length - 1].id : null,
     };
+  }
+
+  /**
+   * Marca un mensaje como leído
+   * @param messageId - ID del mensaje
+   * @param userId - ID del usuario que lee el mensaje
+   * @returns Mensaje actualizado
+   */
+  async markAsRead(messageId: string, userId: string): Promise<Message> {
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Mensaje no encontrado');
+    }
+
+    // No marcar como leído si el mismo remitente lo lee
+    if (message.senderId === userId) {
+      return message;
+    }
+
+    message.isRead = true;
+    message.readAt = new Date();
+    message.readBy = userId;
+
+    return await this.messageRepository.save(message);
+  }
+
+  /**
+   * Marca múltiples mensajes como leídos
+   * @param incidenciaId - ID de la incidencia
+   * @param userId - ID del usuario que lee los mensajes
+   * @param messageIds - IDs específicos de mensajes (opcional, si no se provee marca todos)
+   * @returns Número de mensajes marcados
+   */
+  async markMultipleAsRead(
+    incidenciaId: string,
+    userId: string,
+    messageIds?: string[]
+  ): Promise<number> {
+    const queryBuilder = this.messageRepository
+      .createQueryBuilder()
+      .update(Message)
+      .set({
+        isRead: true,
+        readAt: () => 'CURRENT_TIMESTAMP',
+        readBy: userId,
+      })
+      .where('incidenciaId = :incidenciaId', { incidenciaId })
+      .andWhere('senderId != :userId', { userId }) // No marcar propios mensajes
+      .andWhere('isRead = :isRead', { isRead: false });
+
+    if (messageIds && messageIds.length > 0) {
+      queryBuilder.andWhere('id IN (:...messageIds)', { messageIds });
+    }
+
+    const result = await queryBuilder.execute();
+    return result.affected || 0;
+  }
+
+  /**
+   * Obtiene el contador de mensajes no leídos para un usuario en una incidencia
+   * @param incidenciaId - ID de la incidencia
+   * @param userId - ID del usuario
+   * @returns Número de mensajes no leídos
+   */
+  async getUnreadCount(incidenciaId: string, userId: string): Promise<number> {
+    return await this.messageRepository.count({
+      where: {
+        incidenciaId,
+        senderId: Not(userId), // No contar propios mensajes
+        isRead: false,
+      },
+    });
   }
 }

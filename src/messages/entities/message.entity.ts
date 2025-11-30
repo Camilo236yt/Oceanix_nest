@@ -62,6 +62,19 @@ export class Message {
     imageUploadEnabled?: boolean;
   } | null;
 
+  @Column({ type: 'boolean', default: false })
+  isRead: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  readAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  readBy: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'readBy' })
+  readByUser?: User;
+
   @CreateDateColumn()
   createdAt: Date;
 }
