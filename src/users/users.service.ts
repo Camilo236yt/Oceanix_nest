@@ -282,6 +282,21 @@ export class UsersService {
     await this.userRepository.update(userId, { password: hashedNewPassword });
   }
 
+  /**
+   * Updates the profile picture of a user
+   * @param userId - UUID of the user to update
+   * @param profilePictureUrl - URL of the new profile picture
+   * @returns Updated user
+   */
+  async updateProfilePicture(userId: string, profilePictureUrl: string): Promise<User> {
+    const user = await this.findOne(userId);
+
+    await this.userRepository.update(userId, { profilePicture: profilePictureUrl });
+
+    const updatedUser = await this.findOne(userId);
+    return updatedUser;
+  }
+
   // Role management methods
   /**
    * Validates that all provided roles belong to the specified enterprise and are active.

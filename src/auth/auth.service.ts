@@ -278,6 +278,7 @@ export class AuthService {
                     enterpriseId: enterprise.id,
                     isEmailVerified: googlePayload.email_verified || false,
                     isActive: true,
+                    profilePicture: googlePayload.picture,
                 });
                 user = await this.userRepositoy.save(newUser);
                 this.logger.log(`New client registered via Google: ${user.email} for enterprise ${enterprise.subdomain}`);
@@ -615,6 +616,7 @@ export class AuthService {
                 userType: user.userType,
                 isEmailVerified: user.isEmailVerified ?? false,
                 isActive: user.isActive ?? false,
+                profilePicture: user.profilePicture,
             },
             enterprise: user.enterprise ? {
                 id: user.enterprise.id,

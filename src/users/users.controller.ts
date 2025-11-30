@@ -9,6 +9,7 @@ import { ValidPermission } from 'src/auth/interfaces/valid-permission';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfilePictureDto } from './dto/update-profile-picture.dto';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { sanitizeUserForCache, sanitizeUsersArrayForCache } from './dto/safe-user-response.dto';
 import { User, UserType } from './entities/user.entity';
@@ -152,6 +153,23 @@ export class UsersController {
   async changePassword(@GetUser() user: User, @Body() changePasswordDto: ChangePasswordDto) {
     await this.usersService.changePassword(user.id, changePasswordDto);
     return { message: USER_MESSAGES.PASSWORD_CHANGED };
+  }
+
+  @Patch('me/profile-picture')
+  @Auth()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async updateProfilePicture(
+    @GetUser() user: User,
+    @Body() updateProfilePictureDto: UpdateProfilePictureDto
+  ) {
+    const updatedUser = await this.usersService.updateProfilePicture(
+      user.id,
+      updateProfilePictureDto.profilePicture
+    );
+    return {
+      message: 'Foto de perfil actualizada exitosamente',
+      profilePicture: updatedUser.profilePicture
+    };
   }
 
   // Role management endpoints

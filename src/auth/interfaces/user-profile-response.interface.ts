@@ -13,6 +13,7 @@ export interface UserProfileDto {
   userType: UserType;
   isEmailVerified: boolean;
   isActive: boolean;
+  profilePicture?: string;
 }
 
 /**

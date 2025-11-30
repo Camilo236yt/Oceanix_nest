@@ -16,67 +16,70 @@ export enum UserType {
 @Index('idx_users_enterprise_active', ['enterpriseId', 'isActive'])
 export class User {
 
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({ type: 'uuid', nullable: true })
-    @Index()
-    enterpriseId: string;
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  enterpriseId: string;
 
-    @Column({ type: 'enum', enum: UserType, default: UserType.EMPLOYEE })
-    userType: UserType;
+  @Column({ type: 'enum', enum: UserType, default: UserType.EMPLOYEE })
+  userType: UserType;
 
-    @Column({type:'varchar'})
-    name: string;
+  @Column({ type: 'varchar' })
+  name: string;
 
-    @Column({type: 'varchar'})
-    phoneNumber: string;
+  @Column({ type: 'varchar' })
+  phoneNumber: string;
 
-    @Column({type:'varchar'})
-    lastName: string;
+  @Column({ type: 'varchar' })
+  lastName: string;
 
-    @Column({type: 'varchar', length: 200})
-    email: string;
+  @Column({ type: 'varchar', length: 200 })
+  email: string;
 
-    @Column({type: 'varchar'})
-    password: string;
+  @Column({ type: 'varchar' })
+  password: string;
 
-    // Relación con Address
-    @Column({ type: 'uuid', nullable: true })
-    addressId: string;
+  // Relación con Address
+  @Column({ type: 'uuid', nullable: true })
+  addressId: string;
 
-    @ManyToOne(() => Address, (address) => address.users, {
-      nullable: true,
-      eager: true
-    })
-    @JoinColumn({ name: 'addressId' })
-    address: Address;
+  @ManyToOne(() => Address, (address) => address.users, {
+    nullable: true,
+    eager: true
+  })
+  @JoinColumn({ name: 'addressId' })
+  address: Address;
 
-    @Column({type: 'enum', enum: PersonalIdentificationType, nullable: true})
-    identificationType: PersonalIdentificationType;
+  @Column({ type: 'enum', enum: PersonalIdentificationType, nullable: true })
+  identificationType: PersonalIdentificationType;
 
-    @Column({type: 'varchar', nullable: true})
-    identificationNumber: string;
+  @Column({ type: 'varchar', nullable: true })
+  identificationNumber: string;
 
-    @Column({type:'bool', default: false})
-    isActive?: boolean;
+  @Column({ type: 'varchar', nullable: true })
+  profilePicture: string;
 
-    @Column({type:'bool', default: false})
-    isEmailVerified?: boolean;
+  @Column({ type: 'bool', default: false })
+  isActive?: boolean;
 
-    @Column({type: 'bool', default: false})
-    isLegalRepresentative: boolean;
+  @Column({ type: 'bool', default: false })
+  isEmailVerified?: boolean;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @Column({ type: 'bool', default: false })
+  isLegalRepresentative: boolean;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  @CreateDateColumn()
+  createdAt: Date;
 
-    @ManyToOne(() => Enterprise, (enterprise) => enterprise.users, { nullable: true })
-    enterprise: Enterprise;
+  @UpdateDateColumn()
+  updatedAt: Date;
 
-    @OneToMany(() => UserRole, (userRole) => userRole.user, { cascade: true })
-    roles: UserRole[];
+  @ManyToOne(() => Enterprise, (enterprise) => enterprise.users, { nullable: true })
+  enterprise: Enterprise;
+
+  @OneToMany(() => UserRole, (userRole) => userRole.user, { cascade: true })
+  roles: UserRole[];
 
 }
