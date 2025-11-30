@@ -18,6 +18,9 @@ export class IncidentImage {
   @Column({ nullable: false })
   originalName: string;
 
+  @Column({ type: 'boolean', default: false })
+  isNew: boolean;
+
   @Column({ type: 'uuid' })
   incidenciaId: string;
 

@@ -662,6 +662,36 @@ export class IncidenciasController {
     );
   }
 
+  @Patch(':id/evidences/mark-viewed')
+  @Auth(ValidPermission.viewIncidents)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Marcar todas las evidencias nuevas como vistas',
+    description: 'Marca todas las evidencias nuevas de una incidencia como vistas por el admin. Útil para indicar que se han revisado las nuevas evidencias subidas por el cliente.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Evidencias marcadas como vistas',
+    schema: {
+      example: {
+        message: 'Evidencias marcadas como vistas',
+        count: 3,
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Incidencia no encontrada' })
+  async markEvidencesAsViewed(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    const count = await this.incidenciasService.markEvidencesAsViewed(id, enterpriseId);
+
+    return {
+      message: 'Evidencias marcadas como vistas',
+      count,
+    };
+  }
+
   @Delete('client/me/:id')
   @ClientAuth()
   @ApiOperation({

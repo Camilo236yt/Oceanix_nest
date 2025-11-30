@@ -318,7 +318,13 @@ export class IncidenciasService {
       throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
     }
 
-    return incidencia;
+    // Agregar contador de evidencias nuevas
+    const newEvidenceCount = incidencia.images?.filter(img => img.isNew).length || 0;
+
+    return {
+      ...incidencia,
+      newEvidenceCount,
+    };
   }
 
   /**
@@ -377,12 +383,14 @@ export class IncidenciasService {
 
     const images = await this.incidentImageRepository.find({
       where: { incidenciaId },
-      select: ['id', 'url', 'mimeType', 'originalName', 'incidenciaId'],
+      select: ['id', 'url', 'mimeType', 'originalName', 'incidenciaId', 'isNew', 'createdAt'],
+      order: { createdAt: 'DESC' },
     });
 
     return {
       imageGroupId: incidenciaId,
       images,
+      newCount: images.filter(img => img.isNew).length,
     };
   }
 
@@ -409,7 +417,13 @@ export class IncidenciasService {
       throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
     }
 
-    return incidencia;
+    // Agregar contador de evidencias nuevas
+    const newEvidenceCount = incidencia.images?.filter(img => img.isNew).length || 0;
+
+    return {
+      ...incidencia,
+      newEvidenceCount,
+    };
   }
 
   /**
@@ -552,6 +566,7 @@ export class IncidenciasService {
           mimeType: file.mimetype,
           originalName: file.originalname,
           incidenciaId: incidencia.id,
+          isNew: true, // Marcar como nueva para notificar al admin
         });
 
         await this.incidentImageRepository.save(imageEntity);
@@ -671,6 +686,44 @@ export class IncidenciasService {
     });
 
     return { message: INCIDENCIA_MESSAGES.DELETED_BY_CLIENT_SUCCESSFULLY };
+  }
+
+  /**
+   * Marca todas las evidencias nuevas de una incidencia como vistas
+   * @param incidenciaId - ID de la incidencia
+   * @param enterpriseId - ID de la empresa para validación
+   * @returns Número de evidencias marcadas como vistas
+   */
+  async markEvidencesAsViewed(incidenciaId: string, enterpriseId: string): Promise<number> {
+    // Verificar que la incidencia existe y pertenece a la empresa
+    await this.findOne(incidenciaId, enterpriseId);
+
+    // Actualizar todas las imágenes nuevas de esta incidencia
+    const result = await this.incidentImageRepository.update(
+      {
+        incidenciaId,
+        isNew: true,
+      },
+      {
+        isNew: false,
+      }
+    );
+
+    return result.affected || 0;
+  }
+
+  /**
+   * Obtiene el contador de evidencias nuevas de una incidencia
+   * @param incidenciaId - ID de la incidencia
+   * @returns Número de evidencias no vistas
+   */
+  async getNewEvidenceCount(incidenciaId: string): Promise<number> {
+    return await this.incidentImageRepository.count({
+      where: {
+        incidenciaId,
+        isNew: true,
+      },
+    });
   }
 }
 
