@@ -380,6 +380,15 @@ export class IncidenciasService {
           // Log pero no fallar la actualización
           this.logger.error('Error al enviar notificación de resolución al cliente:', notificationError);
         }
+
+        // Emitir evento WebSocket para bloquear el chat en tiempo real
+        const roomName = `incidencia:${incidencia.id}`;
+        this.messagesGateway.server.to(roomName).emit('incidenciaStatusChanged', {
+          incidenciaId: incidencia.id,
+          status: IncidenciaStatus.RESOLVED,
+          timestamp: new Date().toISOString(),
+        });
+        this.logger.log(`📡 WebSocket: Status change emitted to room ${roomName} (RESOLVED)`);
       }
 
       return savedIncidencia;

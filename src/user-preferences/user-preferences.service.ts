@@ -12,7 +12,7 @@ export class UserPreferencesService {
   constructor(
     @InjectRepository(NotificationProviderPreference)
     private readonly providerPreferenceRepository: Repository<NotificationProviderPreference>,
-  ) {}
+  ) { }
 
   /**
    * Obtiene todas las preferencias de providers de notificación de un usuario
@@ -128,7 +128,7 @@ export class UserPreferencesService {
    * Inicializa providers por defecto para un usuario nuevo
    * EMAIL y WEBSOCKET activos por defecto
    */
-  private async initializeDefaultProviders(userId: string): Promise<void> {
+  async initializeDefaultProviders(userId: string): Promise<void> {
     const defaultProviders = [
       {
         userId,

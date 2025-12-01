@@ -15,6 +15,7 @@ import { UserRole } from 'src/users/entities/user-role.entity';
 import { CryptoService, AuthValidationService } from './services';
 import { LocationModule } from 'src/location/location.module';
 import { EnterpriseConfigModule } from 'src/enterprise-config/enterprise-config.module';
+import { UserPreferencesModule } from 'src/user-preferences/user-preferences.module';
 
 @Module({
   controllers: [AuthController],
@@ -23,6 +24,7 @@ import { EnterpriseConfigModule } from 'src/enterprise-config/enterprise-config.
     ConfigModule,
     LocationModule,
     EnterpriseConfigModule,
+    UserPreferencesModule,
     TypeOrmModule.forFeature([User, Enterprise, Role, Permission, RolePermission, UserRole]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -44,4 +46,4 @@ import { EnterpriseConfigModule } from 'src/enterprise-config/enterprise-config.
     CryptoService
   ]
 })
-export class AuthModule {}
+export class AuthModule { }

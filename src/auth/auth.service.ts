@@ -17,6 +17,7 @@ import { CryptoService, AuthValidationService } from './services';
 import { InvalidCredentialsException, EmailAlreadyExistsException, AuthDatabaseException } from './exceptions';
 import { EnterpriseConfigService } from '../enterprise-config/enterprise-config.service';
 import { VerificationStatus } from '../enterprise-config/enums/verification-status.enum';
+import { UserPreferencesService } from '../user-preferences/user-preferences.service';
 
 
 @Injectable()
@@ -41,6 +42,7 @@ export class AuthService {
         private readonly authValidationService: AuthValidationService,
         private readonly configService: ConfigService,
         private readonly enterpriseConfigService: EnterpriseConfigService,
+        private readonly userPreferencesService: UserPreferencesService,
     ) {
         this.googleClient = new OAuth2Client(
             this.configService.get('GOOGLE_CLIENT_ID'),
@@ -72,6 +74,9 @@ export class AuthService {
                 isActive: true
             });
             const savedUser = await this.userRepositoy.save(newUser);
+
+            // Inicializar preferencias de notificación (EMAIL y WEBSOCKET habilitados)
+            await this.userPreferencesService.initializeDefaultProviders(savedUser.id);
 
             // Preparar respuesta
             const { password: _pass, ...userWithoutPassword } = savedUser;
@@ -281,6 +286,10 @@ export class AuthService {
                     profilePicture: googlePayload.picture,
                 });
                 user = await this.userRepositoy.save(newUser);
+
+                // Inicializar preferencias de notificación (EMAIL y WEBSOCKET habilitados)
+                await this.userPreferencesService.initializeDefaultProviders(user.id);
+
                 this.logger.log(`New client registered via Google: ${user.email} for enterprise ${enterprise.subdomain}`);
             }
 
@@ -450,6 +459,10 @@ export class AuthService {
 
             // Commit solo si todo fue exitoso
             await queryRunner.commitTransaction();
+
+            // Inicializar preferencias de notificación DESPUÉS del commit
+            // (EMAIL y WEBSOCKET habilitados para el admin)
+            await this.userPreferencesService.initializeDefaultProviders(savedUser.id);
 
             // Generar token de activación (5 minutos)
             const activationToken = this.generateActivationToken({
