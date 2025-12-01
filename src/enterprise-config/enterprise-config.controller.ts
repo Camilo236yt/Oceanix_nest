@@ -11,6 +11,7 @@ import {
   UploadedFiles,
   UseInterceptors,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
@@ -181,6 +182,75 @@ export class EnterpriseConfigController {
       message: 'Verification status updated successfully',
       config,
     };
+  }
+
+  @Get(':enterpriseId/verification-info')
+  @Auth()
+  @ApiTags('Configuration')
+  @ApiOperation({
+    summary: 'Get complete verification information (SUPER_ADMIN only)',
+    description:
+      'Obtiene información completa de verificación de una empresa: config, estado de emails de admins, y documentos. Solo accesible para SUPER_ADMIN.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Información de verificación obtenida exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        config: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            verificationStatus: { type: 'string' },
+            isVerified: { type: 'boolean' },
+            verificationDate: { type: 'string', format: 'date-time', nullable: true },
+            verifiedBy: { type: 'string', nullable: true },
+            rejectionReason: { type: 'string', nullable: true },
+          },
+        },
+        adminEmailVerificationStatus: {
+          type: 'object',
+          properties: {
+            totalAdmins: { type: 'number' },
+            verifiedAdmins: { type: 'number' },
+            admins: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  name: { type: 'string' },
+                  email: { type: 'string' },
+                  isEmailVerified: { type: 'boolean' },
+                  isLegalRepresentative: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        documents: {
+          type: 'array',
+          items: { type: 'object' },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo SUPER_ADMIN puede usar este endpoint' })
+  async getVerificationInfo(
+    @Param('enterpriseId', ParseUUIDPipe) enterpriseId: string,
+    @GetUser() user: User,
+  ) {
+    // Verify user is SUPER_ADMIN
+    if (user.userType !== 'SUPER_ADMIN') {
+      throw new BadRequestException('Only SUPER_ADMIN can access verification info');
+    }
+
+    return await this.configService.getVerificationInfo(
+      enterpriseId,
+      this.documentService,
+    );
   }
 
   // ========== Branding Endpoints ==========
@@ -803,5 +873,62 @@ export class EnterpriseConfigController {
   ) {
     await this.documentService.deleteDocument(documentId, user.enterpriseId);
     return { message: 'Document deleted successfully' };
+  }
+
+  @Get(':enterpriseId/documents/:documentId/download')
+  @Auth()
+  @ApiTags('Documents')
+  @ApiOperation({
+    summary: 'Download enterprise document (SUPER_ADMIN only)',
+    description:
+      'Descarga un documento de verificación de una empresa. Solo accesible para SUPER_ADMIN.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'URL de descarga generada exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Signed URL for document download' },
+        fileName: { type: 'string' },
+        mimeType: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo SUPER_ADMIN puede descargar documentos' })
+  @ApiResponse({ status: 404, description: 'Documento no encontrado' })
+  async downloadEnterpriseDocument(
+    @Param('enterpriseId', ParseUUIDPipe) enterpriseId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @GetUser() user: User,
+  ) {
+    // Verify user is SUPER_ADMIN
+    if (user.userType !== 'SUPER_ADMIN') {
+      throw new BadRequestException('Only SUPER_ADMIN can download enterprise documents');
+    }
+
+    // Get document
+    const document = await this.documentService.getDocumentById(
+      documentId,
+      enterpriseId,
+    );
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Generate signed URL for download
+    const signedUrl = await this.storageService.getSignedUrl(
+      STORAGE_BUCKETS.DOCUMENTS,
+      document.fileKey,
+      3600, // 1 hour expiration
+    );
+
+    return {
+      url: signedUrl,
+      fileName: document.fileName,
+      mimeType: document.mimeType,
+    };
   }
 }

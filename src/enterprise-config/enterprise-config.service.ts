@@ -329,4 +329,66 @@ export class EnterpriseConfigService {
       order: { verificationDate: 'DESC' },
     });
   }
+
+  /**
+   * Get complete verification information for SUPER_ADMIN
+   * @param enterpriseId - Enterprise ID
+   * @param documentService - Document service instance
+   */
+  async getVerificationInfo(
+    enterpriseId: string,
+    documentService: any,
+  ): Promise<{
+    config: EnterpriseConfig;
+    adminEmailVerificationStatus: {
+      totalAdmins: number;
+      verifiedAdmins: number;
+      admins: Array<{
+        id: string;
+        name: string;
+        email: string;
+        isEmailVerified: boolean;
+        isLegalRepresentative: boolean;
+      }>;
+    };
+    documents: any[];
+  }> {
+    // Get config
+    const config = await this.getOrCreateConfig(enterpriseId);
+
+    // Get all admins from this enterprise
+    const admins = await this.userRepository.find({
+      where: {
+        enterpriseId,
+        isActive: true,
+      },
+      select: ['id', 'name', 'email', 'isEmailVerified', 'isLegalRepresentative', 'userType'],
+    });
+
+    // Filter only admin users (not regular users)
+    const adminUsers = admins.filter(
+      (user) => user.userType === 'ENTERPRISE_ADMIN' || user.isLegalRepresentative,
+    );
+
+    const verifiedAdmins = adminUsers.filter((user) => user.isEmailVerified);
+
+    // Get documents
+    const documents = await documentService.getDocumentsByEnterprise(enterpriseId);
+
+    return {
+      config,
+      adminEmailVerificationStatus: {
+        totalAdmins: adminUsers.length,
+        verifiedAdmins: verifiedAdmins.length,
+        admins: adminUsers.map((admin) => ({
+          id: admin.id,
+          name: admin.name,
+          email: admin.email,
+          isEmailVerified: admin.isEmailVerified ?? false,
+          isLegalRepresentative: admin.isLegalRepresentative,
+        })),
+      },
+      documents,
+    };
+  }
 }
