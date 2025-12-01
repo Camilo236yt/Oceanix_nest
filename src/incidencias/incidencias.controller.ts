@@ -250,7 +250,14 @@ export class IncidenciasController {
   @Post('client')
   @ClientAuth()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @UseInterceptors(FilesInterceptor('images', 5))
+  @UseInterceptors(FilesInterceptor('images', 5, {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB por archivo
+      fieldSize: 50 * 1024 * 1024, // 50MB para campos
+      files: 5,
+      fields: 10,
+    },
+  }))
   @CreateIncidenciaClientDoc()
   createAsClient(
     @Body() createIncidenciaDto: CreateIncidenciaDto,
