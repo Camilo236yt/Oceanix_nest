@@ -942,24 +942,12 @@ export class EnterpriseConfigController {
       }
       const pdfBuffer = Buffer.concat(chunks);
 
-      // Save to temp file for pdf-poppler
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      const os = await import('os');
-
-      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-'));
-      const tempPdfPath = path.join(tempDir, 'document.pdf');
-      await fs.writeFile(tempPdfPath, pdfBuffer);
-
-      // Generate thumbnail
+      // Generate thumbnail directly from buffer
       const thumbnail = await this.thumbnailService.generatePdfThumbnail(
-        tempPdfPath,
+        pdfBuffer,
         enterpriseId,
         documentId,
       );
-
-      // Clean up temp file
-      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
 
       // Set headers and send thumbnail
       res.setHeader('Content-Type', 'image/jpeg');
