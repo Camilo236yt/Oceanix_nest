@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MulterModule } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { IncidenciasController } from './incidencias.controller';
 import { IncidenciasService } from './incidencias.service';
@@ -24,6 +26,16 @@ import { MessagesModule } from '../messages/messages.module';
       UserRole,
       Role,
     ]),
+    // Configurar Multer con límites apropiados para uploads de imágenes
+    MulterModule.register({
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 50 * 1024 * 1024,    // 50MB por archivo individual
+        fieldSize: 50 * 1024 * 1024,   // 50MB para campos (crítico para evitar errores)
+        files: 10,                      // Máximo 10 archivos por request
+        fields: 50,                     // Máximo 50 campos de formulario
+      },
+    }),
     StorageModule,
     ScheduleModule.forRoot(),
     NotificationModule,
@@ -32,4 +44,4 @@ import { MessagesModule } from '../messages/messages.module';
   controllers: [IncidenciasController],
   providers: [IncidenciasService, EmployeeAssignmentService, IncidenciaMonitorService],
 })
-export class IncidenciasModule {}
+export class IncidenciasModule { }

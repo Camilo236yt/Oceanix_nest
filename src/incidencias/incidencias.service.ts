@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, forwardRef, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, forwardRef, Inject, Injectable, InternalServerErrorException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
@@ -22,6 +22,8 @@ import { NotificationPriority } from '../notification/enums/notification-priorit
 
 @Injectable()
 export class IncidenciasService {
+  private readonly logger = new Logger(IncidenciasService.name);
+
   constructor(
     @InjectRepository(Incidencia)
     private readonly incidenciaRepository: Repository<Incidencia>,
@@ -336,12 +338,51 @@ export class IncidenciasService {
     updateIncidenciaDto: UpdateIncidenciaDto,
     enterpriseId: string,
   ) {
-    const incidencia = await this.findOne(id, enterpriseId);
+    const incidencia = await this.incidenciaRepository.findOne({
+      where: { id, enterpriseId },
+      relations: ['images', 'assignedEmployee', 'createdBy'],
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException(INCIDENCIA_MESSAGES.NOT_FOUND);
+    }
+
+    // Detectar si se está marcando como RESUELTA para notificar al cliente
+    const wasResolved = incidencia.status !== IncidenciaStatus.RESOLVED &&
+      updateIncidenciaDto.status === IncidenciaStatus.RESOLVED;
 
     Object.assign(incidencia, updateIncidenciaDto);
 
     try {
-      return await this.incidenciaRepository.save(incidencia);
+      const savedIncidencia = await this.incidenciaRepository.save(incidencia);
+
+      // Si se marcó como resuelta, enviar notificación al cliente por email
+      if (wasResolved && incidencia.createdByUserId) {
+        try {
+          await this.notificationService.sendToUser(
+            incidencia.createdByUserId,
+            enterpriseId,
+            {
+              title: '✅ Tu incidencia ha sido resuelta',
+              message: `La incidencia "${incidencia.name || 'Sin título'}" ha sido marcada como resuelta por nuestro equipo.`,
+              type: NotificationType.TICKET_RESOLVED,
+              priority: NotificationPriority.NORMAL,
+              metadata: {
+                incidenciaId: incidencia.id,
+                incidenciaName: incidencia.name,
+                status: IncidenciaStatus.RESOLVED,
+              },
+              actionUrl: `/incidencias/${incidencia.id}`,
+            },
+          );
+          this.logger.log(`📧 Email enviado al cliente ${incidencia.createdByUserId} - Incidencia resuelta: "${incidencia.name}"`);
+        } catch (notificationError) {
+          // Log pero no fallar la actualización
+          this.logger.error('Error al enviar notificación de resolución al cliente:', notificationError);
+        }
+      }
+
+      return savedIncidencia;
     } catch (error) {
       this.handleDBError(error, 'actualizar la incidencia');
     }

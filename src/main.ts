@@ -55,7 +55,16 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(new SubdomainMiddleware().use);
 
-  await app.listen(process.env.PORT ?? 3000);
+  // Configurar timeouts para el servidor HTTP
+  // Importante para subida de archivos grandes (imágenes pesadas)
+  const server = await app.listen(process.env.PORT ?? 3000);
+
+  // Timeout de 10 minutos para requests (suficiente para subir múltiples imágenes de 5MB)
+  // Por defecto Node.js tiene 2 minutos, que puede ser insuficiente en conexiones lentas
+  server.setTimeout(600000); // 10 minutos en milisegundos
+
+  console.log(`🚀 Server running on port ${process.env.PORT ?? 3000}`);
+  console.log(`⏱️  HTTP request timeout: 10 minutes`);
 }
 
 bootstrap();

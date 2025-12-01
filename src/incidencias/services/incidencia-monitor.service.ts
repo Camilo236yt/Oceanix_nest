@@ -87,16 +87,17 @@ export class IncidenciaMonitorService {
 
           // Emitir evento WebSocket a la sala de la incidencia para actualizar en tiempo real
           this.emitAlertLevelChange(incidencia.id, previousLevel, newAlertLevel, minutesSinceCreation);
-        }
 
-        // Notificar si tiene empleado asignado y no está en verde
-        if (incidencia.assignedEmployeeId && newAlertLevel !== AlertLevel.GREEN) {
-          await this.sendAlertNotification(incidencia, minutesSinceCreation, newAlertLevel);
-          notifiedCount++;
+          // IMPORTANTE: Solo notificar por EMAIL cuando cambia el nivel de alerta (no cada minuto)
+          // Notificar si tiene empleado asignado y el nuevo nivel no es verde
+          if (incidencia.assignedEmployeeId && newAlertLevel !== AlertLevel.GREEN) {
+            await this.sendAlertNotification(incidencia, minutesSinceCreation, newAlertLevel);
+            notifiedCount++;
 
-          this.logger.log(
-            `📧 Notificación enviada al empleado ${incidencia.assignedEmployeeId} - Incidencia: "${incidencia.name}" (${this.getAlertEmoji(newAlertLevel)} ${newAlertLevel})`,
-          );
+            this.logger.log(
+              `📧 Notificación enviada al empleado ${incidencia.assignedEmployeeId} - Incidencia: "${incidencia.name}" (${this.getAlertEmoji(newAlertLevel)} ${newAlertLevel})`,
+            );
+          }
         }
       }
 
