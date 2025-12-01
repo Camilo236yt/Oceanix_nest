@@ -268,7 +268,7 @@ export class AuthService {
                     email: googlePayload.email,
                     enterpriseId: enterprise.id,
                 },
-                select: { id: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true },
+                select: { id: true, email: true, name: true, lastName: true, userType: true, enterpriseId: true, profilePicture: true },
             });
 
             // 4. Si no existe, crear nuevo usuario CLIENT
@@ -291,6 +291,15 @@ export class AuthService {
                 await this.userPreferencesService.initializeDefaultProviders(user.id);
 
                 this.logger.log(`New client registered via Google: ${user.email} for enterprise ${enterprise.subdomain}`);
+            } else {
+                // Usuario existente: actualizar profilePicture si Google proporciona una foto
+                if (googlePayload.picture && user.profilePicture !== googlePayload.picture) {
+                    await this.userRepositoy.update(user.id, {
+                        profilePicture: googlePayload.picture
+                    });
+                    user.profilePicture = googlePayload.picture;
+                    this.logger.log(`Updated profile picture for user: ${user.email}`);
+                }
             }
 
             // 5. Verificar que sea tipo CLIENT
