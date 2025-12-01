@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import sharp from 'sharp';
-import { convert } from 'pdf-poppler';
+import pdfThumbnail from 'pdf-thumbnail';
 
 @Injectable()
 export class ThumbnailService {
@@ -19,20 +19,17 @@ export class ThumbnailService {
 
     /**
      * Generate or retrieve cached PDF thumbnail
-     * @param pdfPath Path to the PDF file
+     * @param pdfBuffer PDF file as Buffer
      * @param enterpriseId Enterprise ID for organization
      * @param documentId Document ID for caching
      * @returns Buffer containing JPEG thumbnail
      */
     async generatePdfThumbnail(
-        pdfPath: string,
+        pdfBuffer: Buffer,
         enterpriseId: string,
         documentId: string
     ): Promise<Buffer> {
         try {
-            // Check if PDF exists
-            await fs.access(pdfPath);
-
             // Check cache first
             const cachedThumbnail = await this.getThumbnailFromCache(enterpriseId, documentId);
             if (cachedThumbnail) {
@@ -42,7 +39,7 @@ export class ThumbnailService {
 
             // Generate new thumbnail
             this.logger.log(`Generating new thumbnail for document ${documentId}`);
-            const thumbnail = await this.createThumbnail(pdfPath);
+            const thumbnail = await this.createThumbnail(pdfBuffer);
 
             // Cache the thumbnail
             await this.cacheThumbnail(thumbnail, enterpriseId, documentId);
@@ -55,36 +52,24 @@ export class ThumbnailService {
     }
 
     /**
-     * Create thumbnail from PDF file
-     * @param pdfPath Path to PDF file
+     * Create thumbnail from PDF buffer
+     * @param pdfBuffer PDF file buffer
      * @returns Buffer containing JPEG image
      */
-    private async createThumbnail(pdfPath: string): Promise<Buffer> {
-        const tempDir = path.join(this.thumbnailsPath, 'temp');
-
-        // Ensure temp directory exists
-        await fs.mkdir(tempDir, { recursive: true });
-
-        const outputPrefix = `temp_${Date.now()}`;
-
+    private async createThumbnail(pdfBuffer: Buffer): Promise<Buffer> {
         try {
-            // Convert first page of PDF to image using pdf-poppler
-            const options = {
-                format: 'jpeg',
-                out_dir: tempDir,
-                out_prefix: outputPrefix,
-                page: 1, // Only first page
-                scale: 2048, // High quality for better thumbnail
-            };
+            // Generate thumbnail using pdf-thumbnail
+            const thumbnailBuffer = await pdfThumbnail(pdfBuffer, {
+                compress: {
+                    type: 'JPEG',
+                    quality: 85,
+                },
+                width: 400, // Generate larger first, then resize
+                height: 400,
+            });
 
-            await convert(pdfPath, options);
-
-            // Read the generated image
-            const generatedImagePath = path.join(tempDir, `${outputPrefix}-1.jpg`);
-            const imageBuffer = await fs.readFile(generatedImagePath);
-
-            // Resize and optimize with sharp
-            const thumbnail = await sharp(imageBuffer)
+            // Resize and optimize with sharp to exact size
+            const optimizedThumbnail = await sharp(thumbnailBuffer)
                 .resize(this.thumbnailSize, this.thumbnailSize, {
                     fit: 'cover',
                     position: 'top',
@@ -95,16 +80,9 @@ export class ThumbnailService {
                 })
                 .toBuffer();
 
-            // Clean up temp file
-            await fs.unlink(generatedImagePath).catch(() => { });
-
-            return thumbnail;
+            return optimizedThumbnail;
         } catch (error) {
             this.logger.error(`Error in createThumbnail: ${error.message}`);
-
-            // Clean up temp directory
-            await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
-
             throw error;
         }
     }
