@@ -11,7 +11,7 @@ export class EnterpriseService {
   constructor(
     @InjectRepository(Enterprise)
     private readonly enterpriseRepository: Repository<Enterprise>,
-  ) {}
+  ) { }
 
   async create(createEnterpriseDto: CreateEnterpriseDto) {
     const { name, subdomain } = createEnterpriseDto;
@@ -50,7 +50,7 @@ export class EnterpriseService {
   async findOne(id: string) {
     const enterprise = await this.enterpriseRepository.findOne({
       where: { id },
-      relations: ['users', 'roles'],
+      relations: ['users', 'roles', 'config'],
     });
 
     if (!enterprise) {
