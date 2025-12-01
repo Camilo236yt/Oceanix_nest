@@ -6,21 +6,22 @@ import { EnterpriseDocumentService } from './enterprise-document.service';
 import { EmailService } from './email.service';
 import { EnterpriseConfig } from './entities/enterprise-config.entity';
 import { EnterpriseDocument } from './entities/enterprise-document.entity';
-import { User } from '../users/entities/user.entity';
 import { StorageModule } from '../storage/storage.module';
-import { RedisModule } from '../redis/redis.module';
+import { RedisService } from '../redis/redis.service';
+import { EnterpriseModule } from '../enterprise/enterprise.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnterpriseConfig, EnterpriseDocument, User]),
+    TypeOrmModule.forFeature([EnterpriseConfig, EnterpriseDocument]),
     StorageModule,
-    RedisModule,
+    EnterpriseModule, // Import to access ThumbnailService
   ],
   controllers: [EnterpriseConfigController],
   providers: [
     EnterpriseConfigService,
     EnterpriseDocumentService,
     EmailService,
+    RedisService,
   ],
   exports: [EnterpriseConfigService, EnterpriseDocumentService],
 })

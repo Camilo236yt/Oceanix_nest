@@ -42,6 +42,7 @@ import {
 } from '../storage/config/storage.config';
 import { EmailService } from './email.service';
 import { RedisService } from '../redis/redis.service';
+import { ThumbnailService } from '../enterprise/services/thumbnail.service';
 
 @ApiTags('Enterprise Configuration')
 @Controller('enterprise-config')
@@ -52,6 +53,7 @@ export class EnterpriseConfigController {
     private readonly storageService: StorageService,
     private readonly emailService: EmailService,
     private readonly redisService: RedisService,
+    private readonly thumbnailService: ThumbnailService,
   ) { }
 
   // ========== Configuration Endpoints ==========
@@ -875,6 +877,98 @@ export class EnterpriseConfigController {
   ) {
     await this.documentService.deleteDocument(documentId, user.enterpriseId);
     return { message: 'Document deleted successfully' };
+  }
+
+  @Get(':enterpriseId/documents/:documentId/thumbnail')
+  @Auth()
+  @ApiTags('Documents')
+  @ApiOperation({
+    summary: 'Get PDF thumbnail for enterprise document',
+    description:
+      'Retorna una miniatura (thumbnail) de un documento PDF. La miniatura se genera y cachea en el servidor.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Thumbnail retornado exitosamente',
+    content: {
+      'image/jpeg': {
+        schema: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo SUPER_ADMIN puede acceder a thumbnails' })
+  @ApiResponse({ status: 404, description: 'Documento no encontrado' })
+  async getThumbnail(
+    @Param('enterpriseId', ParseUUIDPipe) enterpriseId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @GetUser() user: User,
+    @Res() res: Response,
+  ) {
+    // Verify user is SUPER_ADMIN
+    if (user.userType !== 'SUPER_ADMIN') {
+      throw new BadRequestException('Only SUPER_ADMIN can access enterprise documents');
+    }
+
+    // Get document metadata
+    const document = await this.documentService.getDocumentById(
+      documentId,
+      enterpriseId,
+    );
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Only generate thumbnails for PDFs
+    if (!document.mimeType.includes('pdf')) {
+      throw new BadRequestException('Thumbnails are only available for PDF documents');
+    }
+
+    try {
+      // Get file from storage first
+      const fileStream = await this.storageService.getFileStream(
+        STORAGE_BUCKETS.DOCUMENTS,
+        document.fileKey,
+      );
+
+      // Convert stream to buffer
+      const chunks: any[] = [];
+      for await (const chunk of fileStream) {
+        chunks.push(chunk);
+      }
+      const pdfBuffer = Buffer.concat(chunks);
+
+      // Save to temp file for pdf-poppler
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const os = await import('os');
+
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-'));
+      const tempPdfPath = path.join(tempDir, 'document.pdf');
+      await fs.writeFile(tempPdfPath, pdfBuffer);
+
+      // Generate thumbnail
+      const thumbnail = await this.thumbnailService.generatePdfThumbnail(
+        tempPdfPath,
+        enterpriseId,
+        documentId,
+      );
+
+      // Clean up temp file
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
+
+      // Set headers and send thumbnail
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', thumbnail.length.toString());
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+      res.send(thumbnail);
+    } catch (error) {
+      throw new NotFoundException('Could not generate thumbnail for this document');
+    }
   }
 
   @Get(':enterpriseId/documents/:documentId/download')
