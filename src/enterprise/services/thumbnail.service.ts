@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { convert } from 'pdf-poppler';
 
 @Injectable()
