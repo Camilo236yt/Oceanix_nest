@@ -282,6 +282,44 @@ export class EnterpriseConfigService {
   }
 
   /**
+   * Update verification status (SUPER_ADMIN only)
+   * @param enterpriseId - Enterprise ID
+   * @param verificationStatus - New verification status
+   * @param rejectionReason - Reason for rejection (required if status is REJECTED)
+   * @param verifiedByUserId - ID of the SUPER_ADMIN user making the change
+   */
+  async updateVerificationStatus(
+    enterpriseId: string,
+    verificationStatus: VerificationStatus,
+    rejectionReason?: string,
+    verifiedByUserId?: string,
+  ): Promise<EnterpriseConfig> {
+    const config = await this.getOrCreateConfig(enterpriseId);
+
+    // Validate rejection reason if status is REJECTED
+    if (verificationStatus === VerificationStatus.REJECTED && !rejectionReason) {
+      throw new BadRequestException('Rejection reason is required when status is REJECTED');
+    }
+
+    // Update verification fields
+    config.verificationStatus = verificationStatus;
+    config.isVerified = verificationStatus === VerificationStatus.VERIFIED;
+    config.rejectionReason = verificationStatus === VerificationStatus.REJECTED ? rejectionReason : undefined;
+
+    // Set verification date and verifiedBy if status is VERIFIED
+    if (verificationStatus === VerificationStatus.VERIFIED) {
+      config.verificationDate = new Date();
+      config.verifiedBy = verifiedByUserId;
+    } else {
+      config.verificationDate = undefined;
+      config.verifiedBy = undefined;
+    }
+
+    this.logger.log(`Verification status updated for enterprise ${enterpriseId}: ${verificationStatus}`);
+    return await this.configRepository.save(config);
+  }
+
+  /**
    * Get all verified enterprises
    */
   async getVerifiedEnterprises(): Promise<EnterpriseConfig[]> {

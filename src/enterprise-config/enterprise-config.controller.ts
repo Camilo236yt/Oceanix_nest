@@ -30,6 +30,7 @@ import { User } from '../users/entities/user.entity';
 import { UpdateEnterpriseConfigDto } from './dto/update-enterprise-config.dto';
 import { UpdateEmailDomainsDto } from './dto/update-email-domains.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { UpdateVerificationStatusDto } from './dto/update-verification-status.dto';
 import { DocumentType } from './enums/verification-status.enum';
 import {
   STORAGE_BUCKETS,
@@ -125,6 +126,61 @@ export class EnterpriseConfigController {
     @Body() updateDto: UpdateEnterpriseConfigDto,
   ) {
     return await this.configService.updateConfig(user.enterpriseId, updateDto);
+  }
+
+  @Patch(':enterpriseId/verification-status')
+  @Auth()
+  @ApiTags('Configuration')
+  @ApiOperation({
+    summary: 'Update enterprise verification status (SUPER_ADMIN only)',
+    description:
+      'Permite a SUPER_ADMIN cambiar el estado de verificación de una empresa. Solo accesible para usuarios con userType SUPER_ADMIN.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado de verificación actualizado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Verification status updated successfully' },
+        config: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            verificationStatus: { type: 'string', example: 'verified' },
+            isVerified: { type: 'boolean', example: true },
+            verificationDate: { type: 'string', format: 'date-time' },
+            verifiedBy: { type: 'string' },
+            rejectionReason: { type: 'string', nullable: true },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Rejection reason required when status is REJECTED' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Solo SUPER_ADMIN puede usar este endpoint' })
+  async updateVerificationStatus(
+    @Param('enterpriseId', ParseUUIDPipe) enterpriseId: string,
+    @GetUser() user: User,
+    @Body() dto: UpdateVerificationStatusDto,
+  ) {
+    // Verify user is SUPER_ADMIN
+    if (user.userType !== 'SUPER_ADMIN') {
+      throw new BadRequestException('Only SUPER_ADMIN can update verification status');
+    }
+
+    const config = await this.configService.updateVerificationStatus(
+      enterpriseId,
+      dto.verificationStatus,
+      dto.rejectionReason,
+      user.id,
+    );
+
+    return {
+      message: 'Verification status updated successfully',
+      config,
+    };
   }
 
   // ========== Branding Endpoints ==========
