@@ -7,7 +7,7 @@ import { Logger } from '@nestjs/common';
  * Script CLI para ejecutar las semillas de base de datos
  *
  * Uso: npm run seed
- */
+ */ 
 async function bootstrap() {
   const logger = new Logger('SeedCLI');
 
