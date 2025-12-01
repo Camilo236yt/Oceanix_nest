@@ -26,7 +26,7 @@ export const ALLOWED_FILE_TYPES = {
 } as const;
 
 export const MAX_FILE_SIZES = {
-  IMAGE: 5 * 1024 * 1024, // 5MB
+  IMAGE: 30 * 1024 * 1024, // 30MB
   DOCUMENT: 10 * 1024 * 1024, // 10MB
   VIDEO: 100 * 1024 * 1024, // 100MB
 } as const;
