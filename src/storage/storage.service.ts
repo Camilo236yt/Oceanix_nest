@@ -149,6 +149,23 @@ export class StorageService {
   }
 
   /**
+   * Obtiene un stream del archivo para proxying
+   */
+  async getFileStream(bucket: string, key: string): Promise<Readable> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+      return response.Body as Readable;
+    } catch (error) {
+      throw new InternalServerErrorException(`Error getting file stream: ${error.message}`);
+    }
+  }
+
+  /**
    * Obtiene la URL pública de un archivo (para desarrollo)
    */
   async getFileUrl(bucket: string, key: string): Promise<string> {

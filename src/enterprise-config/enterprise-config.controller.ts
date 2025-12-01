@@ -12,7 +12,9 @@ import {
   UseInterceptors,
   BadRequestException,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -879,21 +881,13 @@ export class EnterpriseConfigController {
   @Auth()
   @ApiTags('Documents')
   @ApiOperation({
-    summary: 'Download enterprise document (SUPER_ADMIN only)',
+    summary: 'Download/view enterprise document (SUPER_ADMIN only)',
     description:
-      'Descarga un documento de verificación de una empresa. Solo accesible para SUPER_ADMIN.',
+      'Descarga o visualiza un documento de verificación de una empresa. Solo accesible para SUPER_ADMIN.',
   })
   @ApiResponse({
     status: 200,
-    description: 'URL de descarga generada exitosamente',
-    schema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', description: 'Signed URL for document download' },
-        fileName: { type: 'string' },
-        mimeType: { type: 'string' },
-      },
-    },
+    description: 'Documento retornado exitosamente',
   })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 403, description: 'Solo SUPER_ADMIN puede descargar documentos' })
@@ -902,6 +896,7 @@ export class EnterpriseConfigController {
     @Param('enterpriseId', ParseUUIDPipe) enterpriseId: string,
     @Param('documentId', ParseUUIDPipe) documentId: string,
     @GetUser() user: User,
+    @Res() res: Response,
   ) {
     // Verify user is SUPER_ADMIN
     if (user.userType !== 'SUPER_ADMIN') {
@@ -918,17 +913,21 @@ export class EnterpriseConfigController {
       throw new NotFoundException('Document not found');
     }
 
-    // Generate signed URL for download
-    const signedUrl = await this.storageService.getSignedUrl(
-      STORAGE_BUCKETS.DOCUMENTS,
-      document.fileKey,
-      3600, // 1 hour expiration
-    );
+    try {
+      // Get file from MinIO
+      const fileStream = await this.storageService.getFileStream(
+        STORAGE_BUCKETS.DOCUMENTS,
+        document.fileKey,
+      );
 
-    return {
-      url: signedUrl,
-      fileName: document.fileName,
-      mimeType: document.mimeType,
-    };
+      // Set headers
+      res.setHeader('Content-Type', document.mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+
+      // Stream file to response
+      fileStream.pipe(res);
+    } catch (error) {
+      throw new NotFoundException('File not found in storage');
+    }
   }
 }
