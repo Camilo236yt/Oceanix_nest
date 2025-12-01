@@ -659,7 +659,14 @@ export class IncidenciasController {
   @Post('client/me/:id/reupload-images')
   @ClientAuth()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @UseInterceptors(FilesInterceptor('images', 5))
+  @UseInterceptors(FilesInterceptor('images', 5, {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB por archivo
+      fieldSize: 50 * 1024 * 1024, // 50MB para campos
+      files: 5,
+      fields: 10,
+    },
+  }))
   @ApiOperation({
     summary: 'Re-subir imágenes de evidencia',
     description: 'Permite al cliente re-subir hasta 5 imágenes de evidencia cuando el empleado lo ha solicitado. Solo funciona si el empleado ha habilitado la re-subida y está dentro del tiempo permitido. Las imágenes se agregan a la incidencia (no reemplazan las anteriores).',
