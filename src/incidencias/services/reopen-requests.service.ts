@@ -17,7 +17,7 @@ import { MessagesService } from '../../messages/messages.service';
 import { MessagesGateway } from '../../messages/messages.gateway';
 import { NotificationService } from '../../notification/notification.service';
 import { ValidPermission } from '../../auth/interfaces/valid-permission';
-import { NotificationType, NotificationPriority } from '../../notification/entities/notification.entity';
+import { NotificationType, NotificationPriority } from '../../notification/enums';
 import { IncidenciaStatus } from '../enums/incidencia.enums';
 import { INCIDENCIA_CONFIG, REOPEN_MESSAGES, INCIDENCIA_MESSAGES } from '../constants';
 import { ReviewDecision } from '../dto/review-reopen-request.dto';
@@ -145,10 +145,16 @@ export class ReopenRequestsService {
       });
 
     // 10. Retornar solicitud con relaciones
-    return await this.reopenRequestRepository.findOne({
+    const result = await this.reopenRequestRepository.findOne({
       where: { id: savedRequest.id },
       relations: ['incidencia', 'requestedBy'],
     });
+
+    if (!result) {
+      throw new NotFoundException('No se pudo recuperar la solicitud creada');
+    }
+
+    return result;
   }
 
   /**
