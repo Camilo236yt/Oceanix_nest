@@ -103,6 +103,11 @@ export class Incidencia {
   @DeleteDateColumn()
   deletedAt?: Date;
 
+  // Tracking de cuándo se alcanzó un estado final (CLOSED, CANCELLED, RESOLVED)
+  // para validar el límite de 10 días en solicitudes de reapertura
+  @Column({ type: 'timestamp', nullable: true })
+  finalStateReachedAt: Date | null;
+
   // Imágenes asociadas a la incidencia
   @OneToMany(() => IncidentImage, (image) => image.incidencia, { cascade: true })
   images?: IncidentImage[];

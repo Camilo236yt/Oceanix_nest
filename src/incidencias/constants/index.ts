@@ -2,10 +2,11 @@
  * Constantes del módulo de incidencias
  */
 
-// Configuración de imágenes
+// Configuración de imágenes y reaperturas
 export const INCIDENCIA_CONFIG = {
   MAX_IMAGES: 5,
   STORAGE_PATH: 'incidencias',
+  REOPEN_DEADLINE_DAYS: 10, // Días máximos para solicitar reapertura después del cierre
 };
 
 // Mensajes de respuesta
@@ -56,4 +57,21 @@ export const ALERT_CONFIG = {
 export const CRON_CONFIG = {
   // Ejecutar cada 1 minuto para monitoreo en tiempo real
   ALERT_CHECK_SCHEDULE: '*/1 * * * *', // Cada 1 minuto
+};
+
+// Mensajes de reapertura
+export const REOPEN_MESSAGES = {
+  // Éxito
+  REQUEST_CREATED: 'Solicitud de reapertura enviada exitosamente',
+  APPROVED_SUCCESSFULLY: 'Solicitud aprobada e incidencia reabierta',
+  REJECTED_SUCCESSFULLY: 'Solicitud rechazada',
+
+  // Errores
+  REQUEST_NOT_FOUND: 'Solicitud de reapertura no encontrada',
+  ALREADY_HAS_PENDING_REQUEST: 'Ya existe una solicitud de reapertura pendiente para esta incidencia',
+  CANNOT_REQUEST_TIME_EXPIRED: 'No se puede solicitar reapertura: han pasado más de 10 días desde que se cerró',
+  CANNOT_REQUEST_INVALID_STATUS: 'Solo se pueden reabrir incidencias en estado CLOSED, CANCELLED o RESOLVED',
+  REQUEST_ALREADY_REVIEWED: 'Esta solicitud ya fue revisada',
+  REJECTION_NOTES_REQUIRED: 'Debe proporcionar notas al rechazar una solicitud',
+  NOT_INCIDENT_OWNER: 'Solo el creador de la incidencia puede solicitar su reapertura',
 };

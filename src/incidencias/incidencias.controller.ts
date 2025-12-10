@@ -20,8 +20,11 @@ import { Paginate, ApiPaginationQuery } from 'nestjs-paginate';
 import type { PaginateQuery } from 'nestjs-paginate';
 
 import { IncidenciasService } from './incidencias.service';
+import { ReopenRequestsService } from './services/reopen-requests.service';
 import { CreateIncidenciaDto } from './dto/create-incidencia.dto';
 import { UpdateIncidenciaDto } from './dto/update-incidencia.dto';
+import { CreateReopenRequestDto } from './dto/create-reopen-request.dto';
+import { ReviewReopenRequestDto, ReviewDecision } from './dto/review-reopen-request.dto';
 import {
   CreateIncidenciaDoc,
   CreateIncidenciaClientDoc,
@@ -50,6 +53,7 @@ import { MessageSenderType } from '../messages/entities/message.entity';
 export class IncidenciasController {
   constructor(
     private readonly incidenciasService: IncidenciasService,
+    private readonly reopenRequestsService: ReopenRequestsService,
     private readonly messagesService: MessagesService,
     private readonly messagesGateway: MessagesGateway,
   ) { }
@@ -812,6 +816,193 @@ export class IncidenciasController {
       userId,
     );
   }
+
+  // ==================== ENDPOINTS DE REAPERTURA ====================
+
+  /**
+   * Endpoint 1: Cliente solicita reapertura de su incidencia
+   */
+  @Post('client/me/:id/request-reopen')
+  @ClientAuth()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Solicitar reapertura de incidencia',
+    description: `Permite al cliente solicitar la reapertura de su incidencia cerrada, cancelada o resuelta.
+
+    **Requisitos:**
+    - La incidencia debe estar en estado CLOSED, CANCELLED o RESOLVED
+    - No deben haber pasado más de 10 días desde que alcanzó ese estado
+    - Se debe proporcionar un motivo válido (mínimo 10 caracteres)
+    - Solo el creador de la incidencia puede solicitar su reapertura
+    - No debe existir otra solicitud PENDING para la misma incidencia
+
+    **Proceso:**
+    1. Se crea una solicitud de reapertura con estado PENDING
+    2. Se notifica a todos los empleados con permiso \`reopenIncidents\`
+    3. Se registra un mensaje en el chat de la incidencia
+    4. Los empleados pueden aprobar o rechazar la solicitud`,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Solicitud de reapertura creada exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Estado inválido, tiempo expirado, o solicitud duplicada',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'No es el creador de la incidencia',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Incidencia no encontrada',
+  })
+  async requestReopen(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() createReopenRequestDto: CreateReopenRequestDto,
+    @GetUser('id') userId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    const request = await this.reopenRequestsService.createReopenRequest(
+      id,
+      userId,
+      enterpriseId,
+      createReopenRequestDto.clientReason,
+    );
+
+    return {
+      message: 'Solicitud de reapertura enviada exitosamente',
+      request,
+    };
+  }
+
+  /**
+   * Endpoint 2: Listar solicitudes de reapertura pendientes (empleados)
+   */
+  @Get('reopen-requests/pending')
+  @Auth(ValidPermission.reopenIncidents)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Listar solicitudes de reapertura pendientes',
+    description: 'Obtiene todas las solicitudes de reapertura con estado PENDING de la empresa. Requiere permiso `reopenIncidents`.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de solicitudes pendientes con paginación',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Sin permiso reopenIncidents',
+  })
+  async getPendingReopenRequests(
+    @GetUser('enterpriseId') enterpriseId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const pageNum = page ? Math.max(1, parseInt(page.toString(), 10)) : 1;
+    const limitNum = limit ? Math.min(100, Math.max(1, parseInt(limit.toString(), 10))) : 10;
+
+    return await this.reopenRequestsService.getPendingRequests(
+      enterpriseId,
+      pageNum,
+      limitNum,
+    );
+  }
+
+  /**
+   * Endpoint 3: Ver detalle de una solicitud de reapertura (empleados)
+   */
+  @Get('reopen-requests/:requestId')
+  @Auth(ValidPermission.reopenIncidents)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Ver detalle de solicitud de reapertura',
+    description: 'Obtiene el detalle completo de una solicitud de reapertura incluyendo información de la incidencia y el solicitante.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalle de la solicitud',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Sin permiso reopenIncidents',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Solicitud no encontrada',
+  })
+  async getReopenRequestById(
+    @Param('requestId', new ParseUUIDPipe({ version: '4' })) requestId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    return await this.reopenRequestsService.getRequestById(requestId, enterpriseId);
+  }
+
+  /**
+   * Endpoint 4: Aprobar o rechazar solicitud de reapertura (empleados)
+   */
+  @Patch('reopen-requests/:requestId/review')
+  @Auth(ValidPermission.reopenIncidents)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Aprobar o rechazar solicitud de reapertura',
+    description: `Permite a un empleado con permiso \`reopenIncidents\` revisar y decidir sobre una solicitud de reapertura.
+
+    **Al aprobar:**
+    - La incidencia cambia a estado IN_PROGRESS
+    - Se limpia el timestamp \`finalStateReachedAt\`
+    - Se reactiva el chat
+    - Se notifica al cliente, empleado asignado y gestores
+    - Se registra la aprobación en el chat
+
+    **Al rechazar:**
+    - Se debe proporcionar un motivo (reviewNotes) de al menos 10 caracteres
+    - Se notifica al cliente con el motivo del rechazo
+    - Se registra el rechazo en el chat`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Solicitud revisada exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Solicitud ya revisada o faltan notas al rechazar',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Sin permiso reopenIncidents',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Solicitud no encontrada',
+  })
+  async reviewReopenRequest(
+    @Param('requestId', new ParseUUIDPipe({ version: '4' })) requestId: string,
+    @Body() reviewDto: ReviewReopenRequestDto,
+    @GetUser('id') employeeId: string,
+    @GetUser('enterpriseId') enterpriseId: string,
+  ) {
+    const result = await this.reopenRequestsService.reviewRequest(
+      requestId,
+      employeeId,
+      enterpriseId,
+      reviewDto.decision,
+      reviewDto.reviewNotes,
+    );
+
+    const message = reviewDto.decision === ReviewDecision.APPROVED
+      ? 'Solicitud aprobada e incidencia reabierta'
+      : 'Solicitud rechazada';
+
+    return {
+      message,
+      request: result.request,
+      ...(result.incidencia && { incidencia: result.incidencia }),
+    };
+  }
+
+  // ==================== MÉTODOS PRIVADOS ====================
 
   /**
    * Valida que una incidencia pueda recibir mensajes

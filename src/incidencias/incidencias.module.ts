@@ -8,9 +8,11 @@ import { IncidenciasController } from './incidencias.controller';
 import { IncidenciasService } from './incidencias.service';
 import { Incidencia } from './entities/incidencia.entity';
 import { IncidentImage } from './entities/incident-image.entity';
+import { ReopenRequest } from './entities/reopen-request.entity';
 import { StorageModule } from 'src/storage/storage.module';
 import { EmployeeAssignmentService } from './services/employee-assignment.service';
 import { IncidenciaMonitorService } from './services/incidencia-monitor.service';
+import { ReopenRequestsService } from './services/reopen-requests.service';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.entity';
 import { Role } from '../roles/entities/role.entity';
@@ -22,6 +24,7 @@ import { MessagesModule } from '../messages/messages.module';
     TypeOrmModule.forFeature([
       Incidencia,
       IncidentImage,
+      ReopenRequest,
       User,
       UserRole,
       Role,
@@ -42,6 +45,12 @@ import { MessagesModule } from '../messages/messages.module';
     MessagesModule,
   ],
   controllers: [IncidenciasController],
-  providers: [IncidenciasService, EmployeeAssignmentService, IncidenciaMonitorService],
+  providers: [
+    IncidenciasService,
+    EmployeeAssignmentService,
+    IncidenciaMonitorService,
+    ReopenRequestsService,
+  ],
+  exports: [ReopenRequestsService],
 })
 export class IncidenciasModule { }

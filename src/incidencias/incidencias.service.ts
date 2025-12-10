@@ -351,6 +351,15 @@ export class IncidenciasService {
     const wasResolved = incidencia.status !== IncidenciaStatus.RESOLVED &&
       updateIncidenciaDto.status === IncidenciaStatus.RESOLVED;
 
+    // Detectar transición a estado final para rastrear timestamp (para reaperturas)
+    const finalStates = [IncidenciaStatus.CLOSED, IncidenciaStatus.CANCELLED, IncidenciaStatus.RESOLVED];
+    const wasNotFinal = !finalStates.includes(incidencia.status as IncidenciaStatus);
+    const becomingFinal = updateIncidenciaDto.status && finalStates.includes(updateIncidenciaDto.status as IncidenciaStatus);
+
+    if (wasNotFinal && becomingFinal) {
+      incidencia.finalStateReachedAt = new Date();
+    }
+
     Object.assign(incidencia, updateIncidenciaDto);
 
     try {
