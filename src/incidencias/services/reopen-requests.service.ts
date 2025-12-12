@@ -112,17 +112,17 @@ export class ReopenRequestsService {
 
     const savedRequest = await this.reopenRequestRepository.save(reopenRequest);
 
-    // 7. Crear mensaje de sistema en el chat
+    // 7. Crear mensaje en el chat como si lo enviara el cliente
     try {
       await this.messagesService.create(
         incidenciaId,
         clientId,
-        MessageSenderType.SYSTEM,
-        `🔄 El cliente solicitó reapertura de la incidencia.\n\nMotivo: ${clientReason}`,
-        MessageType.SYSTEM,
+        MessageSenderType.CLIENT,
+        `🔄 Solicito reapertura de esta incidencia.\n\nMotivo: ${clientReason}`,
+        MessageType.TEXT,
       );
     } catch (error) {
-      this.logger.error('Error al crear mensaje de sistema:', error);
+      this.logger.error('Error al crear mensaje del cliente:', error);
     }
 
     // 8. Emitir evento WebSocket
@@ -424,7 +424,7 @@ export class ReopenRequestsService {
               requestId: request.id,
               incidenciaName: incidencia.name,
             },
-            actionUrl: `/incidencias/reopen-requests/${request.id}`,
+            actionUrl: `/incidencias/${incidencia.id}`,
           },
         ).then(() => {}),
       );
