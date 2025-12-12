@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, forwardRef, Inject, Injectable, InternalServerErrorException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ReopenRequest, ReopenRequestStatus } from './entities/reopen-request.entity';
 import { Repository } from 'typeorm';
 import type { Express } from 'express';
 import { paginate, Paginated, PaginateQuery, FilterOperator } from 'nestjs-paginate';
@@ -29,6 +30,8 @@ export class IncidenciasService {
     private readonly incidenciaRepository: Repository<Incidencia>,
     @InjectRepository(IncidentImage)
     private readonly incidentImageRepository: Repository<IncidentImage>,
+    @InjectRepository(ReopenRequest)
+    private readonly reopenRequestRepository: Repository<ReopenRequest>,
     private readonly storageService: StorageService,
     private readonly employeeAssignmentService: EmployeeAssignmentService,
     @Inject(forwardRef(() => MessagesGateway))
@@ -479,9 +482,19 @@ export class IncidenciasService {
     // Agregar contador de evidencias nuevas
     const newEvidenceCount = incidencia.images?.filter(img => img.isNew).length || 0;
 
+    // Verificar si hay una solicitud de reapertura pendiente
+    const hasPendingReopenRequest = await this.reopenRequestRepository
+      .count({
+        where: {
+          incidenciaId: id,
+          status: ReopenRequestStatus.PENDING,
+        },
+      });
+
     return {
       ...incidencia,
       newEvidenceCount,
+      hasPendingReopenRequest: hasPendingReopenRequest > 0,
     };
   }
 
