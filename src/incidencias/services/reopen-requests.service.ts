@@ -417,7 +417,7 @@ export class ReopenRequestsService {
           {
             title: '🔄 Nueva solicitud de reapertura',
             message: `El cliente solicita reabrir la incidencia "${incidencia.name}". Motivo: ${request.clientReason}`,
-            type: NotificationType.TICKET_UPDATED,
+            type: NotificationType.TICKET_STATUS_CHANGED,
             priority: NotificationPriority.HIGH,
             metadata: {
               incidenciaId: incidencia.id,
@@ -452,7 +452,7 @@ export class ReopenRequestsService {
           {
             title: '✅ Tu solicitud fue aprobada',
             message: `Tu incidencia "${incidencia.name}" ha sido reabierta. Nuestro equipo está trabajando en ella.`,
-            type: NotificationType.TICKET_UPDATED,
+            type: NotificationType.TICKET_STATUS_CHANGED,
             priority: NotificationPriority.NORMAL,
             metadata: {
               incidenciaId: incidencia.id,
@@ -473,7 +473,7 @@ export class ReopenRequestsService {
           {
             title: '🔄 Incidencia reabierta',
             message: `La incidencia "${incidencia.name}" fue reabierta. Requiere tu atención.`,
-            type: NotificationType.TICKET_UPDATED,
+            type: NotificationType.TICKET_STATUS_CHANGED,
             priority: NotificationPriority.NORMAL,
             metadata: {
               incidenciaId: incidencia.id,
@@ -504,7 +504,7 @@ export class ReopenRequestsService {
           {
             title: '🔄 Incidencia reabierta',
             message: `La incidencia "${incidencia.name}" fue reabierta.`,
-            type: NotificationType.TICKET_UPDATED,
+            type: NotificationType.TICKET_STATUS_CHANGED,
             priority: NotificationPriority.LOW,
             metadata: {
               incidenciaId: incidencia.id,
@@ -535,7 +535,7 @@ export class ReopenRequestsService {
           {
             title: '❌ Tu solicitud fue rechazada',
             message: `Tu solicitud de reapertura fue revisada y rechazada. Motivo: ${request.reviewNotes}`,
-            type: NotificationType.TICKET_UPDATED,
+            type: NotificationType.TICKET_STATUS_CHANGED,
             priority: NotificationPriority.NORMAL,
             metadata: {
               incidenciaId: request.incidenciaId,
