@@ -1,10 +1,10 @@
 import { PartialType, OmitType } from '@nestjs/swagger';
 import { CreateUserDto } from './create-user.dto';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength, IsArray, IsUUID } from 'class-validator';
 
 // Omit sensitive fields that users shouldn't be able to update
 export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['userType', 'roleIds', 'password', 'confirmPassword'] as const)
+  OmitType(CreateUserDto, ['userType', 'password', 'confirmPassword'] as const)
 ) {
   @IsOptional()
   @IsString()
@@ -15,4 +15,9 @@ export class UpdateUserDto extends PartialType(
   @IsString()
   @MinLength(6)
   confirmPassword?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  roleIds?: string[];
 }

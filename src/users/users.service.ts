@@ -214,7 +214,7 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto, enterpriseId?: string): Promise<User> {
-    const { password, confirmPassword, ...restOfFields } = updateUserDto;
+    const { password, confirmPassword, roleIds, ...restOfFields } = updateUserDto;
 
     // Use findOne with enterprise isolation
     const existingUser = await this.findOne(id, true, enterpriseId);
@@ -227,13 +227,56 @@ export class UsersService {
       throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
     }
 
-    const updateData: Partial<User> = { ...restOfFields };
-
-    if (password && confirmPassword) {
-      updateData.password = await this.cryptoService.hashPassword(password);
+    // Validate roleIds if provided
+    if (roleIds && roleIds.length > 0) {
+      await this.validateRolesBelongToEnterprise(roleIds, enterpriseId);
     }
 
-    await this.userRepository.update(id, updateData);
+    // Use transaction to ensure atomicity when updating roles
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const updateData: Partial<User> = { ...restOfFields };
+
+      if (password && confirmPassword) {
+        updateData.password = await this.cryptoService.hashPassword(password);
+      }
+
+      // Update user basic fields
+      await queryRunner.manager.update(User, id, updateData);
+
+      // Update roles if roleIds provided
+      if (roleIds !== undefined && enterpriseId) {
+        // Remove all existing roles for this user in this enterprise
+        await queryRunner.manager.delete(UserRole, {
+          userId: id,
+          enterpriseId: enterpriseId,
+        });
+
+        // Add new roles if any
+        if (roleIds.length > 0) {
+          const userRoles = roleIds.map(roleId =>
+            queryRunner.manager.create(UserRole, {
+              userId: id,
+              roleId: roleId,
+              enterpriseId: enterpriseId,
+            })
+          );
+          await queryRunner.manager.save(UserRole, userRoles);
+        }
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
 
     const updatedUser = await this.findOne(id, true, enterpriseId);
 
