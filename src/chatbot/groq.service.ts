@@ -1,27 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Groq from 'groq-sdk';
+import axios from 'axios';
 import { ChatMessageDto } from './dto/chat.dto';
 
 @Injectable()
 export class GroqService {
   private readonly logger = new Logger(GroqService.name);
-  private readonly groq: Groq;
-  private readonly model = 'llama-3.3-70b-versatile';
+  private readonly ollamaUrl: string;
+  private readonly model = 'llama3.1:8b';
 
   constructor() {
-    const apiKey = process.env.GROQ_API_KEY;
+    // URL de Ollama desde variables de entorno o default interno de Docker
+    this.ollamaUrl = process.env.OLLAMA_URL || 'http://oceanix-ollama-aaoh68-ollama-1:11434';
 
-    if (!apiKey) {
-      this.logger.warn('GROQ_API_KEY no está configurada en las variables de entorno');
-    }
-
-    this.groq = new Groq({
-      apiKey: apiKey || 'dummy-key', // Usar dummy key si no está configurada
-    });
+    this.logger.log(`Ollama configurado en: ${this.ollamaUrl}`);
   }
 
   /**
-   * Envía mensajes a la API de Groq y obtiene una respuesta
+   * Envía mensajes a Ollama y obtiene una respuesta
    */
   async chat(messages: ChatMessageDto[]): Promise<string> {
     try {
@@ -242,29 +237,30 @@ Responde siempre en español, de manera profesional pero amigable.`
 
       const allMessages = [systemMessage, ...messages];
 
-      const completion = await this.groq.chat.completions.create({
-        messages: allMessages as any,
+      const response = await axios.post(`${this.ollamaUrl}/api/chat`, {
         model: this.model,
-        temperature: 0.7,
-        max_tokens: 500,
-        top_p: 1,
+        messages: allMessages,
         stream: false,
+        options: {
+          temperature: 0.7,
+          num_predict: 500,
+        }
       });
 
-      const responseMessage = completion.choices[0]?.message?.content ||
+      const responseMessage = response.data.message?.content ||
         'Lo siento, no pude procesar tu pregunta. Por favor, intenta de nuevo.';
 
       return responseMessage;
     } catch (error) {
-      this.logger.error('Error al comunicarse con Groq API:', error);
+      this.logger.error('Error al comunicarse con Ollama API:', error);
       throw new Error('Error al procesar la solicitud del chatbot');
     }
   }
 
   /**
-   * Verifica si la API de Groq está configurada correctamente
+   * Verifica si Ollama está configurado
    */
   isConfigured(): boolean {
-    return !!process.env.GROQ_API_KEY;
+    return !!this.ollamaUrl;
   }
 }
