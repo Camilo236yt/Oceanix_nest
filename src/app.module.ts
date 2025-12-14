@@ -24,6 +24,7 @@ import { ReportsModule } from './reports/reports.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EnterpriseConfigModule } from './enterprise-config/enterprise-config.module';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module';
+import { ChatbotModule } from './chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -58,7 +59,8 @@ import { UserPreferencesModule } from './user-preferences/user-preferences.modul
      ReportsModule,
      DashboardModule,
      EnterpriseConfigModule,
-     UserPreferencesModule
+     UserPreferencesModule,
+     ChatbotModule
   ],
   controllers: [],
   providers: [
