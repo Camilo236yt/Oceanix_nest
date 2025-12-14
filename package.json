@@ -53,6 +53,7 @@
     "express-basic-auth": "^1.2.1",
     "firebase-admin": "^13.5.0",
     "google-auth-library": "^10.5.0",
+    "groq-sdk": "^0.37.0",
     "joi": "^18.0.1",
     "multer": "^2.0.2",
     "nest-commander": "^3.20.1",

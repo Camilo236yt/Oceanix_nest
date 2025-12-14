@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+import Groq from 'groq-sdk';
 import { ChatMessageDto } from './dto/authenticated-chat.dto';
 import type { FunctionDefinition } from './dto/authenticated-chat.dto';
 
@@ -15,14 +15,19 @@ interface GroqFunctionCallResponse {
 @Injectable()
 export class GroqFunctionService {
     private readonly logger = new Logger(GroqFunctionService.name);
-    private readonly ollamaUrl: string;
-    private readonly model = 'llama3.1:8b';
+    private readonly groq: Groq;
+    private readonly model = 'llama-3.1-8b-instant';
 
     constructor() {
-        // URL de Ollama desde variables de entorno o default interno de Docker
-        this.ollamaUrl = process.env.OLLAMA_URL || 'http://oceanix-ollama-aaoh68-ollama-1:11434';
+        const apiKey = process.env.GROQ_API_KEY;
 
-        this.logger.log(`Ollama configurado en: ${this.ollamaUrl}`);
+        if (!apiKey) {
+            this.logger.warn('GROQ_API_KEY no está configurada en las variables de entorno');
+        }
+
+        this.groq = new Groq({
+            apiKey: apiKey || 'dummy-key',
+        });
     }
 
     /**
@@ -55,26 +60,22 @@ ${functionCallingInstructions}`;
                 });
             }
 
-            this.logger.log(`Sending ${formattedMessages.length} messages to Ollama`);
+            this.logger.log(`Sending ${formattedMessages.length} messages to GROQ`);
 
-            // Llamar a Ollama API
-            const response = await axios.post(`${this.ollamaUrl}/api/chat`, {
-                model: this.model,
+            const completion = await this.groq.chat.completions.create({
                 messages: formattedMessages,
-                stream: false,
-                options: {
-                    temperature: 0.7,
-                    num_predict: 2000,
-                }
+                model: this.model,
+                temperature: 0.7,
+                max_tokens: 1000,
             });
 
-            const responseContent = response.data.message?.content || '';
+            const responseContent = completion.choices[0]?.message?.content || '';
 
             // Intentar parsear si es un function call
             const functionCall = this.parseFunctionCall(responseContent);
 
             if (functionCall) {
-                this.logger.log(`Ollama requested function: ${functionCall.name}`);
+                this.logger.log(`GROQ requested function: ${functionCall.name}`);
                 return {
                     type: 'function_call',
                     functionCall: functionCall
@@ -88,7 +89,7 @@ ${functionCallingInstructions}`;
             };
 
         } catch (error) {
-            this.logger.error('Error al comunicarse con Ollama API:', error);
+            this.logger.error('Error al comunicarse con GROQ API:', error);
             throw new Error('Error al procesar la solicitud del chatbot');
         }
     }
@@ -235,17 +236,14 @@ Tu respuesta:
                 content: resultMessage
             });
 
-            const response = await axios.post(`${this.ollamaUrl}/api/chat`, {
-                model: this.model,
+            const completion = await this.groq.chat.completions.create({
                 messages: formattedMessages,
-                stream: false,
-                options: {
-                    temperature: 0.7,
-                    num_predict: 1500,
-                }
+                model: this.model,
+                temperature: 0.7,
+                max_tokens: 800,
             });
 
-            return response.data.message?.content || 'Procesado correctamente.';
+            return completion.choices[0]?.message?.content || 'Procesado correctamente.';
         } catch (error) {
             this.logger.error('Error generating final response:', error);
             throw new Error('Error al generar respuesta');
@@ -253,9 +251,9 @@ Tu respuesta:
     }
 
     /**
-     * Verifica si Ollama está configurado
+     * Verifica si GROQ está configurado
      */
     isConfigured(): boolean {
-        return !!this.ollamaUrl;
+        return !!process.env.GROQ_API_KEY;
     }
 }
