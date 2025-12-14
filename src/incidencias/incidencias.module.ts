@@ -51,6 +51,6 @@ import { MessagesModule } from '../messages/messages.module';
     IncidenciaMonitorService,
     ReopenRequestsService,
   ],
-  exports: [ReopenRequestsService],
+  exports: [IncidenciasService, ReopenRequestsService],
 })
 export class IncidenciasModule { }

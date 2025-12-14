@@ -8,5 +8,6 @@ import { Incidencia } from '../incidencias/entities/incidencia.entity';
   imports: [TypeOrmModule.forFeature([Incidencia])],
   providers: [DashboardService],
   controllers: [DashboardController],
+  exports: [DashboardService],
 })
-export class DashboardModule {}
+export class DashboardModule { }
