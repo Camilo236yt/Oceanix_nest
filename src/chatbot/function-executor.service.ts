@@ -102,11 +102,11 @@ export class FunctionExecutorService {
             structuredData: {
                 type: 'table',
                 data: {
-                    headers: ['ID', 'Nombre', 'Estado', 'Prioridad', 'Creado'],
+                    headers: ['Nombre', 'Estado', 'Tipo', 'Prioridad', 'Creado'],
                     rows: result.data.map(inc => [
-                        inc.id.substring(0, 8) + '...',
                         inc.name,
                         inc.status,
+                        inc.tipo,
                         inc.alertLevel,
                         new Date(inc.createdAt).toLocaleDateString()
                     ]),

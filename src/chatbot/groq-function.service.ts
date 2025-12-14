@@ -16,7 +16,7 @@ interface GroqFunctionCallResponse {
 export class GroqFunctionService {
     private readonly logger = new Logger(GroqFunctionService.name);
     private readonly groq: Groq;
-    private readonly model = 'openai/gpt-oss-120b';
+    private readonly model = 'llama-3.1-70b-versatile'; // Modelo con mejor límite de tokens
 
     constructor() {
         const apiKey = process.env.GROQ_API_KEY;
